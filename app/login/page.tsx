@@ -48,7 +48,7 @@ export default function LoginPage() {
       if (error.response && error.response.data && error.response.data.error) {
         toast.error("ข้อผิดพลาด: " + error.response.data.error);
       } else {
-        toast.error("ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ (เช็คว่าเปิด ngrok หรือยัง)");
+        toast.error("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ในขณะนี้ กรุณาลองใหม่อีกครั้งภายหลัง");
       }
     } finally {
       setIsLoading(false);
