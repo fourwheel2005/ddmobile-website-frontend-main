@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import api from "@/lib/api";
 import {
   Zap, ShieldCheck, Smartphone, CreditCard, Loader2,
-  MessageCircle, Facebook, Instagram
+  MessageCircle, Facebook, Instagram, Sparkles
 } from "lucide-react";
 import Link from "next/link";
 
@@ -100,7 +100,7 @@ export default function Home() {
           <h2 className="font-display text-[clamp(2rem,6vw,4rem)] leading-[1.1]">
             ร้านมือถือที่เข้าใจคุณมากที่สุด
           </h2>
-          <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {features.map((item, index) => (
               <div key={index} data-index={String(index + 1).padStart(2, "0")} className="card-dd group">
                 <div className="mb-6 flex h-12 w-12 items-center justify-center bg-yellow text-black">
@@ -183,7 +183,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ===================== FOOTER ===================== */}
+      {/* ==================== FOOTER ===================== */}
       <footer className="border-t border-border-default bg-black px-4 pb-10 pt-16 md:px-8">
         <div className="container-dd grid grid-cols-1 gap-10 sm:grid-cols-2 md:grid-cols-4">
           <div className="md:col-span-2">
@@ -236,5 +236,6 @@ const steps = [
 const features = [
   { icon: <Zap size={22} />, title: "อนุมัติไว", desc: "ยื่นเรื่องเช้า ได้เครื่องเย็น ไม่ต้องรอนานให้เสียเวลา" },
   { icon: <ShieldCheck size={22} />, title: "มั่นใจ 100%", desc: "เครื่องแท้แกะกล่อง ประกันศูนย์ Apple ประเทศไทย 1 ปีเต็ม" },
-  { icon: <CreditCard size={22} />, title: "ไม่ต้องมีบัตร", desc: "อาชีพไหนก็ผ่อนได้ นักศึกษา อาชีพอิสระ พนักงานประจำ" }
+  { icon: <CreditCard size={22} />, title: "ไม่ต้องมีบัตร", desc: "อาชีพไหนก็ผ่อนได้ นักศึกษา อาชีพอิสระ พนักงานประจำ" },
+  { icon: <Sparkles size={22} />, title: "โคตรใช่!", desc: "เปิดมาก็รู้เลยว่าใช่ บริการประทับใจ ดูแลหลังการขาย ลูกค้าบอกต่อไม่ขาด" }
 ];

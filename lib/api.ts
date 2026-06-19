@@ -2,7 +2,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "https://bf87-2001-fb1-17c-2789-8052-d295-c907-f6f1.ngrok-free.app/api/v1",
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "https://ddmobilewebsite.fourwheel.in.th/api/v1",
   // ✅ SEC-08: ไม่ตั้ง Content-Type แบบ global — ปล่อยให้ axios เลือกเอง
   //   (object → application/json, FormData → multipart/form-data + boundary)
   //   เดิมตั้ง application/json ค้างไว้ ทำให้อัปโหลดรูป (FormData) ส่ง boundary ผิด
