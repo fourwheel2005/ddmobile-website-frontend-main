@@ -5,16 +5,19 @@ import Link from "next/link";
 import api from "@/lib/api";
 import {
   Smartphone, Loader2, ShieldCheck, CheckCircle2, XCircle,
-  MessageCircle, FileSignature, ArrowLeft, ChevronRight, Sparkles, RotateCcw, BatteryMedium
+  MessageCircle, ArrowLeft, ChevronRight, Sparkles, RotateCcw, BatteryMedium, Hash, ShoppingCart, Zap
 } from "lucide-react";
 import toast from "react-hot-toast";
 import CountUp from "@/components/CountUp";
+import { useCart } from "@/context/CartContext";
 
 interface CatalogItem {
   id: string;
+  type: "UNIT" | "GROUP";
   variantId: string;
   productName: string;
   brand: string;
+  category: string;
   sku: string;
   color: string | null;
   storage: string | null;
@@ -25,11 +28,14 @@ interface CatalogItem {
   maxPrice: number | null;
   imageUrl: string | null;
   avgBatteryHealth: number | null;
+  imei: string | null;
+  warrantyExpire: string | null;
 }
 
 export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { add } = useCart();
   const [item, setItem] = useState<CatalogItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -72,7 +78,30 @@ export default function ProductDetailPage() {
   }
 
   const isNew = item.condition === "NEW";
+  const isUnit = item.type === "UNIT";
+  const canBuy = item.minPrice != null && item.quantity > 0;
+
+  const toCartItem = () => ({
+    catalogId: item.id, type: item.type, productName: item.productName, variantId: item.variantId,
+    condition: item.condition, conditionLabel: item.conditionLabel, sku: item.sku,
+    color: item.color, storage: item.storage, imageUrl: item.imageUrl,
+    unitPrice: item.minPrice ?? 0, maxStock: item.type === "UNIT" ? 1 : item.quantity,
+  });
+  const addToCart = () => {
+    const r = add(toCartItem());
+    if (r.ok) toast.success("เพิ่มลงตะกร้าแล้ว");
+    else toast(r.reason || "เพิ่มไม่ได้", { icon: "🛒" });
+  };
+  const buyNow = () => {
+    const r = add(toCartItem());
+    if (r.ok || r.reason === "เครื่องนี้อยู่ในตะกร้าแล้ว") router.push("/checkout");
+    else toast(r.reason || "เพิ่มไม่ได้", { icon: "🛒" });
+  };
   const installment = item.minPrice ? Math.ceil(item.minPrice / 10) : 0;
+  const priceText = item.minPrice == null ? "สอบถามราคา" : "฿" + item.minPrice.toLocaleString();
+  const warranty = item.warrantyExpire
+    ? `ประกันถึง ${new Date(item.warrantyExpire).toLocaleDateString("th-TH")}`
+    : isNew ? "ประกันศูนย์ 1 ปี" : "ตรวจเช็คคุณภาพแล้ว";
 
   return (
     <div className="page-wrapper min-h-screen bg-bg-base">
@@ -106,49 +135,66 @@ export default function ProductDetailPage() {
 
           {/* info */}
           <div className="flex flex-col">
-            <p className="text-sm font-medium text-text-muted">{item.brand}</p>
+            <p className="text-sm font-medium text-text-muted">{item.brand} · {item.category}</p>
             <h1 className="mt-1 text-2xl font-bold leading-tight text-text-heading md:text-3xl">{item.productName}</h1>
 
             <div className="my-5 flex flex-wrap gap-2">
               {item.quantity > 0 ? (
-                <span className="badge-dd badge-success"><CheckCircle2 size={14} /> พร้อมส่ง (เหลือ {item.quantity} เครื่อง)</span>
+                <span className="badge-dd badge-success">
+                  <CheckCircle2 size={14} /> {isUnit ? "พร้อมส่ง (เครื่องนี้)" : `พร้อมส่ง (เหลือ ${item.quantity} ชิ้น)`}
+                </span>
               ) : (
                 <span className="badge-dd badge-error"><XCircle size={14} /> สินค้าหมดชั่วคราว</span>
               )}
               {item.avgBatteryHealth != null && (
-                <span className="badge-dd badge-warning"><BatteryMedium size={14} /> แบตเฉลี่ย {item.avgBatteryHealth}%</span>
+                <span className="badge-dd badge-warning"><BatteryMedium size={14} /> แบตเตอรี่ {item.avgBatteryHealth}%</span>
               )}
             </div>
 
             <div className="rounded-2xl border border-border-default bg-bg-subtle p-5">
               <p className="text-sm text-text-muted">ราคา{isNew ? "เครื่องใหม่" : "เครื่องมือสอง"}</p>
               <div className="flex items-baseline gap-2">
-                <CountUp value={item.minPrice || 0} prefix="฿" className="text-3xl font-bold text-price md:text-4xl" />
-                {item.maxPrice != null && item.maxPrice !== item.minPrice && (
-                  <span className="text-lg text-text-muted">- ฿{Number(item.maxPrice).toLocaleString()}</span>
+                {item.minPrice == null ? (
+                  <span className="text-2xl font-bold text-price md:text-3xl">สอบถามราคา</span>
+                ) : (
+                  <>
+                    <CountUp value={item.minPrice} prefix="฿" className="text-3xl font-bold text-price md:text-4xl" />
+                    {item.type === "GROUP" && item.maxPrice != null && item.maxPrice !== item.minPrice && (
+                      <span className="text-lg text-text-muted">- ฿{Number(item.maxPrice).toLocaleString()}</span>
+                    )}
+                  </>
                 )}
               </div>
-              <div className="mt-4 flex items-center gap-3 border-t border-border-default pt-4 text-sm">
-                <span className="text-text-muted">ผ่อนเริ่มต้นเพียง</span>
-                <span className="text-lg font-bold text-text-heading"><CountUp value={installment} prefix="฿" /> / เดือน</span>
-              </div>
+              {item.minPrice != null && (
+                <div className="mt-4 flex items-center gap-3 border-t border-border-default pt-4 text-sm">
+                  <span className="text-text-muted">ผ่อนเริ่มต้นเพียง</span>
+                  <span className="text-lg font-bold text-text-heading"><CountUp value={installment} prefix="฿" /> / เดือน</span>
+                </div>
+              )}
             </div>
 
             <div className="mt-6 space-y-3">
               <h3 className="font-bold text-text-heading">รายละเอียด</h3>
               <div className="grid grid-cols-3 gap-2 text-sm"><span className="text-text-muted">สภาพเครื่อง</span><span className="col-span-2 font-medium text-text-heading">{item.conditionLabel}</span></div>
+              <div className="grid grid-cols-3 gap-2 text-sm"><span className="text-text-muted">หมวดหมู่</span><span className="col-span-2 font-medium text-text-heading">{item.category}</span></div>
               {item.color && <div className="grid grid-cols-3 gap-2 text-sm"><span className="text-text-muted">สี</span><span className="col-span-2 font-medium text-text-heading">{item.color}</span></div>}
               {item.storage && <div className="grid grid-cols-3 gap-2 text-sm"><span className="text-text-muted">ความจุ</span><span className="col-span-2 font-medium text-text-heading">{item.storage}</span></div>}
+              {isUnit && item.imei && <div className="grid grid-cols-3 gap-2 text-sm"><span className="text-text-muted">IMEI</span><span className="col-span-2 flex items-center gap-1.5 font-mono text-xs text-text-body"><Hash size={13} /> {item.imei}</span></div>}
               <div className="grid grid-cols-3 gap-2 text-sm"><span className="text-text-muted">SKU</span><span className="col-span-2 font-mono text-xs text-text-body">{item.sku}</span></div>
-              <div className="grid grid-cols-3 gap-2 text-sm"><span className="text-text-muted">การรับประกัน</span><span className="col-span-2 flex items-center gap-2 font-medium text-success-text"><ShieldCheck size={16} /> {isNew ? "ประกันศูนย์ 1 ปี" : "ตรวจเช็คคุณภาพแล้ว"}</span></div>
+              <div className="grid grid-cols-3 gap-2 text-sm"><span className="text-text-muted">การรับประกัน</span><span className="col-span-2 flex items-center gap-2 font-medium text-success-text"><ShieldCheck size={16} /> {warranty}</span></div>
             </div>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <button disabled={item.quantity <= 0} className="btn-primary flex-1 py-3.5 text-base" onClick={() => toast("กำลังพาท่านไปหน้าฟอร์มผ่อนสินค้า...", { icon: "🚀" })}>
-                <FileSignature size={20} /> {item.quantity > 0 ? "ยื่นเรื่องผ่อนรุ่นนี้" : "สินค้าหมด"}
-              </button>
-              <a href="https://lin.ee/Zsq9ja0" target="_blank" rel="noopener noreferrer" className="btn-secondary flex-1 py-3.5 text-base">
-                <MessageCircle size={20} /> สอบถามแอดมิน
+            <div className="mt-8 space-y-3">
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <button disabled={!canBuy} onClick={addToCart} className="btn-secondary flex-1 py-3.5 text-base disabled:opacity-40">
+                  <ShoppingCart size={20} /> เพิ่มลงตะกร้า
+                </button>
+                <button disabled={!canBuy} onClick={buyNow} className="btn-primary flex-1 py-3.5 text-base disabled:opacity-40">
+                  <Zap size={20} /> {item.quantity > 0 ? (item.minPrice == null ? "สอบถามราคา" : "ซื้อเลย") : "สินค้าหมด"}
+                </button>
+              </div>
+              <a href="https://lin.ee/Zsq9ja0" target="_blank" rel="noopener noreferrer" className="btn-ghost w-full py-3 text-base">
+                <MessageCircle size={20} /> สอบถามแอดมิน / ผ่อนสินค้า
               </a>
             </div>
           </div>
@@ -159,10 +205,13 @@ export default function ProductDetailPage() {
       <div className="fixed inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom))] z-[80] flex items-center gap-3 border-t border-border-default bg-white/95 px-4 py-3 backdrop-blur md:hidden">
         <div className="flex-shrink-0">
           <p className="text-[11px] text-text-muted">ราคา</p>
-          <p className="text-lg font-bold leading-none text-price">{item.minPrice ? "฿" + item.minPrice.toLocaleString() : "-"}</p>
+          <p className="text-lg font-bold leading-none text-price">{priceText}</p>
         </div>
-        <button disabled={item.quantity <= 0} onClick={() => toast("กำลังพาท่านไปหน้าฟอร์มผ่อนสินค้า...", { icon: "🚀" })} className="btn-primary flex-1 py-3">
-          <FileSignature size={18} /> {item.quantity > 0 ? "ยื่นเรื่องผ่อนรุ่นนี้" : "สินค้าหมด"}
+        <button disabled={!canBuy} onClick={addToCart} aria-label="เพิ่มลงตะกร้า" className="btn-secondary px-4 py-3 disabled:opacity-40">
+          <ShoppingCart size={18} />
+        </button>
+        <button disabled={!canBuy} onClick={buyNow} className="btn-primary flex-1 py-3 disabled:opacity-40">
+          <Zap size={18} /> {item.quantity > 0 ? (item.minPrice == null ? "สอบถามราคา" : "ซื้อเลย") : "สินค้าหมด"}
         </button>
       </div>
     </div>

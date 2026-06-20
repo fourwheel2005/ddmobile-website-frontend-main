@@ -8,6 +8,8 @@ import {
   Home, Smartphone, CreditCard, Phone, ChevronDown
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import api from '@/lib/api';
+import { useCart } from '@/context/CartContext';
 
 interface UserData {
   email: string;
@@ -17,6 +19,7 @@ interface UserData {
 
 export default function Navbar() {
   const pathname = usePathname();
+  const { count } = useCart();
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
@@ -35,6 +38,7 @@ export default function Navbar() {
   }, [pathname]);
 
   const handleLogout = () => {
+    api.post('/auth/logout').catch(() => { /* เคลียร์ฝั่ง server (cookie) — ล้มก็ไม่เป็นไร */ });
     localStorage.removeItem('user');
     localStorage.removeItem('token');
     setUserData(null);
@@ -83,9 +87,12 @@ export default function Navbar() {
               </Link>
             )}
 
-            <button aria-label="ตะกร้าสินค้า" className="rounded-full p-2 text-text-muted transition-colors hover:bg-bg-subtle hover:text-text-heading">
+            <Link href="/cart" aria-label="ตะกร้าสินค้า" className="relative rounded-full p-2 text-text-muted transition-colors hover:bg-bg-subtle hover:text-text-heading">
               <ShoppingCart size={20} />
-            </button>
+              {count > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-yellow px-1 text-[10px] font-bold text-[#1a1a1a]">{count}</span>
+              )}
+            </Link>
 
             {userData ? (
               <div className="relative">
@@ -120,8 +127,8 @@ export default function Navbar() {
                           <LayoutDashboard size={16} className="text-yellow-hover" /> หลังบ้าน
                         </Link>
                       )}
-                      <Link href="/history" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-text-body transition-colors hover:bg-bg-subtle">
-                        <FileText size={16} /> ประวัติการผ่อน
+                      <Link href="/orders" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-text-body transition-colors hover:bg-bg-subtle">
+                        <FileText size={16} /> คำสั่งซื้อของฉัน
                       </Link>
                       <button onClick={handleLogout} className="flex w-full items-center gap-3 border-t border-border-subtle px-4 py-3 text-left text-sm font-medium text-error-text transition-colors hover:bg-error-bg">
                         <LogOut size={16} /> ออกจากระบบ

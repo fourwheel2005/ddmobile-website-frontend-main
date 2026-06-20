@@ -1,16 +1,20 @@
 "use client";
 import { useState, useEffect, useMemo, useRef } from "react";
 import api from "@/lib/api";
-import { Search, Smartphone, CheckCircle2, ArrowUpDown, X, BatteryMedium, Sparkles, RotateCcw } from "lucide-react";
+import { Search, Smartphone, CheckCircle2, ArrowUpDown, X, BatteryMedium, Sparkles, RotateCcw, ShoppingCart } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+import toast from "react-hot-toast";
 import { ProductGridSkeleton } from "@/components/Skeletons";
+import { useCart } from "@/context/CartContext";
 
 interface CatalogItem {
   id: string;
+  type: "UNIT" | "GROUP";
   variantId: string;
   productName: string;
   brand: string;
+  category: string;
   sku: string;
   color: string | null;
   storage: string | null;
@@ -22,6 +26,8 @@ interface CatalogItem {
   imageUrl: string | null;
   latestReceivedAt: string | null;
   avgBatteryHealth: number | null;
+  imei: string | null;
+  warrantyExpire: string | null;
   score: number;
 }
 
@@ -36,7 +42,7 @@ const sortOptions: { key: SortKey; label: string }[] = [
   { key: "name", label: "ชื่อ ก-ฮ / A-Z" },
 ];
 
-const money = (v: number | null) => (v == null ? "-" : "฿" + Number(v).toLocaleString());
+const priceText = (v: number | null) => (v == null ? "สอบถามราคา" : "฿" + Number(v).toLocaleString());
 
 function Highlight({ text, query }: { text: string; query: string }) {
   const q = query.trim();
@@ -47,6 +53,7 @@ function Highlight({ text, query }: { text: string; query: string }) {
 }
 
 export default function ProductsPage() {
+  const { add } = useCart();
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -54,7 +61,7 @@ export default function ProductsPage() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("recommended");
   const [cond, setCond] = useState<Cond>("all");
-  const [brand, setBrand] = useState<string>("all");
+  const [category, setCategory] = useState<string>("all");
   const [maxPrice, setMaxPrice] = useState<string>("");
   const [showSuggest, setShowSuggest] = useState(false);
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -76,10 +83,10 @@ export default function ProductsPage() {
     fetchCatalog();
   }, []);
 
-  // หมวดหมู่ยี่ห้อ (จาก catalog ทั้งหมด) + จำนวน
-  const brands = useMemo(() => {
+  // หมวดหมู่จริงจาก stock (iPhone / สายชาร์จ-อะแดปเตอร์ ...) + จำนวน
+  const categories = useMemo(() => {
     const m = new Map<string, number>();
-    items.forEach((it) => m.set(it.brand, (m.get(it.brand) || 0) + 1));
+    items.forEach((it) => m.set(it.category, (m.get(it.category) || 0) + 1));
     return Array.from(m.entries()).sort((a, b) => b[1] - a[1]);
   }, [items]);
 
@@ -95,10 +102,10 @@ export default function ProductsPage() {
     const max = maxPrice ? Number(maxPrice) : null;
     let arr = items.filter((it) => {
       if (cond !== "all" && it.condition !== cond) return false;
-      if (brand !== "all" && it.brand !== brand) return false;
+      if (category !== "all" && it.category !== category) return false;
       if (max != null && it.minPrice != null && it.minPrice > max) return false;
       if (q) {
-        const hay = `${it.productName} ${it.sku} ${it.color ?? ""} ${it.storage ?? ""} ${it.brand}`.toLowerCase();
+        const hay = `${it.productName} ${it.sku} ${it.color ?? ""} ${it.storage ?? ""} ${it.brand} ${it.category}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
@@ -111,13 +118,25 @@ export default function ProductsPage() {
       default: arr.sort((a, b) => b.score - a.score); // recommended
     }
     return arr;
-  }, [items, search, sortBy, cond, brand, maxPrice]);
+  }, [items, search, sortBy, cond, category, maxPrice]);
 
   const suggestions = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return [];
     return items.filter((it) => it.productName.toLowerCase().includes(q)).slice(0, 6);
   }, [items, search]);
+
+  const quickAdd = (e: React.MouseEvent, it: CatalogItem) => {
+    e.preventDefault(); e.stopPropagation();
+    const r = add({
+      catalogId: it.id, type: it.type, productName: it.productName, variantId: it.variantId,
+      condition: it.condition, conditionLabel: it.conditionLabel, sku: it.sku,
+      color: it.color, storage: it.storage, imageUrl: it.imageUrl,
+      unitPrice: it.minPrice ?? 0, maxStock: it.type === "UNIT" ? 1 : it.quantity,
+    });
+    if (r.ok) toast.success("เพิ่มลงตะกร้าแล้ว");
+    else toast(r.reason || "เพิ่มไม่ได้", { icon: "🛒" });
+  };
 
   return (
     <div className="page-wrapper min-h-screen bg-bg-base">
@@ -155,9 +174,9 @@ export default function ProductsPage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-text-heading"><Highlight text={s.productName} query={search} /></p>
-                      <p className="text-xs text-text-muted">{s.conditionLabel}{s.storage ? ` · ${s.storage}` : ""}</p>
+                      <p className="text-xs text-text-muted">{s.conditionLabel}{s.storage ? ` · ${s.storage}` : ""}{s.color ? ` · ${s.color}` : ""}</p>
                     </div>
-                    <span className="flex-shrink-0 text-sm font-bold text-price">{money(s.minPrice)}</span>
+                    <span className="flex-shrink-0 text-sm font-bold text-price">{priceText(s.minPrice)}</span>
                   </Link>
                 ))}
               </div>
@@ -178,15 +197,15 @@ export default function ProductsPage() {
           ))}
         </div>
 
-        {/* Brand chips (หมวดยี่ห้อ) */}
-        {brands.length > 1 && (
+        {/* Category chips (หมวดหมู่จริงจาก stock) */}
+        {categories.length > 1 && (
           <div className="mb-4 flex flex-wrap gap-2">
-            <button onClick={() => setBrand("all")} className={`rounded-full border px-3.5 py-1.5 text-sm transition-colors ${brand === "all" ? "border-yellow bg-yellow text-text-heading" : "border-border-default bg-white text-text-body hover:border-yellow"}`}>
-              ทุกยี่ห้อ
+            <button onClick={() => setCategory("all")} className={`rounded-full border px-3.5 py-1.5 text-sm transition-colors ${category === "all" ? "border-yellow bg-yellow text-text-heading" : "border-border-default bg-white text-text-body hover:border-yellow"}`}>
+              ทุกหมวด
             </button>
-            {brands.map(([b, n]) => (
-              <button key={b} onClick={() => setBrand(b)} className={`rounded-full border px-3.5 py-1.5 text-sm transition-colors ${brand === b ? "border-yellow bg-yellow text-text-heading" : "border-border-default bg-white text-text-body hover:border-yellow"}`}>
-                {b} <span className="opacity-60">({n})</span>
+            {categories.map(([c, n]) => (
+              <button key={c} onClick={() => setCategory(c)} className={`rounded-full border px-3.5 py-1.5 text-sm transition-colors ${category === c ? "border-yellow bg-yellow text-text-heading" : "border-border-default bg-white text-text-body hover:border-yellow"}`}>
+                {c} <span className="opacity-60">({n})</span>
               </button>
             ))}
           </div>
@@ -220,7 +239,7 @@ export default function ProductsPage() {
           <div className="rounded-2xl border border-dashed border-border-default bg-bg-subtle py-24 text-center">
             <Smartphone size={44} className="mx-auto mb-3 text-text-disabled" />
             <h3 className="text-lg font-bold text-text-heading">ไม่พบสินค้าที่ตรงเงื่อนไข</h3>
-            <p className="mt-1 text-sm text-text-muted">ลองเปลี่ยนคำค้นหา ยี่ห้อ หรือเงื่อนไขสภาพเครื่อง</p>
+            <p className="mt-1 text-sm text-text-muted">ลองเปลี่ยนคำค้นหา หมวดหมู่ หรือเงื่อนไขสภาพเครื่อง</p>
           </div>
         ) : (
           <motion.div layout className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
@@ -241,14 +260,25 @@ export default function ProductsPage() {
                     <div className="flex flex-1 flex-col p-4">
                       <h3 className="line-clamp-2 text-sm font-semibold text-text-heading group-hover:text-yellow-hover">{it.productName}</h3>
                       <p className="mt-1 line-clamp-1 text-xs text-text-muted">
-                        {[it.color, it.storage].filter(Boolean).join(" · ") || it.brand}
+                        {[it.color, it.storage].filter(Boolean).join(" · ") || it.category}
                         {it.avgBatteryHealth != null && <span className="ml-1 inline-flex items-center gap-0.5"><BatteryMedium size={11} /> {it.avgBatteryHealth}%</span>}
                       </p>
                       <div className="mt-auto pt-3">
                         <p className="text-xs text-text-muted">ราคา</p>
-                        <p className="mb-2 text-lg font-bold text-price">{money(it.minPrice)}{it.maxPrice != null && it.maxPrice !== it.minPrice ? ` - ${Number(it.maxPrice).toLocaleString()}` : ""}</p>
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <p className={`font-bold text-price ${it.minPrice == null ? "text-sm" : "text-lg"}`}>
+                            {priceText(it.minPrice)}{it.type === "GROUP" && it.maxPrice != null && it.maxPrice !== it.minPrice ? ` - ${Number(it.maxPrice).toLocaleString()}` : ""}
+                          </p>
+                          {it.minPrice != null && it.quantity > 0 && (
+                            <button onClick={(e) => quickAdd(e, it)} aria-label="เพิ่มลงตะกร้า" className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-yellow text-[#1a1a1a] transition-transform hover:scale-110">
+                              <ShoppingCart size={15} />
+                            </button>
+                          )}
+                        </div>
                         {it.quantity > 0 ? (
-                          <span className="badge-dd badge-success"><CheckCircle2 size={12} /> พร้อมส่ง {it.quantity} เครื่อง</span>
+                          <span className="badge-dd badge-success">
+                            <CheckCircle2 size={12} /> {it.type === "UNIT" ? "พร้อมส่ง" : `พร้อมส่ง ${it.quantity} ชิ้น`}
+                          </span>
                         ) : (
                           <span className="badge-dd badge-error">หมดชั่วคราว</span>
                         )}

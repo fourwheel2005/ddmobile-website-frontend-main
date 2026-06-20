@@ -6,6 +6,8 @@ const api = axios.create({
   // ✅ SEC-08: ไม่ตั้ง Content-Type แบบ global — ปล่อยให้ axios เลือกเอง
   //   (object → application/json, FormData → multipart/form-data + boundary)
   //   เดิมตั้ง application/json ค้างไว้ ทำให้อัปโหลดรูป (FormData) ส่ง boundary ผิด
+  // ✅ SEC-10: ส่ง/รับ httpOnly cookie auth_token ด้วย (backend ออก cookie ตอน login)
+  withCredentials: true,
   headers: {
     'ngrok-skip-browser-warning': 'true'
   }

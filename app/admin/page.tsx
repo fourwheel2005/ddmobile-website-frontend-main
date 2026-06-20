@@ -5,7 +5,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   LayoutDashboard, Smartphone, ClipboardList, Users, Settings,
   LogOut, Bell, Search, Clock, CheckCircle2, XCircle, Loader2,
-  Plus, X, Trash2, UploadCloud, Edit, AlertTriangle, Warehouse
+  Plus, X, Trash2, UploadCloud, Edit, AlertTriangle, Warehouse, Menu,
+  ShoppingBag, Check, Eye, Truck, Store, CreditCard
 } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
@@ -45,8 +46,17 @@ interface Customer {
   role: string;
 }
 
+interface WebOrderItem { productName: string; condition: string; quantity: number; lineTotal: number; }
+interface WebOrder {
+  id: number; status: string; paymentMethod: string; customerName: string; customerTel: string;
+  shippingAddress: string | null; note: string | null; total: number; createdAt: string;
+  items: WebOrderItem[]; slipFileId: string | null; slipVerified: boolean | null;
+  installmentMonths: number | null; downPayment: number | null; monthlyPayment: number | null;
+}
+
 export default function AdminDashboard() {
   const [activeMenu, setActiveMenu] = useState("ภาพรวมระบบ");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [applications, setApplications] = useState<InstallmentApp[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [statsData, setStatsData] = useState<DashboardStats | null>(null);
@@ -60,6 +70,9 @@ export default function AdminDashboard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [webOrders, setWebOrders] = useState<WebOrder[]>([]);
+  const [slipModal, setSlipModal] = useState<{ url: string } | null>(null);
+  const [busyOrderId, setBusyOrderId] = useState<number | null>(null);
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editProductId, setEditProductId] = useState<number | null>(null);
@@ -139,17 +152,19 @@ export default function AdminDashboard() {
 
     const fetchData = async () => {
       try {
-        const [statsRes, appsRes, productsRes, customersRes] = await Promise.all([
+        const [statsRes, appsRes, productsRes, customersRes, ordersRes] = await Promise.all([
           api.get("/admin/stats"),
           api.get("/admin/applications"),
           api.get("/products"),
-          api.get("/admin/customers")
+          api.get("/admin/customers"),
+          api.get("/admin/orders")
         ]);
 
         setStatsData(statsRes.data);
         setApplications(appsRes.data);
         setProducts(productsRes.data);
         setCustomers(customersRes.data);
+        setWebOrders(ordersRes.data);
       } catch (error: any) {
         console.error("Fetch Data Error:", error);
         if (error.response && (error.response.status === 401 || error.response.status === 403)) {
@@ -169,6 +184,7 @@ export default function AdminDashboard() {
   }, []);
 
   const handleLogout = () => {
+    api.post("/auth/logout").catch(() => { /* เคลียร์ cookie ฝั่ง server */ });
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     window.location.href = "/login";
@@ -250,6 +266,44 @@ export default function AdminDashboard() {
     }
   };
 
+  // ===== คำสั่งซื้อจากเว็บ =====
+  const confirmWebOrder = async (id: number) => {
+    if (!confirm("ยืนยันคำสั่งซื้อนี้? ระบบจะตัดสต็อกจริงที่คลังทันที")) return;
+    setBusyOrderId(id);
+    try {
+      const res = await api.post(`/admin/orders/${id}/confirm`);
+      setWebOrders(prev => prev.map(o => o.id === id ? res.data : o));
+      toast.success("ยืนยันออเดอร์ + ตัดสต็อกสำเร็จ!");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "ยืนยันไม่สำเร็จ (อาจมีสินค้าถูกขายไปแล้ว)");
+    } finally {
+      setBusyOrderId(null);
+    }
+  };
+
+  const rejectWebOrder = async (id: number) => {
+    if (!confirm("ปฏิเสธคำสั่งซื้อนี้? สินค้าที่จองไว้จะถูกปล่อยคืน")) return;
+    setBusyOrderId(id);
+    try {
+      const res = await api.post(`/admin/orders/${id}/reject`);
+      setWebOrders(prev => prev.map(o => o.id === id ? res.data : o));
+      toast.success("ปฏิเสธคำสั่งซื้อแล้ว");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "ทำรายการไม่สำเร็จ");
+    } finally {
+      setBusyOrderId(null);
+    }
+  };
+
+  const viewSlip = async (id: number) => {
+    try {
+      const res = await api.get(`/admin/orders/${id}/slip`, { responseType: "blob" });
+      setSlipModal({ url: URL.createObjectURL(res.data) });
+    } catch {
+      toast.error("ไม่พบสลิปของออเดอร์นี้");
+    }
+  };
+
   if (!isAuthorized) {
     return (
       <div className="flex h-screen items-center justify-center bg-bg-base text-yellow">
@@ -275,12 +329,18 @@ export default function AdminDashboard() {
   return (
     <div className="relative flex h-screen overflow-hidden bg-bg-base text-text-body">
 
-      {/* --- SIDEBAR --- */}
-      <aside className="flex w-64 flex-col border-r border-border-default bg-bg-surface">
-        <div className="flex h-16 items-center border-b border-border-default px-6">
+      {/* --- SIDEBAR (drawer บนมือถือ) --- */}
+      {sidebarOpen && (
+        <div onClick={() => setSidebarOpen(false)} aria-hidden className="fixed inset-0 z-40 bg-black/40 md:hidden" />
+      )}
+      <aside className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-border-default bg-bg-surface transition-transform duration-300 md:static md:z-auto md:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <div className="flex h-16 items-center justify-between border-b border-border-default px-6">
           <Link href="/" className="logo-dd text-2xl">
             DD<span className="text-text-heading">ADMIN</span>
           </Link>
+          <button onClick={() => setSidebarOpen(false)} aria-label="ปิดเมนู" className="p-1 text-text-muted hover:text-text-heading md:hidden">
+            <X size={20} />
+          </button>
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-6">
@@ -288,7 +348,7 @@ export default function AdminDashboard() {
           {menuItems.map((item) => (
             <button
               key={item.name}
-              onClick={() => setActiveMenu(item.name)}
+              onClick={() => { setActiveMenu(item.name); setSidebarOpen(false); }}
               className={`flex w-full items-center gap-3 px-4 py-3 font-display text-sm uppercase tracking-wider transition-colors ${
                 activeMenu === item.name ? "bg-yellow text-black" : "text-text-muted hover:bg-bg-tinted hover:text-text-heading"
               }`}
@@ -308,16 +368,21 @@ export default function AdminDashboard() {
 
       {/* --- MAIN --- */}
       <main className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex h-16 items-center justify-between border-b border-border-default bg-bg-subtle px-6">
-          <div>
-            <h1 className="font-display text-2xl">{activeMenu}</h1>
-            <p className="text-xs text-text-muted">ระบบหลังบ้านเชื่อมต่อ API เรียบร้อยแล้ว</p>
+        <header className="flex h-16 items-center justify-between gap-3 border-b border-border-default bg-bg-subtle px-4 md:px-6">
+          <div className="flex min-w-0 items-center gap-2">
+            <button onClick={() => setSidebarOpen(true)} aria-label="เปิดเมนู" className="-ml-1 p-1 text-text-heading md:hidden">
+              <Menu size={24} />
+            </button>
+            <div className="min-w-0">
+              <h1 className="truncate font-display text-lg md:text-2xl">{activeMenu}</h1>
+              <p className="hidden text-xs text-text-muted sm:block">ระบบหลังบ้านเชื่อมต่อ API เรียบร้อยแล้ว</p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
             {activeMenu === "จัดการสินค้า" && (
-              <button onClick={() => setIsAddModalOpen(true)} className="btn-primary">
-                <Plus size={16} /> เพิ่มสินค้าใหม่
+              <button onClick={() => setIsAddModalOpen(true)} className="btn-primary whitespace-nowrap px-3 md:px-6">
+                <Plus size={16} /> <span className="hidden sm:inline">เพิ่มสินค้าใหม่</span><span className="sm:hidden">เพิ่ม</span>
               </button>
             )}
             <div className="relative hidden md:block">
@@ -331,7 +396,7 @@ export default function AdminDashboard() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4 md:p-6">
           {isLoading ? (
             <div className="flex h-64 flex-col items-center justify-center text-yellow">
               <Loader2 size={48} className="mb-4 animate-spin" />
@@ -507,6 +572,72 @@ export default function AdminDashboard() {
                 </div>
               )}
 
+              {/* คำสั่งซื้อจากเว็บ */}
+              {activeMenu === "คำสั่งซื้อ (เว็บ)" && (
+                <div className="border border-border-default">
+                  <div className="flex items-center justify-between border-b border-border-default bg-bg-surface p-4">
+                    <h2 className="flex items-center gap-2 font-display text-xl"><ShoppingBag className="text-yellow" size={20} /> คำสั่งซื้อจากหน้าเว็บ</h2>
+                    <span className="badge-dd badge-warning">{webOrders.length} รายการ</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="table-dd">
+                      <thead>
+                        <tr><th>ออเดอร์</th><th>ลูกค้า</th><th>สินค้า</th><th className="text-right">ยอด</th><th className="text-center">รับสินค้า</th><th>สถานะ</th><th className="text-right">จัดการ</th></tr>
+                      </thead>
+                      <tbody>
+                        {webOrders.length === 0 ? (
+                          <tr><td colSpan={7} className="p-8 text-center font-display uppercase tracking-widest text-text-muted">ยังไม่มีคำสั่งซื้อจากเว็บ</td></tr>
+                        ) : (
+                          webOrders.map((o) => {
+                            const st = ORDER_LABEL[o.status] || ORDER_LABEL.RESERVED;
+                            const active = o.status !== "CONFIRMED" && o.status !== "REJECTED";
+                            return (
+                              <tr key={o.id}>
+                                <td><p className="font-semibold text-text-heading">#{o.id}</p><p className="text-xs text-text-muted">{new Date(o.createdAt).toLocaleDateString("th-TH")}</p></td>
+                                <td><p className="font-semibold text-text-heading">{o.customerName}</p><p className="text-xs text-text-muted">{o.customerTel}</p></td>
+                                <td className="max-w-[220px]"><p className="truncate text-sm text-text-body">{o.items.map((i) => `${i.productName} x${i.quantity}`).join(", ")}</p>{o.shippingAddress && <p className="truncate text-xs text-text-muted">{o.shippingAddress}</p>}</td>
+                                <td className="text-right font-display tabular-nums text-yellow">฿{o.total?.toLocaleString()}</td>
+                                <td className="text-center">
+                                  <span className="badge-dd badge-info">
+                                    {o.paymentMethod === "TRANSFER" ? <><Truck size={12} /> โอน+ส่ง</>
+                                      : o.paymentMethod === "INSTALLMENT" ? <><CreditCard size={12} /> ผ่อน {o.installmentMonths}ด</>
+                                      : <><Store size={12} /> รับที่ร้าน</>}
+                                  </span>
+                                  {o.paymentMethod === "INSTALLMENT" && o.downPayment != null && (
+                                    <p className="mt-1 text-[10px] text-text-muted">ดาวน์ ฿{o.downPayment?.toLocaleString()}</p>
+                                  )}
+                                </td>
+                                <td>
+                                  <span className={`badge-dd ${st.c}`}>{st.t}</span>
+                                  {o.slipFileId && o.slipVerified != null && (
+                                    <span className={`mt-1 block text-[10px] font-medium ${o.slipVerified ? "text-success-text" : "text-error-text"}`}>
+                                      {o.slipVerified ? "✓ สลิปยอดตรง" : "⚠ ยอดไม่ตรง/ซ้ำ"}
+                                    </span>
+                                  )}
+                                </td>
+                                <td>
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    {o.slipFileId && (
+                                      <button onClick={() => viewSlip(o.id)} aria-label="ดูสลิป" className="border border-info-border bg-info-bg p-1.5 text-info-text transition-colors hover:bg-info-text hover:text-black"><Eye size={15} /></button>
+                                    )}
+                                    {active && (
+                                      <>
+                                        <button onClick={() => confirmWebOrder(o.id)} disabled={busyOrderId === o.id} aria-label="ยืนยัน" className="border border-success-border bg-success-bg p-1.5 text-success-text transition-colors hover:bg-success-text hover:text-black disabled:opacity-30">{busyOrderId === o.id ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}</button>
+                                        <button onClick={() => rejectWebOrder(o.id)} disabled={busyOrderId === o.id} aria-label="ปฏิเสธ" className="border border-error-border bg-error-bg p-1.5 text-error-text transition-colors hover:bg-error-text hover:text-black disabled:opacity-30"><X size={15} /></button>
+                                      </>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
               {/* คลังสินค้า (ดึงจากระบบ Stock) */}
               {activeMenu === "คลังสินค้า" && <StockInventory />}
             </>
@@ -659,6 +790,19 @@ export default function AdminDashboard() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* MODAL: ดูสลิปการโอน */}
+      <AnimatePresence>
+        {slipModal && (
+          <div className="modal-backdrop" onClick={() => setSlipModal(null)}>
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }} className="modal-dd max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              <button onClick={() => setSlipModal(null)} className="modal-close"><X size={20} /></button>
+              <h2 className="card-title flex items-center gap-2"><Eye size={20} className="text-info-text" /> สลิปการโอนเงิน</h2>
+              <img src={slipModal.url} alt="สลิปการโอน" className="mt-4 w-full rounded-lg border border-border-default" />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -667,7 +811,16 @@ const menuItems = [
   { name: "ภาพรวมระบบ", icon: LayoutDashboard },
   { name: "จัดการสินค้า", icon: Smartphone },
   { name: "คลังสินค้า", icon: Warehouse },
+  { name: "คำสั่งซื้อ (เว็บ)", icon: ShoppingBag },
   { name: "คำขอผ่อนสินค้า", icon: ClipboardList },
   { name: "จัดการลูกค้า", icon: Users },
   { name: "ตั้งค่าระบบ", icon: Settings },
 ];
+
+const ORDER_LABEL: Record<string, { t: string; c: string }> = {
+  RESERVED: { t: "รอแนบสลิป", c: "badge-warning" },
+  PENDING_REVIEW: { t: "รอตรวจสลิป", c: "badge-info" },
+  PENDING_PICKUP: { t: "รอรับที่ร้าน", c: "badge-info" },
+  CONFIRMED: { t: "ยืนยันแล้ว", c: "badge-success" },
+  REJECTED: { t: "ปฏิเสธแล้ว", c: "badge-error" },
+};

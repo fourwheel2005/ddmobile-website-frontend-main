@@ -3,6 +3,7 @@ import { Space_Grotesk, IBM_Plex_Sans_Thai } from "next/font/google";
 import Navbar from "@/components/Navbar";
 import FloatingActions from "@/components/FloatingActions";
 import { Toaster } from "react-hot-toast"; // ✅ 1. นำเข้า Toaster ที่นี่
+import { CartProvider } from "@/context/CartContext";
 import "./globals.css";
 
 // Display (หัวข้อ/ตัวเลข) — ฟอนต์เดียวกับหน้า Stock UI
@@ -35,9 +36,11 @@ export default function RootLayout({
     <html lang="th" className={`${spaceGrotesk.variable} ${plexThai.variable}`}>
       {/* พื้นหลัง/ฟอนต์หลักกำหนดใน globals.css (@layer base body) */}
       <body className="antialiased">
-        <Navbar />
-        <main className="pb-[calc(64px+env(safe-area-inset-bottom))] md:pb-0">{children}</main>
-        <FloatingActions />
+        <CartProvider>
+          <Navbar />
+          <main className="pb-[calc(64px+env(safe-area-inset-bottom))] md:pb-0">{children}</main>
+          <FloatingActions />
+        </CartProvider>
 
         {/* Toaster — โทนขาวสะอาดเข้ากับธีมใหม่ */}
         <Toaster
