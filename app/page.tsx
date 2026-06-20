@@ -2,31 +2,37 @@
 import { useState, useEffect } from "react";
 import api from "@/lib/api";
 import {
-  Zap, ShieldCheck, Smartphone, CreditCard, Loader2,
-  MessageCircle, Facebook, Instagram, ChevronRight
+  Zap, ShieldCheck, Smartphone, CreditCard,
+  MessageCircle, Facebook, Instagram, ChevronRight, Sparkles, RotateCcw
 } from "lucide-react";
 import Link from "next/link";
+import Reveal from "@/components/Reveal";
+import PromoCarousel from "@/components/PromoCarousel";
+import { ProductGridSkeleton } from "@/components/Skeletons";
 
-interface Product {
-  id: number;
-  name: string;
-  capacity: string;
-  description: string;
-  price: number;
-  imageUrl: string;
+interface CatalogItem {
+  id: string;
+  productName: string;
+  brand: string;
+  color: string | null;
+  storage: string | null;
+  condition: string;
+  conditionLabel: string;
+  minPrice: number | null;
+  imageUrl: string | null;
 }
 
 export default function Home() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<CatalogItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const response = await api.get("/products");
-        setProducts(response.data.slice(0, 4));
+        const response = await api.get("/catalog");
+        setProducts((Array.isArray(response.data) ? response.data : []).slice(0, 4));
       } catch (error) {
-        console.error("Error fetching products:", error);
+        console.error("Error fetching catalog:", error);
       } finally {
         setIsLoading(false);
       }
@@ -61,11 +67,14 @@ export default function Home() {
               alt="iPhone 17 Pro Max"
               width={420}
               height={520}
-              className="relative z-10 w-[70%] object-contain md:w-[82%]"
+              className="float-anim relative z-10 w-[70%] object-contain md:w-[82%]"
             />
           </div>
         </div>
       </section>
+
+      {/* ===================== PROMO CAROUSEL ===================== */}
+      <PromoCarousel />
 
       {/* ===================== 3 STEPS ===================== */}
       <section className="container-dd py-12 md:py-16">
@@ -73,7 +82,7 @@ export default function Home() {
           <h2 className="text-2xl font-bold text-text-heading md:text-3xl">3 ขั้นตอนง่ายๆ รับเครื่องทันที</h2>
           <p className="mt-2 text-text-muted">ผ่อนไอโฟนไม่ยุ่งยาก ทำตามนี้ได้เลย</p>
         </div>
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+        <Reveal className="grid grid-cols-1 gap-5 sm:grid-cols-3">
           {steps.map((step, idx) => (
             <div key={idx} className="card-dd text-center">
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-yellow text-lg font-bold text-text-heading">
@@ -83,7 +92,7 @@ export default function Home() {
               <p className="text-sm text-text-muted">{step.desc}</p>
             </div>
           ))}
-        </div>
+        </Reveal>
       </section>
 
       {/* ===================== WHY CHOOSE US ===================== */}
@@ -93,7 +102,7 @@ export default function Home() {
             <p className="section-label justify-center">ทำไมต้องดีดีโมบาย</p>
             <h2 className="text-2xl font-bold text-text-heading md:text-3xl">ร้านมือถือที่เข้าใจคุณมากที่สุด</h2>
           </div>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+          <Reveal className="grid grid-cols-1 gap-5 sm:grid-cols-3">
             {features.map((item, index) => (
               <div key={index} className="card-dd">
                 <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-yellow text-text-heading">
@@ -103,7 +112,7 @@ export default function Home() {
                 <p className="text-sm leading-relaxed text-text-muted">{item.desc}</p>
               </div>
             ))}
-          </div>
+          </Reveal>
         </div>
       </section>
 
@@ -120,10 +129,7 @@ export default function Home() {
         </div>
 
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-16 text-text-muted">
-            <Loader2 className="mb-3 h-9 w-9 animate-spin text-yellow-hover" />
-            <p>กำลังโหลดข้อมูลสินค้า...</p>
-          </div>
+          <ProductGridSkeleton count={4} />
         ) : products.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border-default py-16 text-center text-text-muted">
             ยังไม่มีสินค้าในระบบ
@@ -139,6 +145,7 @@ export default function Home() {
 
       {/* ===================== CTA ===================== */}
       <section className="container-dd pb-12 md:pb-16">
+        <Reveal>
         <div className="rounded-3xl bg-yellow px-6 py-10 text-center md:px-16 md:py-14">
           <h2 className="text-2xl font-bold text-text-heading md:text-3xl">พร้อมเป็นเจ้าของเครื่องใหม่แล้วหรือยัง?</h2>
           <p className="mx-auto mt-3 max-w-2xl text-sm text-text-heading/70 md:text-base">
@@ -149,6 +156,7 @@ export default function Home() {
             <MessageCircle size={20} /> ทักไลน์สอบถามเลย
           </a>
         </div>
+        </Reveal>
       </section>
 
       {/* ===================== FOOTER ===================== */}
@@ -195,25 +203,28 @@ export default function Home() {
   );
 }
 
-function ProductCard({ product }: { product: Product }) {
+function ProductCard({ product }: { product: CatalogItem }) {
+  const isNew = product.condition === "NEW";
   return (
-    <Link href={`/products/${product.id}`} className="card-dd group flex flex-col overflow-hidden !p-0">
+    <Link href={`/products/${encodeURIComponent(product.id)}`} className="card-dd group flex flex-col overflow-hidden !p-0">
       <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-bg-subtle p-4">
-        <span className="badge-dd badge-warning absolute left-3 top-3 z-10">มือ 1 ศูนย์ไทย</span>
+        <span className={`badge-dd absolute left-3 top-3 z-10 ${isNew ? "badge-success" : "badge-info"}`}>
+          {isNew ? <Sparkles size={11} /> : <RotateCcw size={11} />} {product.conditionLabel}
+        </span>
         {product.imageUrl ? (
-          <img src={product.imageUrl} alt={product.name} loading="lazy" className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105" />
+          <img src={product.imageUrl} alt={product.productName} loading="lazy" className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105" />
         ) : (
           <Smartphone size={48} className="text-text-disabled" />
         )}
       </div>
       <div className="flex flex-1 flex-col p-4">
-        <h3 className="line-clamp-2 text-sm font-semibold text-text-heading group-hover:text-yellow-hover">{product.name}</h3>
+        <h3 className="line-clamp-2 text-sm font-semibold text-text-heading group-hover:text-yellow-hover">{product.productName}</h3>
         <p className="mt-1 line-clamp-1 text-xs text-text-muted">
-          {product.capacity || "-"} · {product.description || "เครื่องใหม่"}
+          {[product.color, product.storage].filter(Boolean).join(" · ") || product.brand}
         </p>
         <div className="mt-auto pt-3">
-          <p className="text-xs text-text-muted">ราคาเริ่มต้น</p>
-          <p className="text-lg font-bold text-price">฿{product.price ? product.price.toLocaleString() : "0"}</p>
+          <p className="text-xs text-text-muted">ราคา</p>
+          <p className="text-lg font-bold text-price">{product.minPrice != null ? "฿" + product.minPrice.toLocaleString() : "-"}</p>
         </div>
       </div>
     </Link>

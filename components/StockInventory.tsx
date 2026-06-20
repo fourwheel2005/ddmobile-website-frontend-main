@@ -6,6 +6,7 @@ import {
   PackageCheck, Sparkles, RotateCcw, Search, LogIn, ChevronRight, BatteryMedium
 } from "lucide-react";
 import toast from "react-hot-toast";
+import CountUp from "@/components/CountUp";
 
 /* ---------- ชนิดข้อมูลตาม API จริงของระบบ stock ---------- */
 interface StockSummary {
@@ -304,7 +305,7 @@ export default function StockInventory() {
                   <div className={`flex h-11 w-11 items-center justify-center bg-bg-tinted ${c.color}`}><c.icon size={22} /></div>
                 </div>
                 <p className="text-xs text-text-muted">{c.label}</p>
-                <h3 className="font-display text-4xl tabular-nums text-text-heading">{c.value.toLocaleString()}</h3>
+                <CountUp value={c.value} className="block font-display text-4xl tabular-nums text-text-heading" />
               </div>
             ))}
           </div>

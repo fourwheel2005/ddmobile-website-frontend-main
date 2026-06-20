@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, IBM_Plex_Sans_Thai } from "next/font/google";
 import Navbar from "@/components/Navbar";
+import FloatingActions from "@/components/FloatingActions";
 import { Toaster } from "react-hot-toast"; // ✅ 1. นำเข้า Toaster ที่นี่
 import "./globals.css";
 
@@ -36,6 +37,7 @@ export default function RootLayout({
       <body className="antialiased">
         <Navbar />
         <main className="pb-[calc(64px+env(safe-area-inset-bottom))] md:pb-0">{children}</main>
+        <FloatingActions />
 
         {/* Toaster — โทนขาวสะอาดเข้ากับธีมใหม่ */}
         <Toaster

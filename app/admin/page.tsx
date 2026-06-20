@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 import toast from "react-hot-toast";
 import StockInventory from "@/components/StockInventory";
+import CountUp from "@/components/CountUp";
 
 interface InstallmentApp {
   id: number;
@@ -351,7 +352,7 @@ export default function AdminDashboard() {
                           <span className="badge-dd badge-warning">{stat.growth}</span>
                         </div>
                         <p className="text-xs text-text-muted">{stat.title}</p>
-                        <h3 className="font-display text-4xl tabular-nums text-text-heading">{stat.value}</h3>
+                        <CountUp value={stat.value} className="block font-display text-4xl tabular-nums text-text-heading" />
                       </div>
                     ))}
                   </div>
