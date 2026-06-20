@@ -5,10 +5,11 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   LayoutDashboard, Smartphone, ClipboardList, Users, Settings,
   LogOut, Bell, Search, Clock, CheckCircle2, XCircle, Loader2,
-  Plus, X, Trash2, UploadCloud, Edit, AlertTriangle
+  Plus, X, Trash2, UploadCloud, Edit, AlertTriangle, Warehouse
 } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
+import StockInventory from "@/components/StockInventory";
 
 interface InstallmentApp {
   id: number;
@@ -504,6 +505,9 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               )}
+
+              {/* คลังสินค้า (ดึงจากระบบ Stock) */}
+              {activeMenu === "คลังสินค้า" && <StockInventory />}
             </>
           )}
         </div>
@@ -661,6 +665,7 @@ export default function AdminDashboard() {
 const menuItems = [
   { name: "ภาพรวมระบบ", icon: LayoutDashboard },
   { name: "จัดการสินค้า", icon: Smartphone },
+  { name: "คลังสินค้า", icon: Warehouse },
   { name: "คำขอผ่อนสินค้า", icon: ClipboardList },
   { name: "จัดการลูกค้า", icon: Users },
   { name: "ตั้งค่าระบบ", icon: Settings },

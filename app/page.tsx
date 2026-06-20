@@ -38,9 +38,9 @@ export default function Home() {
     <div className="page-wrapper flex min-h-screen flex-col bg-bg-base text-text-body">
 
       {/* ===================== HERO ===================== */}
-      <section className="relative overflow-hidden border-b border-border-default bg-black px-4 pt-20 md:px-8 md:pt-28">
+      <section className="relative overflow-hidden border-b border-black/10 bg-white px-4 pt-20 text-black md:px-8 md:pt-28">
         {/* section number watermark */}
-        <span className="pointer-events-none absolute right-2 top-4 select-none font-display text-[28vw] leading-[1.1] text-yellow opacity-[0.04] md:text-[18vw]">
+        <span className="pointer-events-none absolute right-2 top-4 select-none font-display text-[28vw] leading-[1.1] text-black opacity-[0.05] md:text-[18vw]">
           01
         </span>
 
@@ -48,22 +48,27 @@ export default function Home() {
           {/* left: copy */}
           <div className="relative z-10">
             <p className="section-label">iPhone 17 Pro Max</p>
-            <h1 className="font-display text-[clamp(2.5rem,7vw,5.5rem)] leading-[1.05] text-white">
+            <h1 className="text-black font-display text-[clamp(2.5rem,7vw,5.5rem)] leading-[1.15]">
               สีส้มไทเทเนียม<br />
-              <span className="text-yellow">ผ่อนง่ายไม่ต้องรอ</span>
+              <span className="box-decoration-clone bg-yellow px-2 text-black">ผ่อนง่ายไม่ต้องรอ</span>
             </h1>
-            <p className="mt-6 max-w-lg text-text-muted">
+            <p className="mt-6 max-w-lg text-black/70">
               อนุมัติไวใน 1 วัน · ไม่ต้องใช้บัตรเครดิต · เครื่องแท้ศูนย์ไทย 100%
             </p>
             <div className="mt-8 flex flex-col gap-4 sm:flex-row">
               <Link href="/products" className="btn-primary">เริ่มผ่อนเลย →</Link>
-              <Link href="/products" className="btn-secondary">ดูรุ่นอื่น →</Link>
+              <Link
+                href="/products"
+                className="inline-flex items-center justify-center gap-2 border border-black px-7 py-[11px] font-display text-sm uppercase tracking-[0.12em] text-black transition-colors hover:bg-black hover:text-white"
+              >
+                ดูรุ่นอื่น →
+              </Link>
             </div>
           </div>
 
           {/* right: product image (flat, sharp frame) */}
           <div className="relative flex items-end justify-center">
-            <div className="absolute inset-x-8 top-8 bottom-0 bg-yellow/5" aria-hidden="true" />
+            <div className="absolute inset-x-8 top-8 bottom-0 bg-yellow/10" aria-hidden="true" />
             <img
               src="/images/iphone-17-promax-orange.png"
               alt="iPhone 17 Pro Max"
