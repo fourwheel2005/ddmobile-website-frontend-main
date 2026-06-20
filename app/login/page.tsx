@@ -4,6 +4,7 @@ import Link from "next/link";
 import toast from "react-hot-toast";
 import { Eye, EyeOff } from "lucide-react";
 import api from "@/lib/api";
+import { getApiError } from "@/lib/errorMessage";
 
 export default function LoginPage() {
   const [isLogin, setIsLogin] = useState(true);
@@ -38,11 +39,9 @@ export default function LoginPage() {
       }
     } catch (error: any) {
       console.error("Auth Error:", error);
-      if (error.response && error.response.data && error.response.data.error) {
-        toast.error("ข้อผิดพลาด: " + error.response.data.error);
-      } else {
-        toast.error("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ในขณะนี้ กรุณาลองใหม่อีกครั้งภายหลัง");
-      }
+      toast.error(
+        getApiError(error, isLogin ? "เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" : "สมัครสมาชิกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง")
+      );
     } finally {
       setIsLoading(false);
     }
@@ -94,6 +93,7 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
+                minLength={isLogin ? undefined : 6}
                 className="input-dd pr-11"
               />
               <button
@@ -105,6 +105,7 @@ export default function LoginPage() {
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
+            {!isLogin && <p className="mt-1.5 text-xs text-text-muted">รหัสผ่านอย่างน้อย 6 ตัวอักษร</p>}
           </div>
           <button type="submit" disabled={isLoading} className="btn-primary w-full py-3 text-base">
             {isLoading ? "กำลังประมวลผล..." : (isLogin ? "เข้าสู่ระบบ" : "สร้างบัญชีใหม่")}

@@ -5,6 +5,7 @@ import Link from "next/link";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
 import { statusOf } from "@/lib/orderStatus";
+import { getApiError } from "@/lib/errorMessage";
 import { QRCodeCanvas } from "qrcode.react";
 import {
   Loader2, Smartphone, ArrowLeft, UploadCloud, Banknote, Store, Truck,
@@ -76,7 +77,7 @@ export default function OrderDetailPage() {
       setSlipPreview(URL.createObjectURL(file));
       toast.success("แนบสลิปสำเร็จ รอแอดมินตรวจสอบ");
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "แนบสลิปไม่สำเร็จ");
+      toast.error(getApiError(err, "แนบสลิปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"));
     } finally {
       setUploading(false);
     }

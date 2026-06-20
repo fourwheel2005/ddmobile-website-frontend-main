@@ -1,9 +1,9 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo } from "react";
-import stockApi from "@/lib/stockApi";
+import api from "@/lib/api";
 import {
-  Warehouse, Loader2, AlertTriangle, LogOut, RefreshCw,
-  PackageCheck, Sparkles, RotateCcw, Search, LogIn, ChevronRight, BatteryMedium
+  Warehouse, Loader2, AlertTriangle, RefreshCw,
+  PackageCheck, Sparkles, RotateCcw, Search, ChevronRight, BatteryMedium
 } from "lucide-react";
 import toast from "react-hot-toast";
 import CountUp from "@/components/CountUp";
@@ -44,8 +44,6 @@ interface LowStockAlert {
   thresholdQty: number;
   status: string;
 }
-
-interface StockUser { fullName?: string; username?: string; role?: string; }
 
 // รุ่นย่อย (variant) ที่จัดกลุ่มจากเครื่องรายตัว
 interface VariantGroup {
@@ -93,87 +91,36 @@ const specText = (color: string | null, storage: string | null, network: string 
   [color, storage, network].filter(Boolean).join(" / ") || "-";
 
 export default function StockInventory() {
-  const [stockToken, setStockToken] = useState<string | null>(null);
-  const [stockUser, setStockUser] = useState<StockUser | null>(null);
-
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
-
   const [summary, setSummary] = useState<StockSummary | null>(null);
   const [items, setItems] = useState<SerialItem[]>([]);
   const [alerts, setAlerts] = useState<LowStockAlert[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    const t = localStorage.getItem("stock_token");
-    const u = localStorage.getItem("stock_user");
-    if (t) setStockToken(t);
-    if (u) { try { setStockUser(JSON.parse(u)); } catch { /* ignore */ } }
-  }, []);
-
-  const handleStockLogout = useCallback(() => {
-    localStorage.removeItem("stock_token");
-    localStorage.removeItem("stock_user");
-    setStockToken(null);
-    setStockUser(null);
-    setSummary(null);
-    setItems([]);
-    setAlerts([]);
-    setExpanded(new Set());
-  }, []);
-
+  // ดึง Stock real-time ผ่าน DD backend (BFF) — ใช้ token admin เดิม ไม่ต้อง login stock แยก
   const fetchAll = useCallback(async () => {
     setIsLoading(true);
     try {
       const [sumRes, itemsRes, alertRes] = await Promise.all([
-        stockApi.get("/inventory/summary"),
-        stockApi.get("/inventory/serials", { params: { size: 500 } }),
-        stockApi.get("/alerts/low-stock", { params: { size: 200 } }),
+        api.get("/admin/stock/summary"),
+        api.get("/admin/stock/serials"),
+        api.get("/admin/stock/low-stock"),
       ]);
       setSummary(sumRes.data);
       setItems(toArray<SerialItem>(itemsRes.data));
       setAlerts(toArray<LowStockAlert>(alertRes.data));
     } catch (error: any) {
       console.error("Stock fetch error:", error);
-      if (error?.response?.status === 401) {
-        toast.error("เซสชัน Stock หมดอายุ กรุณาเข้าสู่ระบบ Stock อีกครั้ง");
-        handleStockLogout();
-      } else if (error?.code === "ERR_NETWORK") {
-        toast.error("เชื่อมต่อระบบ Stock ไม่ได้ (ตรวจ CORS ฝั่ง stock)");
-      } else {
-        toast.error("ดึงข้อมูล Stock ไม่สำเร็จ");
-      }
+      toast.error(error?.response?.status === 503
+        ? "เชื่อมต่อระบบ Stock ไม่ได้ในขณะนี้"
+        : "ดึงข้อมูล Stock ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
     } finally {
       setIsLoading(false);
     }
-  }, [handleStockLogout]);
+  }, []);
 
-  useEffect(() => { if (stockToken) fetchAll(); }, [stockToken, fetchAll]);
-
-  const handleStockLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoggingIn(true);
-    try {
-      const res = await stockApi.post("/auth/login", { username, password });
-      const { accessToken, user } = res.data;
-      localStorage.setItem("stock_token", accessToken);
-      if (user) localStorage.setItem("stock_user", JSON.stringify(user));
-      setStockUser(user || null);
-      setStockToken(accessToken);
-      setPassword("");
-      toast.success("เชื่อมต่อระบบ Stock สำเร็จ");
-    } catch (error: any) {
-      console.error("Stock login error:", error);
-      if (error?.response?.status === 401) toast.error("ชื่อผู้ใช้หรือรหัสผ่าน Stock ไม่ถูกต้อง");
-      else if (error?.code === "ERR_NETWORK") toast.error("เชื่อมต่อระบบ Stock ไม่ได้ (ตรวจ CORS ฝั่ง stock)");
-      else toast.error("เข้าสู่ระบบ Stock ไม่สำเร็จ");
-    } finally {
-      setIsLoggingIn(false);
-    }
-  };
+  useEffect(() => { fetchAll(); }, [fetchAll]);
 
   // จัดกลุ่มเครื่อง IN_STOCK เป็นรุ่นย่อย (variant)
   const variants = useMemo<VariantGroup[]>(() => {
@@ -232,34 +179,6 @@ export default function StockInventory() {
       return next;
     });
 
-  /* ---------- ยังไม่เชื่อม: ฟอร์ม login ---------- */
-  if (!stockToken) {
-    return (
-      <div className="mx-auto max-w-md border border-border-default bg-bg-surface p-8">
-        <div className="mb-6 flex items-center gap-3">
-          <div className="bg-yellow p-3 text-black"><Warehouse size={24} /></div>
-          <div>
-            <h2 className="card-title mb-0">เชื่อมต่อคลังสินค้า</h2>
-            <p className="text-xs text-text-muted">เข้าสู่ระบบด้วยบัญชี Stock (stockddmobile)</p>
-          </div>
-        </div>
-        <form onSubmit={handleStockLogin} className="space-y-5">
-          <div>
-            <label htmlFor="stock-username" className="label-dd">ชื่อผู้ใช้ (Username)</label>
-            <input id="stock-username" type="text" value={username} onChange={(e) => setUsername(e.target.value)} required className="input-dd" placeholder="username" />
-          </div>
-          <div>
-            <label htmlFor="stock-password" className="label-dd">รหัสผ่าน (Password)</label>
-            <input id="stock-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className="input-dd" placeholder="••••••••" />
-          </div>
-          <button type="submit" disabled={isLoggingIn} className="btn-primary w-full">
-            {isLoggingIn ? "กำลังเชื่อมต่อ..." : <><LogIn size={16} /> เชื่อมต่อ Stock →</>}
-          </button>
-        </form>
-      </div>
-    );
-  }
-
   const summaryCards = [
     { label: "พร้อมขายทั้งหมด", value: summary?.totalAvailable ?? 0, icon: PackageCheck, color: "text-yellow" },
     { label: "เครื่องใหม่", value: summary?.newAvailable ?? 0, icon: Sparkles, color: "text-success-text" },
@@ -274,20 +193,13 @@ export default function StockInventory() {
         <div className="flex items-center gap-3">
           <div className="bg-yellow p-2 text-black"><Warehouse size={18} /></div>
           <div>
-            <p className="font-display text-sm uppercase tracking-wider text-text-heading">เชื่อมต่อ Stock แล้ว</p>
-            <p className="text-xs text-text-muted">
-              {stockUser?.fullName || stockUser?.username || "ผู้ใช้ Stock"}{stockUser?.role ? ` · ${stockUser.role}` : ""}
-            </p>
+            <p className="font-display text-sm uppercase tracking-wider text-text-heading">คลังสินค้า (Stock real-time)</p>
+            <p className="text-xs text-text-muted">ดึงสดจากระบบ Stock — อัปเดตอัตโนมัติเมื่อมีการขาย</p>
           </div>
         </div>
-        <div className="flex gap-2">
-          <button onClick={fetchAll} disabled={isLoading} className="btn-ghost" aria-label="รีเฟรชข้อมูล">
-            <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} /> รีเฟรช
-          </button>
-          <button onClick={handleStockLogout} className="btn-ghost" aria-label="ตัดการเชื่อมต่อ Stock">
-            <LogOut size={16} /> ตัดการเชื่อมต่อ
-          </button>
-        </div>
+        <button onClick={fetchAll} disabled={isLoading} className="btn-ghost" aria-label="รีเฟรชข้อมูล">
+          <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} /> รีเฟรช
+        </button>
       </div>
 
       {isLoading && !summary ? (

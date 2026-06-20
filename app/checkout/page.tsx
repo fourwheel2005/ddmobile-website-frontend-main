@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
+import { getApiError } from "@/lib/errorMessage";
 import { useCart } from "@/context/CartContext";
 import toast from "react-hot-toast";
 import Link from "next/link";
@@ -71,7 +72,7 @@ export default function CheckoutPage() {
     } catch (err: any) {
       const status = err?.response?.status;
       if (status === 401 || status === 403) { router.replace("/login?redirect=/checkout"); return; }
-      toast.error(err?.response?.data?.message || "สร้างคำสั่งซื้อไม่สำเร็จ");
+      toast.error(getApiError(err, "สร้างคำสั่งซื้อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"));
     } finally {
       setSubmitting(false);
     }
