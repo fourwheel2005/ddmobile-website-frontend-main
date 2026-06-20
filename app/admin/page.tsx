@@ -278,7 +278,7 @@ export default function AdminDashboard() {
       <aside className="flex w-64 flex-col border-r border-border-default bg-bg-surface">
         <div className="flex h-16 items-center border-b border-border-default px-6">
           <Link href="/" className="logo-dd text-2xl">
-            DD<span className="text-white">ADMIN</span>
+            DD<span className="text-text-heading">ADMIN</span>
           </Link>
         </div>
 
@@ -289,7 +289,7 @@ export default function AdminDashboard() {
               key={item.name}
               onClick={() => setActiveMenu(item.name)}
               className={`flex w-full items-center gap-3 px-4 py-3 font-display text-sm uppercase tracking-wider transition-colors ${
-                activeMenu === item.name ? "bg-yellow text-black" : "text-text-muted hover:bg-bg-tinted hover:text-white"
+                activeMenu === item.name ? "bg-yellow text-black" : "text-text-muted hover:bg-bg-tinted hover:text-text-heading"
               }`}
             >
               <item.icon size={18} />
@@ -307,7 +307,7 @@ export default function AdminDashboard() {
 
       {/* --- MAIN --- */}
       <main className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex h-16 items-center justify-between border-b border-border-default bg-black px-6">
+        <header className="flex h-16 items-center justify-between border-b border-border-default bg-bg-subtle px-6">
           <div>
             <h1 className="font-display text-2xl">{activeMenu}</h1>
             <p className="text-xs text-text-muted">ระบบหลังบ้านเชื่อมต่อ API เรียบร้อยแล้ว</p>
@@ -351,7 +351,7 @@ export default function AdminDashboard() {
                           <span className="badge-dd badge-warning">{stat.growth}</span>
                         </div>
                         <p className="text-xs text-text-muted">{stat.title}</p>
-                        <h3 className="font-display text-4xl tabular-nums text-white">{stat.value}</h3>
+                        <h3 className="font-display text-4xl tabular-nums text-text-heading">{stat.value}</h3>
                       </div>
                     ))}
                   </div>
@@ -375,12 +375,12 @@ export default function AdminDashboard() {
                             lowStockProducts.map((product) => (
                               <tr key={product.id}>
                                 <td className="w-20">
-                                  <div className="flex h-12 w-12 items-center justify-center border border-border-default bg-black p-1">
+                                  <div className="flex h-12 w-12 items-center justify-center border border-border-default bg-bg-subtle p-1">
                                     <img src={product.imageUrl} alt={product.name} loading="lazy" className="h-full w-full object-contain" />
                                   </div>
                                 </td>
                                 <td>
-                                  <p className="font-semibold text-white">{product.name}</p>
+                                  <p className="font-semibold text-text-heading">{product.name}</p>
                                   <p className="text-xs text-text-muted">{product.capacity || "ไม่ระบุความจุ"}</p>
                                 </td>
                                 <td className="text-center">
@@ -416,7 +416,7 @@ export default function AdminDashboard() {
                         ) : (
                           applications.map((app) => (
                             <tr key={app.id}>
-                              <td><p className="font-semibold text-white">{app.customerName}</p><p className="text-xs text-text-muted">{app.customerTel}</p></td>
+                              <td><p className="font-semibold text-text-heading">{app.customerName}</p><p className="text-xs text-text-muted">{app.customerTel}</p></td>
                               <td><span className="badge-dd badge-info">{app.productName}</span></td>
                               <td className="text-text-muted">{app.applicationDate}</td>
                               <td>
@@ -451,11 +451,11 @@ export default function AdminDashboard() {
                           <button onClick={() => handleDeleteProduct(product.id)} aria-label="ลบสินค้า" className="border border-error-border bg-error-bg p-2 text-error-text transition-colors hover:bg-error-text hover:text-black"><Trash2 size={16} /></button>
                         </div>
                         <div className="flex items-center gap-4">
-                          <div className="flex h-24 w-24 items-center justify-center border border-border-default bg-black p-2">
+                          <div className="flex h-24 w-24 items-center justify-center border border-border-default bg-bg-subtle p-2">
                             <img src={product.imageUrl || "https://via.placeholder.com/150"} alt={product.name} loading="lazy" className="h-full w-full object-contain" />
                           </div>
                           <div>
-                            <h3 className="font-display text-lg uppercase leading-tight text-white">{product.name}</h3>
+                            <h3 className="font-display text-lg uppercase leading-tight text-text-heading">{product.name}</h3>
                             <p className="font-display text-2xl tabular-nums text-yellow">฿{product.price?.toLocaleString()}</p>
                             <div className="mt-1 flex gap-2">
                               <span className="badge-dd badge-info">{product.capacity || "ไม่มีระบุ"}</span>
@@ -491,7 +491,7 @@ export default function AdminDashboard() {
                               <td>
                                 <div className="flex items-center gap-3">
                                   <div className="flex h-10 w-10 items-center justify-center bg-bg-tinted font-display uppercase text-yellow">{customer.email.charAt(0)}</div>
-                                  <p className="font-semibold text-white">{customer.email}</p>
+                                  <p className="font-semibold text-text-heading">{customer.email}</p>
                                 </div>
                               </td>
                               <td><span className="badge-dd badge-info">ลูกค้าทั่วไป</span></td>
@@ -544,7 +544,7 @@ export default function AdminDashboard() {
                   <label className="label-dd">รูปภาพสินค้า * (เลือกได้หลายรูป — รูปแรกคือปก)</label>
                   <div className="relative">
                     <input type="file" accept="image/*" multiple onChange={handleImageChange} aria-label="อัปโหลดรูปภาพสินค้า" className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0" />
-                    <div className="flex flex-col items-center justify-center border border-dashed border-border-default bg-black p-6">
+                    <div className="flex flex-col items-center justify-center border border-dashed border-border-default bg-bg-subtle p-6">
                       <UploadCloud size={28} className="mb-3 text-text-muted" />
                       <p className="text-sm text-text-body">คลิกหรือลากไฟล์รูปภาพมาวางที่นี่ (เลือกหลายรูปได้)</p>
                       <p className="text-xs text-text-muted">รองรับ JPG, PNG, WEBP</p>
@@ -553,7 +553,7 @@ export default function AdminDashboard() {
                   {imagePreviews.length > 0 && (
                     <div className="mt-3 grid grid-cols-4 gap-2">
                       {imagePreviews.map((src, idx) => (
-                        <div key={idx} className="relative aspect-square border border-border-default bg-black">
+                        <div key={idx} className="relative aspect-square border border-border-default bg-bg-subtle">
                           <img src={src} alt={`รูป ${idx + 1}`} className="h-full w-full object-contain p-1" />
                           {idx === 0 && <span className="absolute left-0 top-0 bg-yellow px-1 font-display text-[10px] uppercase text-black">ปก</span>}
                           <button type="button" onClick={() => removeImage(idx)} aria-label={`ลบรูป ${idx + 1}`} className="absolute right-0 top-0 bg-error-bg p-1 text-error-text transition-colors hover:bg-error-text hover:text-black">
@@ -613,7 +613,7 @@ export default function AdminDashboard() {
                       <p className="mb-2 text-xs text-text-muted">รูปปัจจุบัน ({editCurrentImages.length} รูป)</p>
                       <div className="grid grid-cols-4 gap-2">
                         {editCurrentImages.map((src, idx) => (
-                          <div key={idx} className="relative aspect-square border border-border-default bg-black">
+                          <div key={idx} className="relative aspect-square border border-border-default bg-bg-subtle">
                             <img src={src} alt={`รูปปัจจุบัน ${idx + 1}`} className="h-full w-full object-contain p-1" />
                             {idx === 0 && <span className="absolute left-0 top-0 bg-yellow px-1 font-display text-[10px] uppercase text-black">ปก</span>}
                           </div>
@@ -624,7 +624,7 @@ export default function AdminDashboard() {
 
                   <div className="relative">
                     <input type="file" accept="image/*" multiple aria-label="อัปโหลดรูปภาพใหม่" onChange={handleEditImageChange} className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0" />
-                    <div className="flex flex-col items-center justify-center border border-dashed border-border-default bg-black p-6">
+                    <div className="flex flex-col items-center justify-center border border-dashed border-border-default bg-bg-subtle p-6">
                       <UploadCloud size={28} className="mb-2 text-text-muted" />
                       <p className="text-sm text-text-body">อัปโหลดรูปใหม่ (เลือกหลายรูปได้)</p>
                       <p className="text-xs text-warning-text">⚠ การอัปโหลดใหม่จะแทนที่รูปเดิมทั้งหมด</p>
@@ -634,7 +634,7 @@ export default function AdminDashboard() {
                   {editImagePreviews.length > 0 && (
                     <div className="mt-3 grid grid-cols-4 gap-2">
                       {editImagePreviews.map((src, idx) => (
-                        <div key={idx} className="relative aspect-square border border-info-border bg-black">
+                        <div key={idx} className="relative aspect-square border border-info-border bg-bg-subtle">
                           <img src={src} alt={`รูปใหม่ ${idx + 1}`} className="h-full w-full object-contain p-1" />
                           {idx === 0 && <span className="absolute left-0 top-0 bg-info-text px-1 font-display text-[10px] uppercase text-black">ปก</span>}
                           <button type="button" onClick={() => removeEditImage(idx)} aria-label={`ลบรูป ${idx + 1}`} className="absolute right-0 top-0 bg-error-bg p-1 text-error-text transition-colors hover:bg-error-text hover:text-black">
