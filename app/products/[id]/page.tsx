@@ -27,6 +27,7 @@ interface CatalogItem {
   minPrice: number | null;
   maxPrice: number | null;
   imageUrl: string | null;
+  gallery: string[] | null;
   avgBatteryHealth: number | null;
   imei: string | null;
   warrantyExpire: string | null;
@@ -38,6 +39,7 @@ export default function ProductDetailPage() {
   const { add } = useCart();
   const [item, setItem] = useState<CatalogItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeImg, setActiveImg] = useState(0);
 
   useEffect(() => {
     const fetchItem = async () => {
@@ -80,6 +82,9 @@ export default function ProductDetailPage() {
   const isNew = item.condition === "NEW";
   const isUnit = item.type === "UNIT";
   const canBuy = item.minPrice != null && item.quantity > 0;
+  // รวมรูปหลัก (Stock) + รูปเสริม (DD) เป็นแกลเลอรี
+  const images = [item.imageUrl, ...(item.gallery ?? [])].filter((x): x is string => !!x);
+  const mainImg = images[activeImg] ?? images[0] ?? null;
 
   const toCartItem = () => ({
     catalogId: item.id, type: item.type, productName: item.productName, variantId: item.variantId,
@@ -121,15 +126,33 @@ export default function ProductDetailPage() {
         </button>
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-          {/* image */}
-          <div className="relative flex aspect-square items-center justify-center rounded-2xl border border-border-default bg-white p-8">
-            <span className={`badge-dd absolute left-5 top-5 z-10 ${isNew ? "badge-success" : "badge-info"}`}>
-              {isNew ? <Sparkles size={12} /> : <RotateCcw size={12} />} {item.conditionLabel}
-            </span>
-            {item.imageUrl ? (
-              <img src={item.imageUrl} alt={item.productName} width={420} height={420} className="h-full w-full max-w-sm object-contain" />
-            ) : (
-              <Smartphone size={120} className="text-text-disabled" />
+          {/* image + แกลเลอรี */}
+          <div>
+            <div className="relative flex aspect-square items-center justify-center rounded-2xl border border-border-default bg-white p-8">
+              <span className={`badge-dd absolute left-5 top-5 z-10 ${isNew ? "badge-success" : "badge-info"}`}>
+                {isNew ? <Sparkles size={12} /> : <RotateCcw size={12} />} {item.conditionLabel}
+              </span>
+              {mainImg ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={mainImg} alt={item.productName} width={420} height={420} className="h-full w-full max-w-sm object-contain" />
+              ) : (
+                <Smartphone size={120} className="text-text-disabled" />
+              )}
+            </div>
+            {images.length > 1 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {images.map((src, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setActiveImg(i)}
+                    className={`h-16 w-16 overflow-hidden rounded-lg border bg-white p-1 transition ${i === activeImg ? "border-yellow ring-2 ring-yellow" : "border-border-default hover:border-text-muted"}`}
+                    aria-label={`ดูรูปที่ ${i + 1}`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={src} alt={`${item.productName} รูปที่ ${i + 1}`} className="h-full w-full object-contain" />
+                  </button>
+                ))}
+              </div>
             )}
           </div>
 
