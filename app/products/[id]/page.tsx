@@ -11,9 +11,19 @@ import toast from "react-hot-toast";
 import CountUp from "@/components/CountUp";
 import { useCart } from "@/context/CartContext";
 
+interface VariantOption {
+  variantId: string;
+  color: string | null;
+  storage: string | null;
+  price: number | null;
+  quantity: number;
+  imageUrl: string | null;
+  gallery: string[] | null;
+}
+
 interface CatalogItem {
   id: string;
-  type: "UNIT" | "GROUP";
+  type: "MODEL" | "UNIT" | "GROUP";
   variantId: string;
   productName: string;
   brand: string;
@@ -31,6 +41,7 @@ interface CatalogItem {
   avgBatteryHealth: number | null;
   imei: string | null;
   warrantyExpire: string | null;
+  options: VariantOption[] | null;
 }
 
 export default function ProductDetailPage() {
@@ -40,6 +51,17 @@ export default function ProductDetailPage() {
   const [item, setItem] = useState<CatalogItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeImg, setActiveImg] = useState(0);
+  const [selColor, setSelColor] = useState<string | null>(null);
+  const [selStorage, setSelStorage] = useState<string | null>(null);
+
+  // มือ 1 (MODEL): ตั้งค่าตัวเลือกเริ่มต้น = option แรก
+  useEffect(() => {
+    if (item?.type === "MODEL" && item.options && item.options.length > 0) {
+      setSelColor(item.options[0].color);
+      setSelStorage(item.options[0].storage);
+      setActiveImg(0);
+    }
+  }, [item]);
 
   useEffect(() => {
     const fetchItem = async () => {
@@ -81,16 +103,47 @@ export default function ProductDetailPage() {
 
   const isNew = item.condition === "NEW";
   const isUnit = item.type === "UNIT";
-  const canBuy = item.minPrice != null && item.quantity > 0;
-  // รวมรูปหลัก (Stock) + รูปเสริม (DD) เป็นแกลเลอรี
-  const images = [item.imageUrl, ...(item.gallery ?? [])].filter((x): x is string => !!x);
+  const isModel = item.type === "MODEL";
+  const options = item.options ?? [];
+
+  // มือ 1 (MODEL): ตัวเลือกสี/ความจุ
+  const colors = Array.from(new Set(options.map((o) => o.color).filter((c): c is string => !!c)));
+  const storagesForColor = (c: string | null) =>
+    Array.from(new Set(options.filter((o) => o.color === c).map((o) => o.storage).filter((s): s is string => !!s)));
+  const selOption = isModel
+    ? (options.find((o) => o.color === selColor && o.storage === selStorage)
+        ?? options.find((o) => o.color === selColor)
+        ?? options[0] ?? null)
+    : null;
+
+  // ค่าที่ใช้แสดง/ซื้อ (MODEL ใช้ option ที่เลือก, อื่น ๆ ใช้ item)
+  const effPrice = isModel ? (selOption?.price ?? null) : item.minPrice;
+  const effQty = isModel ? (selOption?.quantity ?? 0) : item.quantity;
+  const effVariantId = isModel ? (selOption?.variantId ?? item.variantId) : item.variantId;
+  const effColor = isModel ? (selOption?.color ?? null) : item.color;
+  const effStorage = isModel ? (selOption?.storage ?? null) : item.storage;
+  const images = isModel
+    ? (selOption?.gallery && selOption.gallery.length > 0 ? selOption.gallery : (selOption?.imageUrl ? [selOption.imageUrl] : []))
+    : [item.imageUrl, ...(item.gallery ?? [])].filter((x): x is string => !!x);
   const mainImg = images[activeImg] ?? images[0] ?? null;
+  const canBuy = effPrice != null && effQty > 0;
+
+  const pickColor = (c: string) => {
+    setSelColor(c);
+    const sts = storagesForColor(c);
+    setSelStorage(sts.length > 0 ? sts[0] : null);
+    setActiveImg(0);
+  };
+  const pickStorage = (s: string) => { setSelStorage(s); setActiveImg(0); };
 
   const toCartItem = () => ({
-    catalogId: item.id, type: item.type, productName: item.productName, variantId: item.variantId,
+    catalogId: isModel ? effVariantId : item.id,
+    type: (isModel ? "GROUP" : item.type) as "UNIT" | "GROUP",
+    productName: item.productName, variantId: effVariantId,
     condition: item.condition, conditionLabel: item.conditionLabel, sku: item.sku,
-    color: item.color, storage: item.storage, imageUrl: item.imageUrl,
-    unitPrice: item.minPrice ?? 0, maxStock: item.type === "UNIT" ? 1 : item.quantity,
+    color: effColor, storage: effStorage,
+    imageUrl: isModel ? (selOption?.imageUrl ?? item.imageUrl) : item.imageUrl,
+    unitPrice: effPrice ?? 0, maxStock: isModel ? effQty : (item.type === "UNIT" ? 1 : item.quantity),
   });
   const addToCart = () => {
     const r = add(toCartItem());
@@ -102,8 +155,8 @@ export default function ProductDetailPage() {
     if (r.ok || r.reason === "เครื่องนี้อยู่ในตะกร้าแล้ว") router.push("/checkout");
     else toast(r.reason || "เพิ่มไม่ได้", { icon: "🛒" });
   };
-  const installment = item.minPrice ? Math.ceil(item.minPrice / 10) : 0;
-  const priceText = item.minPrice == null ? "สอบถามราคา" : "฿" + item.minPrice.toLocaleString();
+  const installment = effPrice ? Math.ceil(effPrice / 10) : 0;
+  const priceText = effPrice == null ? "สอบถามราคา" : "฿" + effPrice.toLocaleString();
   const warranty = item.warrantyExpire
     ? `ประกันถึง ${new Date(item.warrantyExpire).toLocaleDateString("th-TH")}`
     : isNew ? "ประกันศูนย์ 1 ปี" : "ตรวจเช็คคุณภาพแล้ว";
@@ -162,9 +215,9 @@ export default function ProductDetailPage() {
             <h1 className="mt-1 text-2xl font-bold leading-tight text-text-heading md:text-3xl">{item.productName}</h1>
 
             <div className="my-5 flex flex-wrap gap-2">
-              {item.quantity > 0 ? (
+              {effQty > 0 ? (
                 <span className="badge-dd badge-success">
-                  <CheckCircle2 size={14} /> {isUnit ? "พร้อมส่ง (เครื่องนี้)" : `พร้อมส่ง (เหลือ ${item.quantity} ชิ้น)`}
+                  <CheckCircle2 size={14} /> {isUnit ? "พร้อมส่ง (เครื่องนี้)" : `พร้อมส่ง (เหลือ ${effQty} ชิ้น)`}
                 </span>
               ) : (
                 <span className="badge-dd badge-error"><XCircle size={14} /> สินค้าหมดชั่วคราว</span>
@@ -177,18 +230,18 @@ export default function ProductDetailPage() {
             <div className="rounded-2xl border border-border-default bg-bg-subtle p-5">
               <p className="text-sm text-text-muted">ราคา{isNew ? "เครื่องใหม่" : "เครื่องมือสอง"}</p>
               <div className="flex items-baseline gap-2">
-                {item.minPrice == null ? (
+                {effPrice == null ? (
                   <span className="text-2xl font-bold text-price md:text-3xl">สอบถามราคา</span>
                 ) : (
                   <>
-                    <CountUp value={item.minPrice} prefix="฿" className="text-3xl font-bold text-price md:text-4xl" />
+                    <CountUp value={effPrice} prefix="฿" className="text-3xl font-bold text-price md:text-4xl" />
                     {item.type === "GROUP" && item.maxPrice != null && item.maxPrice !== item.minPrice && (
                       <span className="text-lg text-text-muted">- ฿{Number(item.maxPrice).toLocaleString()}</span>
                     )}
                   </>
                 )}
               </div>
-              {item.minPrice != null && (
+              {effPrice != null && (
                 <div className="mt-4 flex items-center gap-3 border-t border-border-default pt-4 text-sm">
                   <span className="text-text-muted">ผ่อนเริ่มต้นเพียง</span>
                   <span className="text-lg font-bold text-text-heading"><CountUp value={installment} prefix="฿" /> / เดือน</span>
@@ -196,12 +249,64 @@ export default function ProductDetailPage() {
               )}
             </div>
 
+            {/* มือ 1 (MODEL): เลือกสี / ความจุ แบบ Shopee */}
+            {isModel && (
+              <div className="mt-5 space-y-4">
+                {colors.length > 0 && (
+                  <div>
+                    <p className="mb-2 text-sm font-semibold text-text-heading">สี</p>
+                    <div className="flex flex-wrap gap-2">
+                      {colors.map((c) => {
+                        const opt = options.find((o) => o.color === c);
+                        const active = c === selColor;
+                        return (
+                          <button
+                            key={c}
+                            onClick={() => pickColor(c)}
+                            className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${active ? "border-yellow ring-2 ring-yellow text-text-heading" : "border-border-default text-text-body hover:border-text-muted"}`}
+                          >
+                            {opt?.imageUrl && (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={opt.imageUrl} alt={c} className="h-7 w-7 rounded object-cover" />
+                            )}
+                            {c}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {storagesForColor(selColor).length > 0 && (
+                  <div>
+                    <p className="mb-2 text-sm font-semibold text-text-heading">ความจุ</p>
+                    <div className="flex flex-wrap gap-2">
+                      {storagesForColor(selColor).map((s) => {
+                        const opt = options.find((o) => o.color === selColor && o.storage === s);
+                        const out = !opt || opt.quantity <= 0;
+                        const active = s === selStorage;
+                        return (
+                          <button
+                            key={s}
+                            onClick={() => pickStorage(s)}
+                            disabled={out}
+                            className={`rounded-xl border px-4 py-2 text-sm transition ${active ? "border-yellow ring-2 ring-yellow text-text-heading" : "border-border-default text-text-body hover:border-text-muted"} ${out ? "opacity-40" : ""}`}
+                          >
+                            {s}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="mt-6 space-y-3">
               <h3 className="font-bold text-text-heading">รายละเอียด</h3>
               <div className="grid grid-cols-3 gap-2 text-sm"><span className="text-text-muted">สภาพเครื่อง</span><span className="col-span-2 font-medium text-text-heading">{item.conditionLabel}</span></div>
               <div className="grid grid-cols-3 gap-2 text-sm"><span className="text-text-muted">หมวดหมู่</span><span className="col-span-2 font-medium text-text-heading">{item.category}</span></div>
-              {item.color && <div className="grid grid-cols-3 gap-2 text-sm"><span className="text-text-muted">สี</span><span className="col-span-2 font-medium text-text-heading">{item.color}</span></div>}
-              {item.storage && <div className="grid grid-cols-3 gap-2 text-sm"><span className="text-text-muted">ความจุ</span><span className="col-span-2 font-medium text-text-heading">{item.storage}</span></div>}
+              {effColor && <div className="grid grid-cols-3 gap-2 text-sm"><span className="text-text-muted">สี</span><span className="col-span-2 font-medium text-text-heading">{effColor}</span></div>}
+              {effStorage && <div className="grid grid-cols-3 gap-2 text-sm"><span className="text-text-muted">ความจุ</span><span className="col-span-2 font-medium text-text-heading">{effStorage}</span></div>}
               {isUnit && item.imei && <div className="grid grid-cols-3 gap-2 text-sm"><span className="text-text-muted">IMEI</span><span className="col-span-2 flex items-center gap-1.5 font-mono text-xs text-text-body"><Hash size={13} /> {item.imei}</span></div>}
               <div className="grid grid-cols-3 gap-2 text-sm"><span className="text-text-muted">SKU</span><span className="col-span-2 font-mono text-xs text-text-body">{item.sku}</span></div>
               <div className="grid grid-cols-3 gap-2 text-sm"><span className="text-text-muted">การรับประกัน</span><span className="col-span-2 flex items-center gap-2 font-medium text-success-text"><ShieldCheck size={16} /> {warranty}</span></div>

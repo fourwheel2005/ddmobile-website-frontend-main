@@ -76,15 +76,8 @@ interface VariantConfig {
   sellingPrice: number | null;
   reorderPoint: number | null;
   imageUrl: string | null;
+  imageUrls: string[] | null;
   active: boolean | null;
-}
-
-// รูปเสริม (gallery) — เก็บฝั่ง DD (refId = serialId มือถือ / variantId อุปกรณ์เสริม)
-interface MediaItem {
-  id: number;
-  refId: string;
-  imageUrl: string;
-  sortOrder: number;
 }
 
 function toArray<T>(data: unknown): T[] {
@@ -125,19 +118,16 @@ export default function StockInventory() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [cfgMap, setCfgMap] = useState<Record<string, VariantConfig>>({});
   const [editing, setEditing] = useState<VariantConfig | null>(null);
-  const [serialPrices, setSerialPrices] = useState<Record<string, number>>({});
-  const [editingUnit, setEditingUnit] = useState<SerialItem | null>(null);
 
   // ดึง Stock real-time ผ่าน DD backend (BFF) — ใช้ token admin เดิม ไม่ต้อง login stock แยก
   const fetchAll = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [sumRes, itemsRes, alertRes, varRes, priceRes] = await Promise.all([
+      const [sumRes, itemsRes, alertRes, varRes] = await Promise.all([
         api.get("/admin/stock/summary"),
         api.get("/admin/stock/serials"),
         api.get("/admin/stock/low-stock"),
         api.get("/admin/stock/variants").catch(() => null), // ใช้แก้ราคา/รูป — ถ้าพังไม่ทำให้คลังล่ม
-        api.get("/admin/serials/prices").catch(() => null),  // ราคา override รายเครื่อง (DD)
       ]);
       setSummary(sumRes.data);
       setItems(toArray<SerialItem>(itemsRes.data));
@@ -147,7 +137,6 @@ export default function StockInventory() {
         for (const v of toArray<VariantConfig>(varRes.data)) map[v.id] = v;
         setCfgMap(map);
       }
-      if (priceRes) setSerialPrices((priceRes.data as Record<string, number>) || {});
     } catch (error: any) {
       console.error("Stock fetch error:", error);
       toast.error(error?.response?.status === 503
@@ -187,14 +176,13 @@ export default function StockInventory() {
       g.total += 1;
       if (it.condition === "NEW") g.newCount += 1;
       else if (it.condition === "SECOND_HAND") g.usedCount += 1;
-      const eff = serialPrices[it.id] ?? it.sellingPrice; // ราคา override (DD) ก่อน ราคา Stock
-      if (eff != null) {
-        g.minPrice = g.minPrice == null ? eff : Math.min(g.minPrice, eff);
-        g.maxPrice = g.maxPrice == null ? eff : Math.max(g.maxPrice, eff);
+      if (it.sellingPrice != null) {
+        g.minPrice = g.minPrice == null ? it.sellingPrice : Math.min(g.minPrice, it.sellingPrice);
+        g.maxPrice = g.maxPrice == null ? it.sellingPrice : Math.max(g.maxPrice, it.sellingPrice);
       }
     }
     return Array.from(map.values()).sort((a, b) => a.productName.localeCompare(b.productName));
-  }, [items, serialPrices]);
+  }, [items]);
 
   const filteredVariants = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -326,8 +314,6 @@ export default function StockInventory() {
                         onToggle={() => toggle(v.variantId)}
                         cfg={cfgMap[v.variantId]}
                         onEdit={() => { const c = cfgMap[v.variantId]; if (c) setEditing(c); }}
-                        serialPrices={serialPrices}
-                        onEditUnit={(u) => setEditingUnit(u)}
                       />
                     ))
                   )}
@@ -345,21 +331,12 @@ export default function StockInventory() {
           onSaved={() => { setEditing(null); fetchAll(); }}
         />
       )}
-
-      {editingUnit && (
-        <EditUnitModal
-          unit={editingUnit}
-          currentPrice={serialPrices[editingUnit.id] ?? editingUnit.sellingPrice}
-          onClose={() => setEditingUnit(null)}
-          onSaved={() => { setEditingUnit(null); fetchAll(); }}
-        />
-      )}
     </div>
   );
 }
 
 /* แถวรุ่นย่อย + แถวเครื่องรายตัว (กางออก) */
-function FragmentRows({ v, open, onToggle, cfg, onEdit, serialPrices, onEditUnit }: { v: VariantGroup; open: boolean; onToggle: () => void; cfg?: VariantConfig; onEdit: () => void; serialPrices: Record<string, number>; onEditUnit: (u: SerialItem) => void }) {
+function FragmentRows({ v, open, onToggle, cfg, onEdit }: { v: VariantGroup; open: boolean; onToggle: () => void; cfg?: VariantConfig; onEdit: () => void }) {
   return (
     <>
       <tr className="cursor-pointer hover:bg-bg-tinted" onClick={onToggle}>
@@ -400,15 +377,11 @@ function FragmentRows({ v, open, onToggle, cfg, onEdit, serialPrices, onEditUnit
                     <th className="py-2 pr-4 font-display">สภาพ</th>
                     <th className="py-2 pr-4 font-display">แบต</th>
                     <th className="py-2 pr-4 font-display text-right">ราคาขาย</th>
-                    <th className="py-2 pr-4 font-display">รับเข้า</th>
-                    <th className="py-2 font-display text-center">จัดการ</th>
+                    <th className="py-2 font-display">รับเข้า</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {v.units.map((u) => {
-                    const override = serialPrices[u.id];
-                    const eff = override ?? u.sellingPrice;
-                    return (
+                  {v.units.map((u) => (
                     <tr key={u.id} className="border-b border-border-subtle">
                       <td className="py-2 pr-4 font-mono text-xs text-text-heading">{u.serialNumber || u.imei || u.stockCode || "-"}</td>
                       <td className="py-2 pr-4">
@@ -419,23 +392,10 @@ function FragmentRows({ v, open, onToggle, cfg, onEdit, serialPrices, onEditUnit
                           <span className="inline-flex items-center gap-1"><BatteryMedium size={14} /> {u.batteryHealth}%</span>
                         ) : "-"}
                       </td>
-                      <td className="py-2 pr-4 text-right font-display tabular-nums text-yellow">
-                        {money(eff)}
-                        {override != null && <span className="ml-1 align-middle text-[9px] font-sans text-success-text">●ตั้งเอง</span>}
-                      </td>
-                      <td className="py-2 pr-4 text-text-muted">{formatDate(u.receivedAt)}</td>
-                      <td className="py-2 text-center">
-                        <button
-                          onClick={() => onEditUnit(u)}
-                          className="inline-flex items-center gap-1 border border-border-default px-2 py-1 text-xs font-semibold text-text-body hover:bg-bg-tinted"
-                          aria-label={`แก้ราคา/รูปเครื่อง ${u.serialNumber || u.imei || u.id}`}
-                        >
-                          <Pencil size={12} /> แก้ราคา/รูป
-                        </button>
-                      </td>
+                      <td className="py-2 pr-4 text-right font-display tabular-nums text-yellow">{money(u.sellingPrice)}</td>
+                      <td className="py-2 text-text-muted">{formatDate(u.receivedAt)}</td>
                     </tr>
-                    );
-                  })}
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -456,40 +416,60 @@ function extractUrl(data: unknown): string | null {
   return null;
 }
 
-/* Modal แก้ไข variant — ราคาขาย + รูป (บันทึกกลับไป Stock ผ่าน BFF) */
+/* Modal แก้ไขสินค้า (variant = 1 เครื่อง) — ราคา + หลายรูป บันทึกกลับ Stock ผ่าน BFF */
 function EditVariantModal({ cfg, onClose, onSaved }: { cfg: VariantConfig; onClose: () => void; onSaved: () => void }) {
   const [price, setPrice] = useState<string>(cfg.sellingPrice != null ? String(cfg.sellingPrice) : "");
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(cfg.imageUrl || null);
+  const initialImages = (cfg.imageUrls && cfg.imageUrls.length > 0)
+    ? cfg.imageUrls
+    : (cfg.imageUrl ? [cfg.imageUrl] : []);
+  const [images, setImages] = useState<string[]>(initialImages);
+  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const pickFile = (f: File | null) => {
-    setFile(f);
-    if (f) setPreview(URL.createObjectURL(f));
-    else setPreview(cfg.imageUrl || null);
+  const MAX = 10;
+
+  // อัปโหลดหลายรูปไป Stock /files → ได้ URL → ต่อท้าย (รูปแรก = ปก)
+  const addImages = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    if (images.length >= MAX) { toast.error(`เพิ่มได้สูงสุด ${MAX} รูป`); return; }
+    setUploading(true);
+    try {
+      const room = MAX - images.length;
+      for (const f of Array.from(files).slice(0, room)) {
+        const fd = new FormData();
+        fd.append("file", f);
+        const up = await api.post("/admin/stock/files", fd, { headers: { "Content-Type": "multipart/form-data" } });
+        const url = extractUrl(up.data);
+        if (url) setImages((prev) => [...prev, url]);
+        else toast.error("อัปโหลดรูปแล้วแต่อ่าน URL ไม่ได้");
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || "อัปโหลดรูปไม่สำเร็จ");
+    } finally {
+      setUploading(false);
+    }
   };
+
+  const removeImage = (idx: number) => setImages((prev) => prev.filter((_, i) => i !== idx));
+  const makeCover = (idx: number) => setImages((prev) => {
+    const next = [...prev];
+    const [picked] = next.splice(idx, 1);
+    return [picked, ...next];
+  });
 
   const save = async () => {
     const priceNum = Number(price);
     if (!price || isNaN(priceNum) || priceNum < 0) { toast.error("กรอกราคาขายให้ถูกต้อง"); return; }
     setSaving(true);
     try {
-      let imageUrl = cfg.imageUrl;
-      if (file) {
-        const fd = new FormData();
-        fd.append("file", file);
-        const up = await api.post("/admin/stock/files", fd, { headers: { "Content-Type": "multipart/form-data" } });
-        const url = extractUrl(up.data);
-        if (!url) { toast.error("อัปโหลดรูปแล้วแต่อ่าน URL ไม่ได้"); setSaving(false); return; }
-        imageUrl = url;
-      }
-      // ส่ง UpdateVariantRequest ครบฟิลด์ (merge ของเดิม + ราคา/รูปใหม่) กันค่าอื่นถูกล้าง
+      // ส่ง UpdateVariantRequest ครบฟิลด์ (merge เดิม + ราคา + รูปหลายรูป) กันค่าอื่นถูกล้าง
       const body = {
         active: cfg.active ?? true,
         barcode: cfg.barcode,
         color: cfg.color,
         costPrice: cfg.costPrice,
-        imageUrl,
+        imageUrl: images[0] ?? null,   // รูปปก = รูปแรก
+        imageUrls: images,             // หลายรูป (single source ที่ Stock)
         network: cfg.network,
         reorderPoint: cfg.reorderPoint,
         sellingPrice: priceNum,
@@ -519,164 +499,44 @@ function EditVariantModal({ cfg, onClose, onSaved }: { cfg: VariantConfig; onClo
           </div>
 
           <div>
-            <label htmlFor="ev-price" className="mb-1 block text-xs font-semibold uppercase tracking-wider text-text-muted">ราคาตั้งต้นทั้งรุ่น (บาท)</label>
-            <input id="ev-price" type="number" min={0} value={price} onChange={(e) => setPrice(e.target.value)} className="input-dd" placeholder="เช่น 35900" />
-            <p className="mt-1 text-[10px] text-text-muted">ราคาตั้งต้นของรุ่นนี้ (บันทึกเข้า Stock) — มือถือควรตั้ง<strong>รายเครื่อง</strong>ในแถวด้านล่างแทน</p>
+            <label htmlFor="ev-price" className="mb-1 block text-xs font-semibold uppercase tracking-wider text-text-muted">ราคาขาย (บาท)</label>
+            <input id="ev-price" type="number" min={0} value={price} onChange={(e) => setPrice(e.target.value)} className="input-dd" placeholder="เช่น 18900" />
+            <p className="mt-1 text-[10px] text-text-muted">ราคาขายของเครื่องนี้ (บันทึกเข้า Stock — ไหลเข้าบิลตอนขายจริง)</p>
           </div>
 
           <div>
-            <span className="mb-1 block text-xs font-semibold uppercase tracking-wider text-text-muted">รูปหลัก (Stock)</span>
-            <div className="flex items-center gap-3">
-              <div className="flex h-20 w-20 items-center justify-center overflow-hidden border border-border-default bg-bg-subtle">
-                {preview ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={preview} alt="ตัวอย่างรูปหลัก" className="h-full w-full object-cover" />
-                ) : (
-                  <ImageOff size={22} className="text-text-muted" />
-                )}
-              </div>
-              <label className="btn-ghost cursor-pointer">
-                <UploadCloud size={16} /> เลือกรูปหลัก
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => pickFile(e.target.files?.[0] || null)} />
-              </label>
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">รูปสินค้า (หลายรูป)</span>
+              {uploading && <Loader2 size={14} className="animate-spin text-text-muted" />}
             </div>
-            <p className="mt-1 text-[10px] text-text-muted">รูปปกที่บันทึกกลับไปยังระบบ Stock (บันทึกเมื่อกด “บันทึก”)</p>
+            {images.length === 0 ? (
+              <div className="mb-2 flex h-16 items-center gap-2 text-text-muted"><ImageOff size={18} /> <span className="text-xs">ยังไม่มีรูป</span></div>
+            ) : (
+              <div className="mb-2 flex flex-wrap gap-2">
+                {images.map((src, i) => (
+                  <div key={src + i} className={`relative h-16 w-16 overflow-hidden border bg-bg-subtle ${i === 0 ? "border-yellow ring-1 ring-yellow" : "border-border-default"}`}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={src} alt={`รูป ${i + 1}`} className="h-full w-full object-cover" />
+                    {i === 0 && <span className="absolute bottom-0 left-0 bg-yellow px-1 text-[8px] font-bold text-black">ปก</span>}
+                    {i !== 0 && (
+                      <button onClick={() => makeCover(i)} className="absolute bottom-0 left-0 bg-black/60 px-1 text-[8px] text-white hover:bg-black" aria-label="ตั้งเป็นรูปปก">ตั้งปก</button>
+                    )}
+                    <button onClick={() => removeImage(i)} className="absolute right-0 top-0 bg-black/60 p-0.5 text-white hover:bg-error-text" aria-label="ลบรูปนี้"><X size={12} /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <label className={`btn-ghost cursor-pointer ${uploading || images.length >= MAX ? "pointer-events-none opacity-50" : ""}`}>
+              <UploadCloud size={16} /> เพิ่มรูป
+              <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => addImages(e.target.files)} />
+            </label>
+            <p className="mt-1 text-[10px] text-text-muted">เพิ่มได้หลายรูป (สูงสุด {MAX}) — รูปแรก = รูปปก · บันทึกเมื่อกด “บันทึก”</p>
           </div>
-
-          {/* รูปเสริมหลายรูป (per variant) — สำหรับอุปกรณ์เสริม */}
-          <GalleryEditor refId={cfg.id} note="รูปเสริมต่อรุ่น (เหมาะกับอุปกรณ์เสริม) — มือถือใช้รูปรายเครื่อง" />
         </div>
         <div className="flex justify-end gap-2 border-t border-border-default p-4">
           <button onClick={onClose} className="btn-ghost" disabled={saving}>ยกเลิก</button>
-          <button onClick={save} disabled={saving} className="btn-primary">
+          <button onClick={save} disabled={saving || uploading} className="btn-primary">
             {saving ? <><Loader2 size={16} className="animate-spin" /> กำลังบันทึก</> : "บันทึก"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* จัดการรูปเสริม (หลายรูป) ของ refId — ใช้ซ้ำทั้งรายรุ่น (variant) และรายเครื่อง (serial) */
-function GalleryEditor({ refId, note }: { refId: string; note?: string }) {
-  const [gallery, setGallery] = useState<MediaItem[]>([]);
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    let alive = true;
-    api.get(`/admin/media/${refId}`)
-      .then((r) => { if (alive) setGallery(toArray<MediaItem>(r.data)); })
-      .catch(() => { /* ไม่มี/พัง → ปล่อยว่าง */ });
-    return () => { alive = false; };
-  }, [refId]);
-
-  const add = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    setBusy(true);
-    try {
-      for (const f of Array.from(files)) {
-        const fd = new FormData();
-        fd.append("file", f);
-        const r = await api.post(`/admin/media/${refId}`, fd, { headers: { "Content-Type": "multipart/form-data" } });
-        setGallery((prev) => [...prev, r.data as MediaItem]);
-      }
-      toast.success("เพิ่มรูปแล้ว");
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || "เพิ่มรูปไม่สำเร็จ");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const remove = async (mediaId: number) => {
-    setBusy(true);
-    try {
-      await api.delete(`/admin/media/${refId}/${mediaId}`);
-      setGallery((prev) => prev.filter((g) => g.id !== mediaId));
-    } catch {
-      toast.error("ลบรูปไม่สำเร็จ");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div>
-      <div className="mb-1 flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wider text-text-muted">รูปเสริม (หลายรูป)</span>
-        {busy && <Loader2 size={14} className="animate-spin text-text-muted" />}
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {gallery.map((g) => (
-          <div key={g.id} className="relative h-16 w-16 overflow-hidden border border-border-default bg-bg-subtle">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={g.imageUrl} alt="รูปเสริม" className="h-full w-full object-cover" />
-            <button onClick={() => remove(g.id)} disabled={busy} className="absolute right-0 top-0 bg-black/60 p-0.5 text-white hover:bg-error-text" aria-label="ลบรูปนี้">
-              <X size={12} />
-            </button>
-          </div>
-        ))}
-        <label className={`flex h-16 w-16 cursor-pointer flex-col items-center justify-center border border-dashed border-border-default text-text-muted hover:bg-bg-tinted ${busy ? "pointer-events-none opacity-50" : ""}`}>
-          <UploadCloud size={18} />
-          <span className="text-[9px]">เพิ่มรูป</span>
-          <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => add(e.target.files)} />
-        </label>
-      </div>
-      <p className="mt-1 text-[10px] text-text-muted">{note || "เพิ่มได้หลายรูป (สูงสุด 10) — แสดงเป็นแกลเลอรีบนหน้าสินค้า · บันทึกทันที"}</p>
-    </div>
-  );
-}
-
-/* Modal แก้ไข "รายเครื่อง" (serial) — ราคา override (DD) + รูปต่อเครื่อง */
-function EditUnitModal({ unit, currentPrice, onClose, onSaved }: { unit: SerialItem; currentPrice: number | null; onClose: () => void; onSaved: () => void }) {
-  const [price, setPrice] = useState<string>(currentPrice != null ? String(currentPrice) : "");
-  const [saving, setSaving] = useState(false);
-
-  const savePrice = async () => {
-    const n = Number(price);
-    if (!price || isNaN(n) || n < 0) { toast.error("กรอกราคาให้ถูกต้อง"); return; }
-    setSaving(true);
-    try {
-      await api.put(`/admin/serials/${unit.id}/price`, { sellingPrice: n });
-      toast.success("บันทึกราคาเครื่องนี้แล้ว — หน้าเว็บอัปเดตทันที");
-      onSaved();
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || "บันทึกราคาไม่สำเร็จ");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div className="w-full max-w-md border border-border-default bg-bg-surface" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-border-default p-4">
-          <h3 className="font-display text-lg">แก้ไขเครื่องนี้ (รายเครื่อง)</h3>
-          <button onClick={onClose} className="text-text-muted hover:text-text-heading" aria-label="ปิด"><X size={20} /></button>
-        </div>
-        <div className="space-y-4 p-4">
-          <div>
-            <p className="font-semibold text-text-heading">{unit.productName}</p>
-            <p className="font-mono text-xs text-text-muted">{unit.serialNumber || unit.imei || unit.stockCode || unit.id}</p>
-            <p className="mt-0.5 text-xs text-text-muted">
-              <span className={`badge-dd ${unit.condition === "NEW" ? "badge-success" : "badge-info"}`}>{conditionLabel(unit.condition)}</span>
-              {unit.batteryHealth != null && <span className="ml-2">แบต {unit.batteryHealth}%</span>}
-            </p>
-          </div>
-
-          <div>
-            <label htmlFor="eu-price" className="mb-1 block text-xs font-semibold uppercase tracking-wider text-text-muted">ราคาขายเครื่องนี้ (บาท)</label>
-            <input id="eu-price" type="number" min={0} value={price} onChange={(e) => setPrice(e.target.value)} className="input-dd" placeholder="เช่น 18900" />
-            <p className="mt-1 text-[10px] text-text-muted">ราคาเฉพาะเครื่องนี้ — ไหลเข้าบิลตอนขายจริง · กดบันทึกเพื่อยืนยัน</p>
-          </div>
-
-          {/* รูปต่อเครื่อง (per serial) */}
-          <GalleryEditor refId={unit.id} note="รูปจริงของเครื่องนี้ (หลายรูป) — แสดงบนหน้าสินค้า · บันทึกทันที" />
-        </div>
-        <div className="flex justify-end gap-2 border-t border-border-default p-4">
-          <button onClick={onClose} className="btn-ghost" disabled={saving}>ปิด</button>
-          <button onClick={savePrice} disabled={saving} className="btn-primary">
-            {saving ? <><Loader2 size={16} className="animate-spin" /> กำลังบันทึก</> : "บันทึกราคา"}
           </button>
         </div>
       </div>

@@ -8,9 +8,19 @@ import toast from "react-hot-toast";
 import { ProductGridSkeleton } from "@/components/Skeletons";
 import { useCart } from "@/context/CartContext";
 
+interface VariantOption {
+  variantId: string;
+  color: string | null;
+  storage: string | null;
+  price: number | null;
+  quantity: number;
+  imageUrl: string | null;
+  gallery: string[] | null;
+}
+
 interface CatalogItem {
   id: string;
-  type: "UNIT" | "GROUP";
+  type: "MODEL" | "UNIT" | "GROUP";
   variantId: string;
   productName: string;
   brand: string;
@@ -28,6 +38,7 @@ interface CatalogItem {
   avgBatteryHealth: number | null;
   imei: string | null;
   warrantyExpire: string | null;
+  options: VariantOption[] | null;
   score: number;
 }
 
@@ -129,7 +140,7 @@ export default function ProductsPage() {
   const quickAdd = (e: React.MouseEvent, it: CatalogItem) => {
     e.preventDefault(); e.stopPropagation();
     const r = add({
-      catalogId: it.id, type: it.type, productName: it.productName, variantId: it.variantId,
+      catalogId: it.id, type: it.type as "UNIT" | "GROUP", productName: it.productName, variantId: it.variantId,
       condition: it.condition, conditionLabel: it.conditionLabel, sku: it.sku,
       color: it.color, storage: it.storage, imageUrl: it.imageUrl,
       unitPrice: it.minPrice ?? 0, maxStock: it.type === "UNIT" ? 1 : it.quantity,
@@ -260,20 +271,24 @@ export default function ProductsPage() {
                     <div className="flex flex-1 flex-col p-4">
                       <h3 className="line-clamp-2 text-sm font-semibold text-text-heading group-hover:text-yellow-hover">{it.productName}</h3>
                       <p className="mt-1 line-clamp-1 text-xs text-text-muted">
-                        {[it.color, it.storage].filter(Boolean).join(" · ") || it.category}
+                        {it.type === "MODEL"
+                          ? `${it.options?.length ?? 0} ตัวเลือก (สี/ความจุ)`
+                          : [it.color, it.storage].filter(Boolean).join(" · ") || it.category}
                         {it.avgBatteryHealth != null && <span className="ml-1 inline-flex items-center gap-0.5"><BatteryMedium size={11} /> {it.avgBatteryHealth}%</span>}
                       </p>
                       <div className="mt-auto pt-3">
                         <p className="text-xs text-text-muted">ราคา</p>
                         <div className="mb-2 flex items-center justify-between gap-2">
                           <p className={`font-bold text-price ${it.minPrice == null ? "text-sm" : "text-lg"}`}>
-                            {priceText(it.minPrice)}{it.type === "GROUP" && it.maxPrice != null && it.maxPrice !== it.minPrice ? ` - ${Number(it.maxPrice).toLocaleString()}` : ""}
+                            {priceText(it.minPrice)}{(it.type === "GROUP" || it.type === "MODEL") && it.maxPrice != null && it.maxPrice !== it.minPrice ? ` - ${Number(it.maxPrice).toLocaleString()}` : ""}
                           </p>
-                          {it.minPrice != null && it.quantity > 0 && (
+                          {it.type === "MODEL" ? (
+                            <span className="flex h-8 flex-shrink-0 items-center rounded-full bg-bg-tinted px-3 text-[11px] font-semibold text-text-body">เลือกแบบ →</span>
+                          ) : it.minPrice != null && it.quantity > 0 ? (
                             <button onClick={(e) => quickAdd(e, it)} aria-label="เพิ่มลงตะกร้า" className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-yellow text-[#1a1a1a] transition-transform hover:scale-110">
                               <ShoppingCart size={15} />
                             </button>
-                          )}
+                          ) : null}
                         </div>
                         {it.quantity > 0 ? (
                           <span className="badge-dd badge-success">
