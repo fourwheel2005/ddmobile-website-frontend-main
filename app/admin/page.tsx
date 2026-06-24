@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import api from "@/lib/api";
 import { getApiError } from "@/lib/errorMessage";
 import { AnimatePresence, motion } from "framer-motion";
@@ -45,6 +45,8 @@ interface WebOrder {
   installmentMonths: number | null; downPayment: number | null; monthlyPayment: number | null;
   stockOrderId: string | null;
   shippingPartner: string | null; trackingNumber: string | null;
+  confirmedAt: string | null; preparingAt: string | null; shippedAt: string | null;
+  deliveredAt: string | null; completedAt: string | null;
 }
 
 interface StockSummary { totalAvailable: number; newAvailable: number; secondHandAvailable: number; }
@@ -197,6 +199,20 @@ export default function AdminDashboard() {
 
   // ภาพรวมขับเคลื่อนด้วย Stock real-time (จาก /admin/stock/summary) + คำสั่งซื้อรอดำเนินการ
   const pendingOrders = webOrders.filter(o => ["RESERVED", "PENDING_REVIEW", "PENDING_PICKUP"].includes(o.status)).length;
+
+  // คิวงาน: เรียง "ต้องดำเนินการ + เกินกำหนด" ขึ้นก่อน + นับสรุป
+  const orderedWeb = useMemo(() => {
+    return [...webOrders].sort((a, b) => {
+      const ra = slaInfo(a)?.ratio ?? -1;
+      const rb = slaInfo(b)?.ratio ?? -1;
+      return rb - ra;
+    });
+  }, [webOrders]);
+  const slaCounts = useMemo(() => {
+    let action = 0, overdue = 0;
+    webOrders.forEach(o => { const s = slaInfo(o); if (s) { action++; if (s.level === "red") overdue++; } });
+    return { action, overdue };
+  }, [webOrders]);
 
   const statsUI = [
     { title: "พร้อมขายทั้งหมด", value: stockSummary?.totalAvailable ?? 0, growth: "เครื่อง", icon: Warehouse, color: "text-yellow" },
@@ -407,7 +423,11 @@ export default function AdminDashboard() {
                 <div className="border border-border-default">
                   <div className="flex items-center justify-between border-b border-border-default bg-bg-surface p-4">
                     <h2 className="flex items-center gap-2 font-display text-xl"><ShoppingBag className="text-yellow" size={20} /> คำสั่งซื้อจากหน้าเว็บ</h2>
-                    <span className="badge-dd badge-warning">{webOrders.length} รายการ</span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {slaCounts.action > 0 && <span className="badge-dd badge-info">ต้องดำเนินการ {slaCounts.action}</span>}
+                      {slaCounts.overdue > 0 && <span className="badge-dd badge-error">⏱ เกินกำหนด {slaCounts.overdue}</span>}
+                      <span className="badge-dd badge-warning">{webOrders.length} รายการ</span>
+                    </div>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="table-dd">
@@ -418,9 +438,10 @@ export default function AdminDashboard() {
                         {webOrders.length === 0 ? (
                           <tr><td colSpan={7} className="p-8 text-center font-display uppercase tracking-widest text-text-muted">ยังไม่มีคำสั่งซื้อจากเว็บ</td></tr>
                         ) : (
-                          webOrders.map((o) => {
+                          orderedWeb.map((o) => {
                             const st = ORDER_LABEL[o.status] || ORDER_LABEL.RESERVED;
                             const active = o.status !== "CONFIRMED" && o.status !== "REJECTED";
+                            const sla = slaInfo(o);
                             return (
                               <tr key={o.id}>
                                 <td>
@@ -446,6 +467,12 @@ export default function AdminDashboard() {
                                   {o.slipFileId && o.slipVerified != null && (
                                     <span className={`mt-1 block text-[10px] font-medium ${o.slipVerified ? "text-success-text" : "text-error-text"}`}>
                                       {o.slipVerified ? "✓ สลิปยอดตรง" : "⚠ ยอดไม่ตรง/ซ้ำ"}
+                                    </span>
+                                  )}
+                                  {sla && (
+                                    <span className={`mt-1 flex items-center gap-1 text-[10px] font-semibold ${sla.level === "red" ? "text-error-text" : sla.level === "yellow" ? "text-yellow-hover" : "text-success-text"}`}>
+                                      <span className={`inline-block h-1.5 w-1.5 rounded-full ${sla.level === "red" ? "bg-error-text" : sla.level === "yellow" ? "bg-yellow" : "bg-success-text"}`} />
+                                      {sla.level === "red" ? `เกินกำหนด ${Math.floor(sla.hours)} ชม.` : `รอ ${Math.floor(sla.hours)} ชม.`}
                                     </span>
                                   )}
                                 </td>
@@ -566,6 +593,39 @@ const ORDER_LABEL: Record<string, { t: string; c: string }> = {
   COMPLETED: { t: "เสร็จสมบูรณ์", c: "badge-success" },
   REJECTED: { t: "ปฏิเสธแล้ว", c: "badge-error" },
 };
+
+// ============ คิวงาน SLA (กันออเดอร์ตกหล่น) ============
+// SLA ต่อสถานะ (ชั่วโมง) เฉพาะขั้นที่ "พนักงานต้องลงมือ"
+const SLA_HOURS: Record<string, number> = {
+  PENDING_REVIEW: 2,   // ตรวจสลิป
+  CONFIRMED: 24,       // เริ่มเตรียมของ
+  PREPARING: 24,       // จัดส่ง
+  READY_PICKUP: 72,    // รอลูกค้ามารับ
+};
+
+// เวลาเข้าสถานะปัจจุบัน (ใช้คิดว่ารอมานานแค่ไหน)
+function statusSince(o: { status: string; createdAt: string; confirmedAt: string | null; preparingAt: string | null; shippedAt: string | null }): string | null {
+  switch (o.status) {
+    case "PENDING_REVIEW": return o.createdAt;
+    case "CONFIRMED": return o.confirmedAt ?? o.createdAt;
+    case "PREPARING": return o.preparingAt ?? o.confirmedAt ?? o.createdAt;
+    case "READY_PICKUP": return o.shippedAt ?? o.createdAt;
+    default: return null;
+  }
+}
+
+interface Sla { hours: number; ratio: number; level: "green" | "yellow" | "red" }
+function slaInfo(o: WebOrder): Sla | null {
+  const target = SLA_HOURS[o.status];
+  if (!target) return null;
+  const since = statusSince(o);
+  if (!since) return null;
+  const t = new Date(since).getTime();
+  if (isNaN(t)) return null;
+  const hours = Math.max(0, (Date.now() - t) / 3_600_000);
+  const ratio = hours / target;
+  return { hours, ratio, level: ratio > 1 ? "red" : ratio > 0.5 ? "yellow" : "green" };
+}
 
 // สถานะปัจจุบัน → action ถัดไป (ตาม state machine ฝั่ง backend)
 function nextFulfillAction(o: { status: string; shippingAddress: string | null }): { status: string; label: string; needTracking?: boolean } | null {
