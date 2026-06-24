@@ -44,6 +44,7 @@ interface WebOrder {
   items: WebOrderItem[]; slipFileId: string | null; slipVerified: boolean | null;
   installmentMonths: number | null; downPayment: number | null; monthlyPayment: number | null;
   stockOrderId: string | null;
+  shippingPartner: string | null; trackingNumber: string | null;
 }
 
 interface StockSummary { totalAvailable: number; newAvailable: number; secondHandAvailable: number; }
@@ -62,6 +63,9 @@ export default function AdminDashboard() {
   const [webOrders, setWebOrders] = useState<WebOrder[]>([]);
   const [slipModal, setSlipModal] = useState<{ url: string } | null>(null);
   const [busyOrderId, setBusyOrderId] = useState<number | null>(null);
+  const [shipModal, setShipModal] = useState<{ id: number } | null>(null);
+  const [shipPartner, setShipPartner] = useState("");
+  const [shipTracking, setShipTracking] = useState("");
 
   // Stock real-time (ผ่าน DD BFF — ไม่ต้อง login stock แยก)
   const [stockSummary, setStockSummary] = useState<StockSummary | null>(null);
@@ -154,6 +158,21 @@ export default function AdminDashboard() {
       toast.success("ปฏิเสธคำสั่งซื้อแล้ว");
     } catch (error: any) {
       toast.error(getApiError(error, "ทำรายการไม่สำเร็จ"));
+    } finally {
+      setBusyOrderId(null);
+    }
+  };
+
+  // เลื่อนสถานะจัดส่ง (PREPARING/SHIPPED/DELIVERED/READY_PICKUP/PICKED_UP/COMPLETED)
+  const fulfill = async (id: number, status: string, shippingPartner?: string, trackingNumber?: string) => {
+    setBusyOrderId(id);
+    try {
+      const res = await api.post(`/admin/orders/${id}/fulfillment`, { status, shippingPartner, trackingNumber });
+      setWebOrders(prev => prev.map(o => o.id === id ? res.data : o));
+      toast.success("อัปเดตสถานะแล้ว");
+      setShipModal(null); setShipPartner(""); setShipTracking("");
+    } catch (error: any) {
+      toast.error(getApiError(error, "อัปเดตสถานะไม่สำเร็จ"));
     } finally {
       setBusyOrderId(null);
     }
@@ -441,6 +460,18 @@ export default function AdminDashboard() {
                                         <button onClick={() => rejectWebOrder(o.id)} disabled={busyOrderId === o.id} aria-label="ปฏิเสธ" className="border border-error-border bg-error-bg p-1.5 text-error-text transition-colors hover:bg-error-text hover:text-black disabled:opacity-30"><X size={15} /></button>
                                       </>
                                     )}
+                                    {(() => {
+                                      const na = nextFulfillAction(o);
+                                      return na ? (
+                                        <button
+                                          onClick={() => na.needTracking ? setShipModal({ id: o.id }) : fulfill(o.id, na.status)}
+                                          disabled={busyOrderId === o.id}
+                                          className="whitespace-nowrap border border-info-border bg-info-bg px-2 py-1.5 text-xs font-semibold text-info-text transition-colors hover:bg-info-text hover:text-white disabled:opacity-30"
+                                        >
+                                          {busyOrderId === o.id ? <Loader2 size={13} className="animate-spin" /> : na.label} →
+                                        </button>
+                                      ) : null;
+                                    })()}
                                   </div>
                                 </td>
                               </tr>
@@ -475,6 +506,39 @@ export default function AdminDashboard() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* MODAL: จัดส่ง — กรอกขนส่ง + เลขพัสดุ */}
+      <AnimatePresence>
+        {shipModal && (
+          <div className="modal-backdrop" onClick={() => setShipModal(null)}>
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }} className="modal-dd" onClick={(e) => e.stopPropagation()}>
+              <button onClick={() => setShipModal(null)} className="modal-close"><X size={20} /></button>
+              <h2 className="card-title flex items-center gap-2"><Truck size={20} className="text-info-text" /> จัดส่งออเดอร์ #{shipModal.id}</h2>
+              <div className="mt-4 space-y-3">
+                <div>
+                  <label htmlFor="ship-partner" className="mb-1 block text-xs font-semibold uppercase tracking-wider text-text-muted">ขนส่ง</label>
+                  <input id="ship-partner" list="ship-partners" value={shipPartner} onChange={(e) => setShipPartner(e.target.value)} className="input-dd" placeholder="Flash / Kerry / J&T / ไปรษณีย์" />
+                  <datalist id="ship-partners"><option value="Flash" /><option value="Kerry" /><option value="J&T" /><option value="ไปรษณีย์ไทย" /></datalist>
+                </div>
+                <div>
+                  <label htmlFor="ship-track" className="mb-1 block text-xs font-semibold uppercase tracking-wider text-text-muted">เลขพัสดุ *</label>
+                  <input id="ship-track" value={shipTracking} onChange={(e) => setShipTracking(e.target.value)} className="input-dd font-mono" placeholder="เช่น TH01234567890" />
+                </div>
+              </div>
+              <div className="mt-5 flex justify-end gap-2">
+                <button onClick={() => setShipModal(null)} className="btn-ghost">ยกเลิก</button>
+                <button
+                  onClick={() => { if (!shipTracking.trim()) { toast.error("กรุณากรอกเลขพัสดุ"); return; } fulfill(shipModal.id, "SHIPPED", shipPartner.trim(), shipTracking.trim()); }}
+                  disabled={busyOrderId === shipModal.id}
+                  className="btn-primary"
+                >
+                  {busyOrderId === shipModal.id ? <><Loader2 size={16} className="animate-spin" /> กำลังบันทึก</> : "ยืนยันจัดส่ง"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -494,5 +558,23 @@ const ORDER_LABEL: Record<string, { t: string; c: string }> = {
   PENDING_REVIEW: { t: "รอตรวจสลิป", c: "badge-info" },
   PENDING_PICKUP: { t: "รอรับที่ร้าน", c: "badge-info" },
   CONFIRMED: { t: "ยืนยันแล้ว", c: "badge-success" },
+  PREPARING: { t: "กำลังเตรียม", c: "badge-info" },
+  SHIPPED: { t: "กำลังจัดส่ง", c: "badge-info" },
+  DELIVERED: { t: "จัดส่งสำเร็จ", c: "badge-success" },
+  READY_PICKUP: { t: "พร้อมรับ", c: "badge-info" },
+  PICKED_UP: { t: "รับแล้ว", c: "badge-success" },
+  COMPLETED: { t: "เสร็จสมบูรณ์", c: "badge-success" },
   REJECTED: { t: "ปฏิเสธแล้ว", c: "badge-error" },
 };
+
+// สถานะปัจจุบัน → action ถัดไป (ตาม state machine ฝั่ง backend)
+function nextFulfillAction(o: { status: string; shippingAddress: string | null }): { status: string; label: string; needTracking?: boolean } | null {
+  switch (o.status) {
+    case "CONFIRMED": return { status: "PREPARING", label: "เริ่มเตรียม" };
+    case "PREPARING": return o.shippingAddress ? { status: "SHIPPED", label: "จัดส่ง", needTracking: true } : { status: "READY_PICKUP", label: "พร้อมรับ" };
+    case "SHIPPED": return { status: "DELIVERED", label: "ส่งถึงแล้ว" };
+    case "READY_PICKUP": return { status: "PICKED_UP", label: "รับแล้ว" };
+    case "DELIVERED": case "PICKED_UP": return { status: "COMPLETED", label: "ปิดงาน" };
+    default: return null;
+  }
+}

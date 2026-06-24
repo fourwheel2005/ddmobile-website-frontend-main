@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 import { statusOf } from "@/lib/orderStatus";
 import { getApiError } from "@/lib/errorMessage";
 import { compressImage } from "@/lib/imageCompress";
+import DeliveryTracker from "@/components/DeliveryTracker";
 import { QRCodeCanvas } from "qrcode.react";
 import {
   Loader2, Smartphone, ArrowLeft, UploadCloud, Banknote, Store, Truck,
@@ -22,7 +23,12 @@ interface Order {
   shippingAddress: string | null; note: string | null; subtotal: number; total: number;
   items: OItem[]; slipFileId: string | null; slipVerified: boolean | null; createdAt: string;
   installmentMonths: number | null; downPayment: number | null; monthlyPayment: number | null;
+  shippingPartner: string | null; trackingNumber: string | null;
+  confirmedAt: string | null; preparingAt: string | null; shippedAt: string | null;
+  deliveredAt: string | null; completedAt: string | null;
 }
+
+const FULFILLMENT = ["CONFIRMED", "PREPARING", "SHIPPED", "DELIVERED", "READY_PICKUP", "PICKED_UP", "COMPLETED"];
 
 const money = (v: number) => "฿" + Number(v).toLocaleString();
 const condLabel = (c: string) => (c === "NEW" ? "มือ 1" : "มือ 2");
@@ -115,6 +121,8 @@ export default function OrderDetailPage() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* ซ้าย: รายการ + ที่อยู่ */}
           <div className="space-y-6 lg:col-span-2">
+            {FULFILLMENT.includes(order.status) && <DeliveryTracker order={order} />}
+
             <div className="card-dd">
               <h2 className="mb-4 font-bold text-text-heading">รายการสินค้า</h2>
               <div className="space-y-3">
@@ -163,11 +171,11 @@ export default function OrderDetailPage() {
                   <div className="mt-1 flex justify-between"><span className="text-text-muted">ผ่อน/เดือน</span><span className="font-semibold text-text-heading">{money(order.monthlyPayment ?? 0)} × {order.installmentMonths} เดือน</span></div>
                 </div>
               )}
-              {order.status === "CONFIRMED" ? (
+              {FULFILLMENT.includes(order.status) ? (
                 <div className="rounded-xl border border-success-border bg-success-bg p-4 text-center">
                   <CheckCircle2 size={32} className="mx-auto mb-2 text-success-text" />
-                  <p className="font-semibold text-success-text">ยืนยันคำสั่งซื้อแล้ว</p>
-                  <p className="mt-1 text-xs text-text-muted">แอดมินกำลังจัดเตรียมสินค้าให้</p>
+                  <p className="font-semibold text-success-text">ชำระเงิน/ยืนยันแล้ว</p>
+                  <p className="mt-1 text-xs text-text-muted">ติดตามสถานะการจัดส่งได้ที่แผงด้านซ้าย</p>
                 </div>
               ) : order.status === "REJECTED" ? (
                 <div className="rounded-xl border border-error-border bg-error-bg p-4 text-center text-sm text-error-text">คำสั่งซื้อถูกปฏิเสธ — ติดต่อแอดมินทางไลน์</div>
