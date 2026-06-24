@@ -6,6 +6,7 @@ import api from "@/lib/api";
 import toast from "react-hot-toast";
 import { statusOf } from "@/lib/orderStatus";
 import { getApiError } from "@/lib/errorMessage";
+import { compressImage } from "@/lib/imageCompress";
 import { QRCodeCanvas } from "qrcode.react";
 import {
   Loader2, Smartphone, ArrowLeft, UploadCloud, Banknote, Store, Truck,
@@ -70,11 +71,12 @@ export default function OrderDetailPage() {
   const uploadSlip = async (file: File) => {
     setUploading(true);
     try {
+      const compressed = await compressImage(file);   // บีบก่อนอัป (รูปสลิปจากมือถือมักใหญ่)
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("file", compressed);
       const res = await api.post(`/orders/${id}/slip`, fd);
       setOrder(res.data);
-      setSlipPreview(URL.createObjectURL(file));
+      setSlipPreview(URL.createObjectURL(compressed));
       toast.success("แนบสลิปสำเร็จ รอแอดมินตรวจสอบ");
     } catch (err: any) {
       toast.error(getApiError(err, "แนบสลิปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"));
@@ -194,7 +196,7 @@ export default function OrderDetailPage() {
                     <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border-default bg-white p-5 text-center transition-colors hover:border-yellow">
                       {uploading ? <Loader2 size={26} className="mb-2 animate-spin text-yellow-hover" /> : <UploadCloud size={26} className="mb-2 text-text-muted" />}
                       <p className="text-sm font-medium text-text-body">{order.slipFileId ? "เปลี่ยนสลิป" : "แนบสลิปการโอน"}</p>
-                      <p className="text-xs text-text-muted">JPG / PNG ไม่เกิน 5MB</p>
+                      <p className="text-xs text-text-muted">JPG / PNG ไม่เกิน 25MB (ระบบย่อรูปอัตโนมัติ)</p>
                     </div>
                     <input type="file" accept="image/*" className="hidden" disabled={uploading}
                       onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadSlip(f); e.target.value = ""; }} />

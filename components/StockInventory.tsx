@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import CountUp from "@/components/CountUp";
+import { compressImage } from "@/lib/imageCompress";
 
 /* ---------- ชนิดข้อมูลตาม API จริงของระบบ stock ---------- */
 interface StockSummary {
@@ -436,8 +437,9 @@ function EditVariantModal({ cfg, onClose, onSaved }: { cfg: VariantConfig; onClo
     try {
       const room = MAX - images.length;
       for (const f of Array.from(files).slice(0, room)) {
+        const compressed = await compressImage(f);   // บีบก่อนอัป (กัน Stock bytea บวม)
         const fd = new FormData();
-        fd.append("file", f);
+        fd.append("file", compressed);
         const up = await api.post("/admin/stock/files", fd, { headers: { "Content-Type": "multipart/form-data" } });
         const url = extractUrl(up.data);
         if (url) setImages((prev) => [...prev, url]);
