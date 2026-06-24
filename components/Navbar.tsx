@@ -10,6 +10,7 @@ import {
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { useCart } from '@/context/CartContext';
+import NotificationBell from '@/components/NotificationBell';
 
 interface UserData {
   email: string;
@@ -86,6 +87,8 @@ export default function Navbar() {
                 <LayoutDashboard size={16} className="text-yellow-hover" /> หลังบ้าน
               </Link>
             )}
+
+            {userData && <NotificationBell />}
 
             <Link href="/cart" aria-label="ตะกร้าสินค้า" className="relative rounded-full p-2 text-text-muted transition-colors hover:bg-bg-subtle hover:text-text-heading">
               <ShoppingCart size={20} />
