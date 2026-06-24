@@ -74,7 +74,7 @@ export default function Home() {
           <h2 className="text-2xl font-bold text-text-heading md:text-3xl">3 ขั้นตอนง่ายๆ รับเครื่องทันที</h2>
           <p className="mt-2 text-text-muted">ผ่อนไอโฟนไม่ยุ่งยาก ทำตามนี้ได้เลย</p>
         </div>
-        <Reveal className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+        <Reveal className="reveal-stagger grid grid-cols-1 gap-5 sm:grid-cols-3">
           {steps.map((step, idx) => (
             <div key={idx} className="card-dd text-center">
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-yellow text-lg font-bold text-text-heading">
@@ -94,7 +94,7 @@ export default function Home() {
             <p className="section-label justify-center">ทำไมต้องดีดีโมบาย</p>
             <h2 className="text-2xl font-bold text-text-heading md:text-3xl">ร้านมือถือที่เข้าใจคุณมากที่สุด</h2>
           </div>
-          <Reveal className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+          <Reveal className="reveal-stagger grid grid-cols-1 gap-5 sm:grid-cols-3">
             {features.map((item, index) => (
               <div key={index} className="card-dd">
                 <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-yellow text-text-heading">
@@ -127,11 +127,11 @@ export default function Home() {
             ยังไม่มีสินค้าในระบบ
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <Reveal className="reveal-stagger grid grid-cols-2 gap-4 lg:grid-cols-4">
             {products.map((product) => (
               <ProductCard key={product.id} product={product} />
             ))}
-          </div>
+          </Reveal>
         )}
       </section>
 
