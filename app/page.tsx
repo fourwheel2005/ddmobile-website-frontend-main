@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Reveal from "@/components/Reveal";
+import HeroPhone from "@/components/HeroPhone";
 import PromoCarousel from "@/components/PromoCarousel";
 import { ProductGridSkeleton } from "@/components/Skeletons";
 
@@ -60,16 +61,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="relative flex items-center justify-center">
-            <div className="absolute h-64 w-64 rounded-full bg-yellow/20 blur-3xl md:h-80 md:w-80" aria-hidden="true" />
-            <img
-              src="/images/iphone-17-promax-orange.png"
-              alt="iPhone 17 Pro Max"
-              width={420}
-              height={520}
-              className="float-anim relative z-10 w-[70%] object-contain md:w-[82%]"
-            />
-          </div>
+          <HeroPhone />
         </div>
       </section>
 
