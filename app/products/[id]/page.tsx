@@ -8,6 +8,7 @@ import {
   MessageCircle, ArrowLeft, ChevronRight, Sparkles, RotateCcw, BatteryMedium, Hash, ShoppingCart, Zap
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import CountUp from "@/components/CountUp";
 import { useCart } from "@/context/CartContext";
 
@@ -48,6 +49,7 @@ export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { add } = useCart();
+  const reduceMotion = useReducedMotion();
   const [item, setItem] = useState<CatalogItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeImg, setActiveImg] = useState(0);
@@ -185,12 +187,25 @@ export default function ProductDetailPage() {
               <span className={`badge-dd absolute left-5 top-5 z-10 ${isNew ? "badge-success" : "badge-info"}`}>
                 {isNew ? <Sparkles size={12} /> : <RotateCcw size={12} />} {item.conditionLabel}
               </span>
-              {mainImg ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={mainImg} alt={item.productName} width={420} height={420} className="h-full w-full max-w-sm object-contain" />
-              ) : (
-                <Smartphone size={120} className="text-text-disabled" />
-              )}
+              <AnimatePresence mode="wait" initial={false}>
+                {mainImg ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <motion.img
+                    key={mainImg}
+                    src={mainImg}
+                    alt={item.productName}
+                    width={420}
+                    height={420}
+                    className="h-full w-full max-w-sm object-contain"
+                    initial={reduceMotion ? false : { opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 1.03 }}
+                    transition={{ duration: reduceMotion ? 0 : 0.28, ease: "easeOut" }}
+                  />
+                ) : (
+                  <Smartphone size={120} className="text-text-disabled" />
+                )}
+              </AnimatePresence>
             </div>
             {images.length > 1 && (
               <div className="mt-3 flex flex-wrap gap-2">
