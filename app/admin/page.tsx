@@ -190,18 +190,8 @@ export default function AdminDashboard() {
     }
   };
 
-  if (!isAuthorized) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-bg-base text-yellow">
-        <Loader2 size={48} className="animate-spin" />
-      </div>
-    );
-  }
-
-  // ภาพรวมขับเคลื่อนด้วย Stock real-time (จาก /admin/stock/summary) + คำสั่งซื้อรอดำเนินการ
-  const pendingOrders = webOrders.filter(o => ["RESERVED", "PENDING_REVIEW", "PENDING_PICKUP"].includes(o.status)).length;
-
   // คิวงาน: เรียง "ต้องดำเนินการ + เกินกำหนด" ขึ้นก่อน + นับสรุป
+  // หมายเหตุ: useMemo ต้องอยู่ "ก่อน" early return (!isAuthorized) เสมอ — กันลำดับ hooks เปลี่ยน (Rules of Hooks)
   const orderedWeb = useMemo(() => {
     return [...webOrders].sort((a, b) => {
       const ra = slaInfo(a)?.ratio ?? -1;
@@ -214,6 +204,17 @@ export default function AdminDashboard() {
     webOrders.forEach(o => { const s = slaInfo(o); if (s) { action++; if (s.level === "red") overdue++; } });
     return { action, overdue };
   }, [webOrders]);
+
+  if (!isAuthorized) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-bg-base text-yellow">
+        <Loader2 size={48} className="animate-spin" />
+      </div>
+    );
+  }
+
+  // ภาพรวมขับเคลื่อนด้วย Stock real-time (จาก /admin/stock/summary) + คำสั่งซื้อรอดำเนินการ
+  const pendingOrders = webOrders.filter(o => ["RESERVED", "PENDING_REVIEW", "PENDING_PICKUP"].includes(o.status)).length;
 
   const statsUI = [
     { title: "พร้อมขายทั้งหมด", value: stockSummary?.totalAvailable ?? 0, growth: "เครื่อง", icon: Warehouse, color: "text-yellow" },
