@@ -11,6 +11,7 @@ import toast from "react-hot-toast";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import CountUp from "@/components/CountUp";
 import { useCart } from "@/context/CartContext";
+import InstallmentBox, { InstallmentInfo } from "@/components/InstallmentBox";
 
 interface VariantOption {
   variantId: string;
@@ -55,6 +56,7 @@ export default function ProductDetailPage() {
   const [activeImg, setActiveImg] = useState(0);
   const [selColor, setSelColor] = useState<string | null>(null);
   const [selStorage, setSelStorage] = useState<string | null>(null);
+  const [installment, setInstallment] = useState<InstallmentInfo | null>(null);
 
   // มือ 1 (MODEL): ตั้งค่าตัวเลือกเริ่มต้น = option แรก
   useEffect(() => {
@@ -83,6 +85,31 @@ export default function ProductDetailPage() {
     };
     if (params.id) fetchItem();
   }, [params.id]);
+
+  // ดึงตารางผ่อน (overlay DD): MODEL → ตาม productId+ความจุ · UNIT(มือ2) → ราย เครื่อง
+  useEffect(() => {
+    if (!item) return;
+    let cancel = false;
+    const load = async () => {
+      try {
+        let res;
+        if (item.type === "UNIT") {
+          res = await api.get(`/installment/serial/${encodeURIComponent(item.id)}`);
+        } else if (item.type === "MODEL") {
+          res = await api.get(`/installment/model`, { params: { productId: item.id, storage: selStorage ?? "" } });
+        } else {
+          if (!cancel) setInstallment(null);
+          return;
+        }
+        const info = res.status === 204 ? null : (res.data as InstallmentInfo);
+        if (!cancel) setInstallment(info && (info.downPayment != null || (info.terms?.length ?? 0) > 0) ? info : null);
+      } catch {
+        if (!cancel) setInstallment(null);
+      }
+    };
+    load();
+    return () => { cancel = true; };
+  }, [item, selStorage]);
 
   if (isLoading) {
     return (
@@ -157,7 +184,7 @@ export default function ProductDetailPage() {
     if (r.ok || r.reason === "เครื่องนี้อยู่ในตะกร้าแล้ว") router.push("/checkout");
     else toast(r.reason || "เพิ่มไม่ได้", { icon: "🛒" });
   };
-  const installment = effPrice ? Math.ceil(effPrice / 10) : 0;
+  const roughMonthly = effPrice ? Math.ceil(effPrice / 10) : 0;
   const priceText = effPrice == null ? "สอบถามราคา" : "฿" + effPrice.toLocaleString();
   const warranty = item.warrantyExpire
     ? `ประกันถึง ${new Date(item.warrantyExpire).toLocaleDateString("th-TH")}`
@@ -256,10 +283,10 @@ export default function ProductDetailPage() {
                   </>
                 )}
               </div>
-              {effPrice != null && (
+              {effPrice != null && !installment && (
                 <div className="mt-4 flex items-center gap-3 border-t border-border-default pt-4 text-sm">
                   <span className="text-text-muted">ผ่อนเริ่มต้นเพียง</span>
-                  <span className="text-lg font-bold text-text-heading"><CountUp value={installment} prefix="฿" /> / เดือน</span>
+                  <span className="text-lg font-bold text-text-heading"><CountUp value={roughMonthly} prefix="฿" /> / เดือน</span>
                 </div>
               )}
             </div>
@@ -314,6 +341,22 @@ export default function ProductDetailPage() {
                   </div>
                 )}
               </div>
+            )}
+
+            {/* กล่องผ่อน + ดึงเข้า LINE (แสดงเมื่อแอดมินตั้งตารางผ่อนไว้) */}
+            {installment && (
+              <InstallmentBox
+                info={installment}
+                product={{
+                  productName: item.productName,
+                  sku: item.sku,
+                  serialOrImei: isUnit ? item.imei : null,
+                  color: effColor,
+                  storage: effStorage,
+                  conditionLabel: item.conditionLabel,
+                  price: effPrice,
+                }}
+              />
             )}
 
             <div className="mt-6 space-y-3">

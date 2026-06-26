@@ -13,6 +13,7 @@ import Link from "next/link";
 import toast from "react-hot-toast";
 import StockInventory from "@/components/StockInventory";
 import SalesLogs from "@/components/SalesLogs";
+import InstallmentManager from "@/components/InstallmentManager";
 import CountUp from "@/components/CountUp";
 
 interface InstallmentApp {
@@ -516,6 +517,9 @@ export default function AdminDashboard() {
 
               {/* บิลการขาย + ความเคลื่อนไหวสต็อก (Logs จาก Stock) */}
               {activeMenu === "บิล & สต็อก (Logs)" && <SalesLogs />}
+
+              {/* ตารางผ่อน (overlay DD เอง) */}
+              {activeMenu === "ตารางผ่อน" && <InstallmentManager />}
             </>
           )}
         </div>
@@ -575,6 +579,7 @@ const menuItems = [
   { name: "คลังสินค้า", icon: Warehouse },
   { name: "คำสั่งซื้อ (เว็บ)", icon: ShoppingBag },
   { name: "บิล & สต็อก (Logs)", icon: Receipt },
+  { name: "ตารางผ่อน", icon: CreditCard },
   { name: "คำขอผ่อนสินค้า", icon: ClipboardList },
   { name: "จัดการลูกค้า", icon: Users },
   { name: "ตั้งค่าระบบ", icon: Settings },
