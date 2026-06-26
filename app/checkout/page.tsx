@@ -6,33 +6,23 @@ import { getApiError } from "@/lib/errorMessage";
 import { useCart } from "@/context/CartContext";
 import toast from "react-hot-toast";
 import Link from "next/link";
-import { Banknote, Store, Smartphone, ArrowRight, ShoppingCart, CreditCard } from "lucide-react";
+import { Banknote, Smartphone, ArrowRight, ShoppingCart, MessageCircle } from "lucide-react";
 
 const money = (v: number) => "฿" + Number(v).toLocaleString();
-type Payment = "TRANSFER" | "PICKUP" | "INSTALLMENT";
 
-interface InstallmentOptions { months: number[]; downPercent: number; interestPercent: number; }
-
-// คิด preview ฝั่ง client (สูตรเดียวกับ server — ค่าจริง server คิดใหม่ตอนสร้างออเดอร์)
-const planPreview = (total: number, months: number, downPct: number, intPct: number) => {
-  const down = Math.round(total * downPct / 100);
-  const financed = total - down;
-  const monthly = Math.ceil((financed + financed * intPct / 100) / months);
-  return { down, monthly };
-};
-
+/**
+ * ชำระเงินซื้อขาด (โอน/PromptPay + แนบสลิป) เท่านั้น
+ * การผ่อน + นัดรับที่ร้าน ยกเลิกจากเว็บแล้ว — ลูกค้าที่ต้องการผ่อนให้ทักไลน์ (ปุ่มในหน้าสินค้า)
+ */
 export default function CheckoutPage() {
   const { items, total, clear } = useCart();
   const router = useRouter();
 
   const [name, setName] = useState("");
   const [tel, setTel] = useState("");
-  const [payment, setPayment] = useState<Payment>("TRANSFER");
   const [address, setAddress] = useState("");
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [instOpts, setInstOpts] = useState<InstallmentOptions | null>(null);
-  const [months, setMonths] = useState<number | null>(null);
 
   useEffect(() => {
     const u = localStorage.getItem("user");
@@ -40,31 +30,22 @@ export default function CheckoutPage() {
     try { const user = JSON.parse(u); if (user.name) setName(user.name); } catch { /* */ }
   }, [router]);
 
-  useEffect(() => {
-    api.get("/installment/options")
-      .then((res) => { setInstOpts(res.data); if (res.data?.months?.length) setMonths(res.data.months[0]); })
-      .catch(() => { /* ผ่อนไม่พร้อมก็ซ่อนตัวเลือก */ });
-  }, []);
-
-  const plan = (instOpts && months) ? planPreview(total, months, instOpts.downPercent, instOpts.interestPercent) : null;
-
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (items.length === 0) { toast.error("ตะกร้าว่างเปล่า"); return; }
     if (!name.trim() || !tel.trim()) { toast.error("กรอกชื่อและเบอร์โทรผู้รับ"); return; }
-    if (payment !== "PICKUP" && !address.trim()) { toast.error("กรอกที่อยู่จัดส่ง"); return; }
-    if (payment === "INSTALLMENT" && !months) { toast.error("เลือกจำนวนงวดผ่อน"); return; }
+    if (!address.trim()) { toast.error("กรอกที่อยู่จัดส่ง"); return; }
 
     setSubmitting(true);
     try {
       const res = await api.post("/orders", {
         items: items.map((i) => ({ catalogId: i.catalogId, quantity: i.quantity })),
-        paymentMethod: payment,
+        paymentMethod: "TRANSFER",
         customerName: name.trim(),
         customerTel: tel.trim(),
-        shippingAddress: payment !== "PICKUP" ? address.trim() : null,
+        shippingAddress: address.trim(),
         note: note.trim() || null,
-        installmentMonths: payment === "INSTALLMENT" ? months : null,
+        installmentMonths: null,
       });
       clear();
       toast.success("สร้างคำสั่งซื้อสำเร็จ!");
@@ -113,71 +94,34 @@ export default function CheckoutPage() {
               </div>
             </div>
 
-            {/* วิธีรับสินค้า/ชำระเงิน */}
+            {/* การชำระเงิน + จัดส่ง */}
             <div className="card-dd">
               <h2 className="mb-4 font-bold text-text-heading">วิธีชำระเงิน</h2>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <button type="button" onClick={() => setPayment("TRANSFER")} className={`flex items-start gap-3 rounded-xl border p-4 text-left transition-colors ${payment === "TRANSFER" ? "border-yellow bg-yellow/10" : "border-border-default hover:border-yellow"}`}>
-                  <Banknote size={22} className="mt-0.5 text-yellow-hover" />
-                  <div>
-                    <p className="font-semibold text-text-heading">โอน / PromptPay</p>
-                    <p className="text-xs text-text-muted">โอนเต็มจำนวน แนบสลิป</p>
-                  </div>
-                </button>
-                {instOpts && instOpts.months.length > 0 && (
-                  <button type="button" onClick={() => setPayment("INSTALLMENT")} className={`flex items-start gap-3 rounded-xl border p-4 text-left transition-colors ${payment === "INSTALLMENT" ? "border-yellow bg-yellow/10" : "border-border-default hover:border-yellow"}`}>
-                    <CreditCard size={22} className="mt-0.5 text-yellow-hover" />
-                    <div>
-                      <p className="font-semibold text-text-heading">ผ่อนชำระ</p>
-                      <p className="text-xs text-text-muted">ดาวน์ {instOpts.downPercent}% ที่เหลือผ่อนเป็นงวด</p>
-                    </div>
-                  </button>
-                )}
-                <button type="button" onClick={() => setPayment("PICKUP")} className={`flex items-start gap-3 rounded-xl border p-4 text-left transition-colors ${payment === "PICKUP" ? "border-yellow bg-yellow/10" : "border-border-default hover:border-yellow"}`}>
-                  <Store size={22} className="mt-0.5 text-yellow-hover" />
-                  <div>
-                    <p className="font-semibold text-text-heading">นัดรับที่ร้าน</p>
-                    <p className="text-xs text-text-muted">จองไว้ จ่ายตอนรับเครื่อง</p>
-                  </div>
-                </button>
+
+              {/* ซื้อขาดอย่างเดียว — โอน/PromptPay */}
+              <div className="flex items-start gap-3 rounded-xl border border-yellow bg-yellow/10 p-4">
+                <Banknote size={22} className="mt-0.5 flex-shrink-0 text-yellow-hover" />
+                <div>
+                  <p className="font-semibold text-text-heading">โอน / PromptPay (ซื้อขาด)</p>
+                  <p className="text-xs text-text-muted">โอนเต็มจำนวน แล้วแนบสลิปในหน้าถัดไป · แอดมินตรวจสอบและจัดส่งให้</p>
+                </div>
               </div>
 
-              {/* เลือกงวดผ่อน + preview */}
-              {payment === "INSTALLMENT" && instOpts && (
-                <div className="mt-4 rounded-xl border border-border-default bg-bg-subtle p-4">
-                  <label className="label-dd">เลือกจำนวนงวด</label>
-                  <div className="flex flex-wrap gap-2">
-                    {instOpts.months.map((m) => (
-                      <button key={m} type="button" onClick={() => setMonths(m)} className={`rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${months === m ? "border-yellow bg-yellow text-text-heading" : "border-border-default bg-white text-text-body hover:border-yellow"}`}>
-                        {m} เดือน
-                      </button>
-                    ))}
-                  </div>
-                  {plan && (
-                    <div className="mt-4 grid grid-cols-2 gap-3 text-center">
-                      <div className="rounded-lg bg-white p-3">
-                        <p className="text-xs text-text-muted">เงินดาวน์ (จ่ายวันนี้)</p>
-                        <p className="text-lg font-bold text-price">{money(plan.down)}</p>
-                      </div>
-                      <div className="rounded-lg bg-white p-3">
-                        <p className="text-xs text-text-muted">ผ่อน/เดือน × {months}</p>
-                        <p className="text-lg font-bold text-text-heading">{money(plan.monthly)}</p>
-                      </div>
-                    </div>
-                  )}
-                  <p className="mt-2 text-xs text-text-muted">* ยอดสุทธิ server คำนวณอีกครั้งตอนยืนยัน · วันนี้ชำระเฉพาะเงินดาวน์</p>
-                </div>
-              )}
+              {/* อยากผ่อน → ทักไลน์ */}
+              <a href="https://lin.ee/rewiz9b" target="_blank" rel="noopener noreferrer"
+                className="mt-3 flex items-center gap-2 rounded-xl border border-dashed border-[#06C755]/50 bg-[#06C755]/5 px-4 py-3 text-sm text-text-body transition-colors hover:bg-[#06C755]/10">
+                <MessageCircle size={18} className="flex-shrink-0 text-[#06C755]" />
+                <span>อยาก<span className="font-semibold text-text-heading">ผ่อนเครื่องนี้</span>? ทักแอดมินทางไลน์เพื่อทำเรื่องผ่อน</span>
+                <ArrowRight size={16} className="ml-auto flex-shrink-0 text-[#06C755]" />
+              </a>
 
-              {payment !== "PICKUP" && (
-                <div className="mt-4">
-                  <label className="label-dd">ที่อยู่จัดส่ง *</label>
-                  <textarea value={address} onChange={(e) => setAddress(e.target.value)} rows={3} required className="input-dd resize-none" placeholder="บ้านเลขที่ / ถนน / ตำบล / อำเภอ / จังหวัด / รหัสไปรษณีย์" />
-                </div>
-              )}
+              <div className="mt-4">
+                <label className="label-dd">ที่อยู่จัดส่ง *</label>
+                <textarea value={address} onChange={(e) => setAddress(e.target.value)} rows={3} required className="input-dd resize-none" placeholder="บ้านเลขที่ / ถนน / ตำบล / อำเภอ / จังหวัด / รหัสไปรษณีย์" />
+              </div>
               <div className="mt-4">
                 <label className="label-dd">หมายเหตุ (ถ้ามี)</label>
-                <input value={note} onChange={(e) => setNote(e.target.value)} className="input-dd" placeholder="เช่น สีที่ต้องการ / เวลานัดรับ" />
+                <input value={note} onChange={(e) => setNote(e.target.value)} className="input-dd" placeholder="เช่น สีที่ต้องการ / เวลาจัดส่ง" />
               </div>
             </div>
           </div>
@@ -200,24 +144,10 @@ export default function CheckoutPage() {
                   </div>
                 ))}
               </div>
-              {payment === "INSTALLMENT" && plan ? (
-                <>
-                  <div className="mt-4 flex items-center justify-between text-sm">
-                    <span className="text-text-muted">ราคาสินค้ารวม</span>
-                    <span className="font-semibold text-text-heading">{money(total)}</span>
-                  </div>
-                  <div className="mt-2 flex items-center justify-between border-t border-border-default pt-3">
-                    <span className="font-bold text-text-heading">ชำระวันนี้ (ดาวน์)</span>
-                    <span className="text-xl font-bold text-price">{money(plan.down)}</span>
-                  </div>
-                  <p className="mt-1 text-right text-xs text-text-muted">แล้วผ่อน {money(plan.monthly)} × {months} เดือน</p>
-                </>
-              ) : (
-                <div className="mt-4 flex items-center justify-between border-t border-border-default pt-3">
-                  <span className="font-bold text-text-heading">รวมทั้งสิ้น</span>
-                  <span className="text-xl font-bold text-price">{money(total)}</span>
-                </div>
-              )}
+              <div className="mt-4 flex items-center justify-between border-t border-border-default pt-3">
+                <span className="font-bold text-text-heading">รวมทั้งสิ้น</span>
+                <span className="text-xl font-bold text-price">{money(total)}</span>
+              </div>
               <button type="submit" disabled={submitting} className="btn-primary mt-5 w-full py-3.5 text-base">
                 {submitting ? "กำลังสร้างคำสั่งซื้อ..." : <>ยืนยันคำสั่งซื้อ <ArrowRight size={18} /></>}
               </button>
