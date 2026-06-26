@@ -1,11 +1,13 @@
 "use client";
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import api from "@/lib/api";
 import {
   Smartphone, Loader2, ShieldCheck, CheckCircle2, XCircle,
-  MessageCircle, ArrowLeft, ChevronRight, Sparkles, RotateCcw, BatteryMedium, Hash, ShoppingCart, Zap
+  MessageCircle, ArrowLeft, ChevronRight, Sparkles, RotateCcw, BatteryMedium, Hash, ShoppingCart, Zap,
+  X, Banknote
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
@@ -57,6 +59,9 @@ export default function ProductDetailPage() {
   const [selColor, setSelColor] = useState<string | null>(null);
   const [selStorage, setSelStorage] = useState<string | null>(null);
   const [installment, setInstallment] = useState<InstallmentInfo | null>(null);
+  const [showChoice, setShowChoice] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   // มือ 1 (MODEL): ตั้งค่าตัวเลือกเริ่มต้น = option แรก
   useEffect(() => {
@@ -180,9 +185,32 @@ export default function ProductDetailPage() {
     else toast(r.reason || "เพิ่มไม่ได้", { icon: "🛒" });
   };
   const buyNow = () => {
+    setShowChoice(false);
     const r = add(toCartItem());
     if (r.ok || r.reason === "เครื่องนี้อยู่ในตะกร้าแล้ว") router.push("/checkout");
     else toast(r.reason || "เพิ่มไม่ได้", { icon: "🛒" });
+  };
+
+  // ผ่อน: คัดลอกข้อมูลเครื่อง (+แผนผ่อนถ้ามี) แล้วเปิด LINE OA ให้แอดมินทำเรื่องต่อ
+  const goLineInstallment = async () => {
+    const t = installment?.terms?.[0];
+    const lines = [
+      `สนใจผ่อน: ${item.productName}`,
+      effColor ? `สี: ${effColor}` : null,
+      effStorage ? `ความจุ: ${effStorage}` : null,
+      `สภาพ: ${item.conditionLabel}`,
+      isUnit && item.imei ? `รหัส: ${item.imei}` : `SKU: ${item.sku}`,
+      effPrice != null ? `ราคาเครื่อง: ฿${effPrice.toLocaleString()}` : null,
+      installment?.downPayment != null ? `เงินดาวน์: ฿${installment.downPayment.toLocaleString()}` : null,
+      t ? `ผ่อน: ฿${t.monthly.toLocaleString()} x ${t.months} เดือน` : null,
+      installment?.note ? `โปรโมชัน: ${installment.note}` : null,
+    ].filter(Boolean);
+    try {
+      await navigator.clipboard.writeText(lines.join("\n"));
+      toast.success("คัดลอกข้อมูลแล้ว — วางในแชท LINE ได้เลย", { duration: 4000 });
+    } catch { /* คลิปบอร์ดไม่ได้ก็เปิด LINE ต่อ */ }
+    setShowChoice(false);
+    window.open("https://lin.ee/rewiz9b", "_blank", "noopener,noreferrer");
   };
   const roughMonthly = effPrice ? Math.ceil(effPrice / 10) : 0;
   const priceText = effPrice == null ? "สอบถามราคา" : "฿" + effPrice.toLocaleString();
@@ -375,8 +403,8 @@ export default function ProductDetailPage() {
                 <button disabled={!canBuy} onClick={addToCart} className="btn-secondary flex-1 py-3.5 text-base disabled:opacity-40">
                   <ShoppingCart size={20} /> เพิ่มลงตะกร้า
                 </button>
-                <button disabled={!canBuy} onClick={buyNow} className="btn-primary flex-1 py-3.5 text-base disabled:opacity-40">
-                  <Zap size={20} /> {item.quantity > 0 ? (item.minPrice == null ? "สอบถามราคา" : "ซื้อเลย") : "สินค้าหมด"}
+                <button disabled={!canBuy} onClick={() => setShowChoice(true)} className="btn-primary flex-1 py-3.5 text-base disabled:opacity-40">
+                  <Zap size={20} /> {item.quantity > 0 ? (item.minPrice == null ? "สอบถามราคา" : "ซื้อ / ผ่อน") : "สินค้าหมด"}
                 </button>
               </div>
               {installment ? (
@@ -408,10 +436,60 @@ export default function ProductDetailPage() {
         <button disabled={!canBuy} onClick={addToCart} aria-label="เพิ่มลงตะกร้า" className="btn-secondary px-4 py-3 disabled:opacity-40">
           <ShoppingCart size={18} />
         </button>
-        <button disabled={!canBuy} onClick={buyNow} className="btn-primary flex-1 py-3 disabled:opacity-40">
-          <Zap size={18} /> {item.quantity > 0 ? (item.minPrice == null ? "สอบถามราคา" : "ซื้อเลย") : "สินค้าหมด"}
+        <button disabled={!canBuy} onClick={() => setShowChoice(true)} className="btn-primary flex-1 py-3 disabled:opacity-40">
+          <Zap size={18} /> {item.quantity > 0 ? (item.minPrice == null ? "สอบถามราคา" : "ซื้อ / ผ่อน") : "สินค้าหมด"}
         </button>
       </div>
+
+      {/* Popup เลือกวิธี: ซื้อขาด (โอน) หรือ ผ่อน (ไลน์) — portal ออกนอก page-wrapper (กัน fixed เพี้ยนเพราะ transform) */}
+      {mounted && createPortal(
+      <AnimatePresence>
+        {showChoice && (
+          <motion.div
+            className="fixed inset-0 z-[200] flex items-end justify-center bg-black/50 p-4 sm:items-center"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={() => setShowChoice(false)}
+          >
+            <motion.div
+              onClick={(e) => e.stopPropagation()}
+              initial={reduceMotion ? { opacity: 0 } : { y: 40, opacity: 0, scale: 0.98 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={reduceMotion ? { opacity: 0 } : { y: 40, opacity: 0 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+              className="w-full max-w-md rounded-3xl bg-white p-5 shadow-[0_20px_60px_rgba(0,0,0,0.25)]"
+            >
+              <div className="mb-1 flex items-center justify-between">
+                <h3 className="text-lg font-bold text-text-heading">เลือกวิธีรับเครื่อง</h3>
+                <button onClick={() => setShowChoice(false)} aria-label="ปิด" className="rounded-full p-1.5 text-text-muted hover:bg-bg-subtle"><X size={20} /></button>
+              </div>
+              <p className="mb-4 line-clamp-1 text-sm text-text-muted">{item.productName}{effStorage ? ` · ${effStorage}` : ""}{effColor ? ` · ${effColor}` : ""}</p>
+
+              {/* ซื้อขาด */}
+              <button onClick={buyNow} className="group mb-3 flex w-full items-center gap-3 rounded-2xl border-2 border-border-default p-4 text-left transition-colors hover:border-yellow hover:bg-yellow/5">
+                <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-yellow/20 text-yellow-hover"><Banknote size={22} /></span>
+                <span className="flex-1">
+                  <span className="block font-bold text-text-heading">ซื้อขาด · จ่ายเต็มจำนวน</span>
+                  <span className="block text-xs text-text-muted">โอน/PromptPay{effPrice != null ? ` ฿${effPrice.toLocaleString()}` : ""} · แนบสลิป จัดส่งถึงบ้าน รับเครื่องไว</span>
+                </span>
+                <ChevronRight size={20} className="flex-shrink-0 text-text-muted transition-transform group-hover:translate-x-1" />
+              </button>
+
+              {/* ผ่อน */}
+              <button onClick={goLineInstallment} className="group flex w-full items-center gap-3 rounded-2xl border-2 border-[#06C755]/40 bg-[#06C755]/5 p-4 text-left transition-colors hover:border-[#06C755]">
+                <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-[#06C755]/15 text-[#06C755]"><MessageCircle size={22} /></span>
+                <span className="flex-1">
+                  <span className="block font-bold text-text-heading">ผ่อนสบาย · ทักแอดมินทางไลน์</span>
+                  <span className="block text-xs text-text-muted">{installment?.downPayment != null ? `ดาวน์ ฿${installment.downPayment.toLocaleString()} · ` : ""}อนุมัติไวใน 1 วัน ใช้บัตรประชาชนใบเดียว</span>
+                </span>
+                <ChevronRight size={20} className="flex-shrink-0 text-[#06C755] transition-transform group-hover:translate-x-1" />
+              </button>
+
+              <p className="mt-3 text-center text-[11px] text-text-muted">เลือก “ผ่อน” ระบบจะคัดลอกข้อมูลเครื่องให้ — วางส่งแอดมินใน LINE ได้เลย</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>,
+      document.body)}
     </div>
   );
 }
