@@ -1,6 +1,7 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import api from "@/lib/api";
+import { buildInstLookup, type InstallmentPlan, type InstallmentSerial, type InstInfo } from "@/lib/installment";
 import {
   Zap, ShieldCheck, Smartphone, CreditCard,
   MessageCircle, Facebook, Instagram, Phone, ChevronRight, Sparkles, RotateCcw
@@ -13,6 +14,7 @@ import { ProductGridSkeleton } from "@/components/Skeletons";
 
 interface CatalogItem {
   id: string;
+  type: string;
   productName: string;
   brand: string;
   color: string | null;
@@ -21,17 +23,26 @@ interface CatalogItem {
   conditionLabel: string;
   minPrice: number | null;
   imageUrl: string | null;
+  options?: ({ storage: string | null } | null)[] | null;
 }
 
 export default function Home() {
   const [products, setProducts] = useState<CatalogItem[]>([]);
+  const [plans, setPlans] = useState<InstallmentPlan[]>([]);
+  const [serials, setSerials] = useState<InstallmentSerial[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const response = await api.get("/catalog");
-        setProducts((Array.isArray(response.data) ? response.data : []).slice(0, 4));
+        const [cat, plan, ser] = await Promise.all([
+          api.get("/catalog"),
+          api.get("/installment/plans").catch(() => ({ data: [] })),
+          api.get("/installment/serials").catch(() => ({ data: [] })),
+        ]);
+        setProducts((Array.isArray(cat.data) ? cat.data : []).slice(0, 4));
+        setPlans(Array.isArray(plan.data) ? plan.data : []);
+        setSerials(Array.isArray(ser.data) ? ser.data : []);
       } catch (error) {
         console.error("Error fetching catalog:", error);
       } finally {
@@ -40,6 +51,8 @@ export default function Home() {
     };
     fetchProducts();
   }, []);
+
+  const instFor = useMemo(() => buildInstLookup(plans, serials), [plans, serials]);
 
   return (
     <div className="page-wrapper flex min-h-screen flex-col bg-bg-base text-text-body">
@@ -129,7 +142,7 @@ export default function Home() {
         ) : (
           <Reveal className="reveal-stagger grid grid-cols-2 gap-4 lg:grid-cols-4">
             {products.map((product) => (
-              <ProductCard key={product.id} product={product} />
+              <ProductCard key={product.id} product={product} inst={instFor(product)} />
             ))}
           </Reveal>
         )}
@@ -218,7 +231,7 @@ function TikTokIcon({ className }: { className?: string }) {
   );
 }
 
-function ProductCard({ product }: { product: CatalogItem }) {
+function ProductCard({ product, inst }: { product: CatalogItem; inst?: InstInfo | null }) {
   const isNew = product.condition === "NEW";
   return (
     <Link href={`/products/${encodeURIComponent(product.id)}`} className="card-dd group flex flex-col overflow-hidden !p-0">
@@ -231,6 +244,11 @@ function ProductCard({ product }: { product: CatalogItem }) {
         ) : (
           <Smartphone size={48} className="text-text-disabled" />
         )}
+        {inst?.down != null && (
+          <span className="absolute bottom-0 left-0 z-10 rounded-tr-xl bg-text-heading px-3 py-1.5 text-xs font-bold text-white shadow-md">
+            ดาวน์ <span className="text-yellow">฿{inst.down.toLocaleString()}</span>
+          </span>
+        )}
       </div>
       <div className="flex flex-1 flex-col p-4">
         <h3 className="line-clamp-2 text-sm font-semibold text-text-heading group-hover:text-yellow-hover">{product.productName}</h3>
@@ -240,6 +258,13 @@ function ProductCard({ product }: { product: CatalogItem }) {
         <div className="mt-auto pt-3">
           <p className="text-xs text-text-muted">ราคา</p>
           <p className="text-lg font-bold text-price">{product.minPrice != null ? "฿" + product.minPrice.toLocaleString() : "-"}</p>
+          {inst?.monthly != null && (
+            <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-yellow/15 px-2 py-1.5 text-xs font-bold text-text-heading">
+              <CreditCard size={13} className="flex-shrink-0 text-yellow-hover" />
+              ผ่อนเริ่ม ฿{inst.monthly.toLocaleString()}<span className="font-medium text-text-muted">/เดือน</span>
+            </div>
+          )}
+          {inst?.note && <p className="mt-1 line-clamp-1 text-[11px] font-semibold text-yellow-hover">✨ {inst.note}</p>}
         </div>
       </div>
     </Link>

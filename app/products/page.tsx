@@ -1,12 +1,13 @@
 "use client";
 import { useState, useEffect, useMemo, useRef } from "react";
 import api from "@/lib/api";
-import { Search, Smartphone, CheckCircle2, ArrowUpDown, X, BatteryMedium, Sparkles, RotateCcw, ShoppingCart } from "lucide-react";
+import { Search, Smartphone, CheckCircle2, ArrowUpDown, X, BatteryMedium, Sparkles, RotateCcw, ShoppingCart, CreditCard } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
 import { ProductGridSkeleton } from "@/components/Skeletons";
 import { useCart } from "@/context/CartContext";
+import { buildInstLookup, type InstallmentPlan, type InstallmentSerial } from "@/lib/installment";
 
 interface VariantOption {
   variantId: string;
@@ -75,6 +76,8 @@ export default function ProductsPage() {
   const [category, setCategory] = useState<string>("all");
   const [maxPrice, setMaxPrice] = useState<string>("");
   const [showSuggest, setShowSuggest] = useState(false);
+  const [plans, setPlans] = useState<InstallmentPlan[]>([]);
+  const [serials, setSerials] = useState<InstallmentSerial[]>([]);
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -82,8 +85,14 @@ export default function ProductsPage() {
       setIsLoading(true);
       setError(false);
       try {
-        const res = await api.get("/catalog");
-        setItems(Array.isArray(res.data) ? res.data : []);
+        const [cat, plan, ser] = await Promise.all([
+          api.get("/catalog"),
+          api.get("/installment/plans").catch(() => ({ data: [] })),
+          api.get("/installment/serials").catch(() => ({ data: [] })),
+        ]);
+        setItems(Array.isArray(cat.data) ? cat.data : []);
+        setPlans(Array.isArray(plan.data) ? plan.data : []);
+        setSerials(Array.isArray(ser.data) ? ser.data : []);
       } catch (e) {
         console.error("Catalog error:", e);
         setError(true);
@@ -93,6 +102,9 @@ export default function ProductsPage() {
     };
     fetchCatalog();
   }, []);
+
+  // ตารางผ่อน (overlay DD) → ผ่อนเริ่มต้นต่อสินค้า (มือ1 ตาม productId+ความจุ / มือ2 ตาม serialId)
+  const instFor = useMemo(() => buildInstLookup(plans, serials), [plans, serials]);
 
   // หมวดหมู่จริงจาก stock (iPhone / สายชาร์จ-อะแดปเตอร์ ...) + จำนวน
   const categories = useMemo(() => {
@@ -255,7 +267,9 @@ export default function ProductsPage() {
         ) : (
           <motion.div layout className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             <AnimatePresence mode="popLayout">
-              {displayed.map((it) => (
+              {displayed.map((it) => {
+                const inst = instFor(it);
+                return (
                 <motion.div key={it.id} layout initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.25 }}>
                   <Link href={`/products/${encodeURIComponent(it.id)}`} className="card-dd group flex h-full flex-col overflow-hidden !p-0">
                     <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-bg-subtle p-4">
@@ -266,6 +280,12 @@ export default function ProductsPage() {
                         <img src={it.imageUrl} alt={it.productName} loading="lazy" className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105" />
                       ) : (
                         <Smartphone size={52} className="text-text-disabled" />
+                      )}
+                      {/* ป้ายเงินดาวน์ (มุมล่างซ้ายของรูป) — เด่นชวนผ่อน */}
+                      {inst?.down != null && (
+                        <span className="absolute bottom-0 left-0 z-10 rounded-tr-xl bg-text-heading px-3 py-1.5 text-xs font-bold text-white shadow-md">
+                          ดาวน์ <span className="text-yellow">฿{inst.down.toLocaleString()}</span>
+                        </span>
                       )}
                     </div>
                     <div className="flex flex-1 flex-col p-4">
@@ -290,6 +310,16 @@ export default function ProductsPage() {
                             </button>
                           ) : null}
                         </div>
+                        {/* ผ่อนเริ่มต้น + โปร (ถ้าตั้งตารางผ่อนไว้) — ดึงดูดให้กดเข้าไปดู */}
+                        {inst?.monthly != null && (
+                          <div className="mb-2 flex items-center gap-1.5 rounded-lg bg-yellow/15 px-2 py-1.5 text-xs font-bold text-text-heading">
+                            <CreditCard size={13} className="flex-shrink-0 text-yellow-hover" />
+                            ผ่อนเริ่ม ฿{inst.monthly.toLocaleString()}<span className="font-medium text-text-muted">/เดือน</span>
+                          </div>
+                        )}
+                        {inst?.note && (
+                          <p className="mb-2 line-clamp-1 text-[11px] font-semibold text-yellow-hover">✨ {inst.note}</p>
+                        )}
                         {it.quantity > 0 ? (
                           <span className="badge-dd badge-success">
                             <CheckCircle2 size={12} /> {it.type === "UNIT" ? "พร้อมส่ง" : `พร้อมส่ง ${it.quantity} ชิ้น`}
@@ -301,7 +331,8 @@ export default function ProductsPage() {
                     </div>
                   </Link>
                 </motion.div>
-              ))}
+                );
+              })}
             </AnimatePresence>
           </motion.div>
         )}
