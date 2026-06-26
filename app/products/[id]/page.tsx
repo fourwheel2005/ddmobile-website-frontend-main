@@ -379,9 +379,21 @@ export default function ProductDetailPage() {
                   <Zap size={20} /> {item.quantity > 0 ? (item.minPrice == null ? "สอบถามราคา" : "ซื้อเลย") : "สินค้าหมด"}
                 </button>
               </div>
-              <a href="https://lin.ee/rewiz9b" target="_blank" rel="noopener noreferrer" className="btn-ghost w-full py-3 text-base">
-                <MessageCircle size={20} /> สอบถามแอดมิน / ผ่อนสินค้า
-              </a>
+              {installment ? (
+                <a href="https://lin.ee/rewiz9b" target="_blank" rel="noopener noreferrer" className="btn-ghost w-full py-3 text-base">
+                  <MessageCircle size={20} /> สอบถามรายละเอียดเพิ่มเติมทางไลน์
+                </a>
+              ) : (
+                <a href="https://lin.ee/rewiz9b" target="_blank" rel="noopener noreferrer"
+                  className="line-cta group flex w-full items-center gap-3 rounded-full bg-[#06C755] px-5 py-3.5 text-white shadow-[0_10px_30px_rgba(6,199,85,0.4)] transition-transform hover:-translate-y-0.5">
+                  <MessageCircle size={24} className="flex-shrink-0" />
+                  <span className="flex flex-col text-left leading-tight">
+                    <span className="text-base font-bold">ผ่อนเครื่องนี้ · ทักไลน์รับสิทธิ์เลย</span>
+                    <span className="text-[11px] font-medium text-white/85">อนุมัติไวใน 1 วัน · ใช้บัตรประชาชนใบเดียว ไม่ต้องใช้บัตรเครดิต</span>
+                  </span>
+                  <ChevronRight size={20} className="ml-auto flex-shrink-0 transition-transform group-hover:translate-x-1" />
+                </a>
+              )}
             </div>
           </div>
         </div>

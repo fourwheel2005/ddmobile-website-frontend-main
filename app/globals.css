@@ -572,8 +572,24 @@
     50% { transform: translateY(-14px); }
   }
 
+  /* --- LINE CTA: แสงวิ่งผ่านอัตโนมัติ (ดึงดูดสายตา) --- */
+  .line-cta { position: relative; overflow: hidden; }
+  .line-cta::after {
+    content: "";
+    position: absolute; inset: 0;
+    background: linear-gradient(110deg, transparent 35%, rgba(255,255,255,0.5) 50%, transparent 65%);
+    transform: translateX(-130%);
+    animation: line-shine 3.4s ease-in-out infinite;
+    pointer-events: none;
+  }
+  @keyframes line-shine {
+    0%, 55% { transform: translateX(-130%); }
+    100% { transform: translateX(130%); }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .reveal { opacity: 1; transform: none; transition: none; }
     .float-anim { animation: none; }
+    .line-cta::after { animation: none; opacity: 0; }
   }
 }

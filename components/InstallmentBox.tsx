@@ -112,8 +112,8 @@ export default function InstallmentBox({ info, product }: { info: InstallmentInf
           </div>
         )}
 
-        <button onClick={goLine} className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-[#06C755] py-3.5 text-base font-semibold text-white shadow-[0_8px_22px_rgba(6,199,85,0.35)] transition-transform hover:-translate-y-0.5">
-          <MessageCircle size={20} /> สั่งซื้อ / ผ่อนสินค้า ทาง LINE
+        <button onClick={goLine} className="line-cta mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-[#06C755] py-3.5 text-base font-bold text-white shadow-[0_8px_22px_rgba(6,199,85,0.35)] transition-transform hover:-translate-y-0.5">
+          <MessageCircle size={20} /> ยืนยันผ่อนเครื่องนี้ · ทักแอดมินทาง LINE
         </button>
         <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-xs text-text-muted">
           <Copy size={12} /> กดแล้วระบบจะคัดลอกข้อมูลเครื่องให้ — วางส่งแอดมินใน LINE ได้เลย
