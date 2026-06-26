@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, Save, Loader2, CreditCard, Smartphone, X } from "lucide-react";
+import { Plus, Trash2, Save, Loader2, CreditCard, Smartphone, X, Download } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
 
@@ -11,6 +11,54 @@ interface VariantOption { storage: string | null; }
 interface CatalogItem { id: string; type: string; productName: string; sku: string; storage: string | null; conditionLabel: string; options: VariantOption[] | null; }
 
 const baht = (n: number | null | undefined) => (n == null ? "-" : "฿" + Number(n).toLocaleString());
+
+/* ============================ ตารางผ่อนจากโปสเตอร์ (พรีเซ็ต) ============================ */
+/* แอดมินกดนำเข้าได้เลย แล้วแก้ทีหลังได้ · overlap รุ่นซ้ำในโปสเตอร์ใช้ค่าจากตารางใหญ่ "iPhone 17 Series" */
+type PromoTerm = [number, number]; // [งวด, บาท/เดือน]
+const PROMO: Record<string, { down: number; terms: PromoTerm[] }> = {
+  "iphone15|128":      { down: 4590,  terms: [[12, 2190], [15, 1590], [18, 1790]] },
+  "iphone15plus|256":  { down: 7590,  terms: [[10, 2390], [12, 2190], [15, 2190], [18, 1890], [24, 1690]] },
+  "iphone16|128":      { down: 6990,  terms: [[15, 2290], [18, 1890]] },
+  "iphone16plus|128":  { down: 9900,  terms: [[10, 2590], [12, 2290], [15, 1890], [18, 1890]] },
+  "iphone16pro|128":   { down: 9900,  terms: [[10, 2990], [12, 2590], [15, 2590], [18, 2290], [24, 2090]] },
+  "iphone16promax|256":{ down: 10900, terms: [[10, 3090], [12, 2790], [15, 2790], [18, 2490], [24, 2290]] },
+  "iphone16promax|512":{ down: 11900, terms: [[10, 3190], [12, 2890], [15, 2890], [18, 2590], [24, 2390]] },
+  "iphone17|256":      { down: 8590,  terms: [[10, 2490], [12, 2290], [15, 2290], [18, 1890], [24, 1690]] },
+  "iphone17air|256":   { down: 8590,  terms: [[10, 2490], [12, 2290], [15, 2290], [18, 1890], [24, 1690]] },
+  "iphone17pro|256":   { down: 12900, terms: [[15, 2990], [18, 2590], [24, 2290]] },
+  "iphone17promax|256":{ down: 15900, terms: [[15, 3090], [18, 2790], [24, 2390]] },
+  "ipadgen11|128":     { down: 3790,  terms: [[10, 1790], [15, 1790], [18, 1590]] },
+  "ipadgen11|256":     { down: 4990,  terms: [[10, 1990], [15, 2190], [18, 1690]] },
+  "ipadmini7|128":     { down: 5990,  terms: [[10, 1990], [15, 1990]] },
+  "ipadair7|128":      { down: 8990,  terms: [[10, 2390], [12, 1990], [18, 1790]] },
+  "ipadair7|256":      { down: 11900, terms: [[10, 2690], [12, 2390], [18, 1590]] },
+};
+
+/** แปลงชื่อรุ่นจาก catalog → key มาตรฐาน (รองรับ Apple/(พิเศษ)/Pro Max ฯลฯ) */
+function canonModel(name: string): string {
+  let s = (name || "").toLowerCase().replace(/\(.*?\)/g, " ").replace(/\+/g, " ");
+  s = s.replace(/pro\s*max/g, "promax");
+  const has = (...t: string[]) => t.every((x) => s.includes(x));
+  if (s.includes("ipad")) {
+    if (has("air")) return "ipadair7";
+    if (has("mini")) return "ipadmini7";
+    return "ipadgen11";
+  }
+  const m = s.match(/iphone\s*(\d+)/);
+  if (m) {
+    const n = m[1];
+    if (s.includes("promax")) return `iphone${n}promax`;
+    if (s.includes("pro")) return `iphone${n}pro`;
+    if (s.includes("plus")) return `iphone${n}plus`;
+    if (s.includes("air")) return `iphone${n}air`;
+    return `iphone${n}`;
+  }
+  return s.replace(/[^a-z0-9]/g, "");
+}
+const storageDigits = (s: string | null | undefined) => String(s ?? "").replace(/[^0-9]/g, "");
+function matchPromo(name: string, storage: string | null | undefined) {
+  return PROMO[`${canonModel(name)}|${storageDigits(storage)}`] ?? null;
+}
 
 export default function InstallmentManager() {
   const [tab, setTab] = useState<"model" | "serial">("model");
@@ -66,11 +114,57 @@ function ModelTab({ plans, models, reload }: { plans: Plan[]; models: CatalogIte
   const [terms, setTerms] = useState<Term[]>([{ months: 12, monthly: "" }]);
   const [saving, setSaving] = useState(false);
 
+  const [importing, setImporting] = useState(false);
+
   const storagesFor = (pid: string) => {
     const m = models.find((x) => x.id === pid);
     const set = new Set<string>();
     (m?.options ?? []).forEach((o) => { if (o.storage) set.add(o.storage); });
     return Array.from(set);
+  };
+
+  // กรอกราคาจากโปสเตอร์อัตโนมัติ เมื่อเลือกรุ่น+ความจุ (ถ้ามีในพรีเซ็ต)
+  const pickModel = (pid: string) => {
+    const m = models.find((x) => x.id === pid);
+    const sts = m ? storagesFor(pid) : [];
+    const storage = sts.length === 1 ? sts[0] : "";
+    const promo = m && storage ? matchPromo(m.productName, storage) : null;
+    setForm({ ...form, productId: pid, modelName: m?.productName ?? "", storage,
+      downPayment: promo ? String(promo.down) : "" });
+    setTerms(promo ? promo.terms.map(([months, monthly]) => ({ months, monthly })) : [{ months: 12, monthly: "" }]);
+  };
+  const pickStorage = (storage: string) => {
+    const m = models.find((x) => x.id === form.productId);
+    const promo = m && storage ? matchPromo(m.productName, storage) : null;
+    setForm({ ...form, storage, downPayment: promo ? String(promo.down) : form.downPayment });
+    if (promo) { setTerms(promo.terms.map(([months, monthly]) => ({ months, monthly }))); toast.success("กรอกราคาตามโปสเตอร์ให้แล้ว — ตรวจแล้วกดบันทึก"); }
+  };
+
+  // นำเข้าทุกรุ่นในคลังที่ตรงโปสเตอร์ (รุ่น × ความจุ) ในคลิกเดียว
+  const importAll = async () => {
+    if (!confirm("นำเข้าราคาผ่อนตามโปสเตอร์ สำหรับทุกรุ่น+ความจุที่มีในคลัง? (ของเดิมที่ตรงกันจะถูกทับ)")) return;
+    setImporting(true);
+    let ok = 0; const skipped: string[] = [];
+    try {
+      for (const m of models) {
+        const sts = storagesFor(m.id);
+        const list = sts.length ? sts : [""];
+        for (const st of list) {
+          const promo = matchPromo(m.productName, st);
+          if (!promo) { skipped.push(`${m.productName} ${st}`.trim()); continue; }
+          await api.post("/admin/installment/plans", {
+            productId: m.id, modelName: m.productName, storage: st,
+            downPayment: promo.down, terms: promo.terms.map(([months, monthly]) => ({ months, monthly })),
+            note: null, active: true,
+          });
+          ok++;
+        }
+      }
+      toast.success(`นำเข้า ${ok} รายการสำเร็จ${skipped.length ? ` · ข้าม ${skipped.length} (ไม่อยู่ในโปสเตอร์)` : ""}`, { duration: 5000 });
+      reload();
+    } catch {
+      toast.error("นำเข้าไม่สำเร็จบางส่วน");
+    } finally { setImporting(false); }
   };
 
   const editPlan = (p: Plan) => {
@@ -113,18 +207,24 @@ function ModelTab({ plans, models, reload }: { plans: Plan[]; models: CatalogIte
     <div className="space-y-6">
       {/* ฟอร์ม */}
       <div className="rounded-2xl border border-border-default bg-white p-5">
-        <h3 className="mb-4 font-bold text-text-heading">เพิ่ม / แก้ตารางผ่อน (มือ 1)</h3>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h3 className="font-bold text-text-heading">เพิ่ม / แก้ตารางผ่อน (มือ 1)</h3>
+          <button onClick={importAll} disabled={importing} className="inline-flex items-center gap-2 rounded-xl bg-text-heading px-4 py-2 text-sm font-semibold text-white transition-transform hover:-translate-y-0.5 disabled:opacity-50">
+            {importing ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />} นำเข้าราคาตามโปสเตอร์ (ทุกรุ่นในคลัง)
+          </button>
+        </div>
+        <p className="mb-4 text-xs text-text-muted">เลือกรุ่น+ความจุ ระบบจะกรอกราคาตามโปสเตอร์ให้อัตโนมัติ (แก้ตัวเลขแล้วกดบันทึกได้)</p>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <label className="text-sm">
             <span className="mb-1 block font-medium text-text-muted">รุ่น (เครื่องใหม่)</span>
-            <select value={form.productId} onChange={(e) => setForm({ ...form, productId: e.target.value, storage: "" })} className="w-full rounded-xl border border-border-default px-3 py-2">
+            <select value={form.productId} onChange={(e) => pickModel(e.target.value)} className="w-full rounded-xl border border-border-default px-3 py-2">
               <option value="">— เลือกรุ่น —</option>
               {models.map((m) => <option key={m.id} value={m.id}>{m.productName}</option>)}
             </select>
           </label>
           <label className="text-sm">
             <span className="mb-1 block font-medium text-text-muted">ความจุ</span>
-            <select value={form.storage} onChange={(e) => setForm({ ...form, storage: e.target.value })} className="w-full rounded-xl border border-border-default px-3 py-2">
+            <select value={form.storage} onChange={(e) => pickStorage(e.target.value)} className="w-full rounded-xl border border-border-default px-3 py-2">
               <option value="">ทุกความจุ</option>
               {storagesFor(form.productId).map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
