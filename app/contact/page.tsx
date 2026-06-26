@@ -84,19 +84,20 @@ export default function ContactPage() {
 
           <div className="mx-auto mt-7 grid max-w-3xl grid-cols-1 gap-3 md:grid-cols-3">
             {[
-              { icon: <MessageCircle className="h-6 w-6" />, label: "LINE Official", sub: "@ddmobile" },
-              { icon: <Users className="h-6 w-6" />, label: "Facebook Page", sub: "ดีดี โมบาย ผ่อนมือถือ" },
-              { icon: <Phone className="h-6 w-6" />, label: "เบอร์โทรศัพท์", sub: "080-XXX-XXXX" },
+              { icon: <MessageCircle className="h-6 w-6" />, label: "LINE Official", sub: "ไอโฟนผ่อนง่าย", href: "https://lin.ee/rewiz9b" },
+              { icon: <Users className="h-6 w-6" />, label: "Facebook Page", sub: "ไอโฟนผ่อนง่ายสำรอง", href: "https://www.facebook.com/iphoneeasyinstallment" },
+              { icon: <Phone className="h-6 w-6" />, label: "เบอร์โทรศัพท์", sub: "088-818-8385", href: "tel:0888188385" },
             ].map((c, i) => (
-              <div key={i} className="flex flex-col items-center gap-2 rounded-2xl bg-white p-6 text-center">
+              <a key={i} href={c.href} target={c.href.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer"
+                className="flex flex-col items-center gap-2 rounded-2xl bg-white p-6 text-center transition-transform hover:-translate-y-0.5">
                 <div className="rounded-full bg-text-heading p-3 text-yellow">{c.icon}</div>
                 <span className="font-bold text-text-heading">{c.label}</span>
                 <span className="text-sm text-text-muted">{c.sub}</span>
-              </div>
+              </a>
             ))}
           </div>
 
-          <a href="https://lin.ee/Zsq9ja0" target="_blank" rel="noopener noreferrer"
+          <a href="https://lin.ee/rewiz9b" target="_blank" rel="noopener noreferrer"
             className="mt-7 inline-flex items-center justify-center gap-2 rounded-full bg-text-heading px-8 py-3.5 font-semibold text-white transition-transform hover:-translate-y-0.5">
             <MessageCircle className="h-5 w-5" /> ทักแชทแอดมินทันที
           </a>

@@ -97,7 +97,7 @@ export default function InstallmentsPage() {
           <h2 className="text-2xl font-bold text-text-heading md:text-4xl">พร้อมแล้วใช่ไหม?</h2>
           <p className="mt-3 text-sm font-medium text-text-heading/70">ทักแชทหาแอดมิน เพื่อประเมินสิทธิ์เบื้องต้นได้เลย ไม่มีค่าใช้จ่าย</p>
           <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-            <a href="https://lin.ee/Zsq9ja0" target="_blank" rel="noopener noreferrer"
+            <a href="https://lin.ee/rewiz9b" target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center justify-center gap-2 rounded-full bg-text-heading px-8 py-3.5 font-semibold text-white transition-transform hover:-translate-y-0.5">
               <MessageCircle size={20} /> ทักแชทแอดมิน (LINE)
             </a>

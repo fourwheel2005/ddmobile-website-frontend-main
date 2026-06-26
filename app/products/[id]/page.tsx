@@ -336,7 +336,7 @@ export default function ProductDetailPage() {
                   <Zap size={20} /> {item.quantity > 0 ? (item.minPrice == null ? "สอบถามราคา" : "ซื้อเลย") : "สินค้าหมด"}
                 </button>
               </div>
-              <a href="https://lin.ee/Zsq9ja0" target="_blank" rel="noopener noreferrer" className="btn-ghost w-full py-3 text-base">
+              <a href="https://lin.ee/rewiz9b" target="_blank" rel="noopener noreferrer" className="btn-ghost w-full py-3 text-base">
                 <MessageCircle size={20} /> สอบถามแอดมิน / ผ่อนสินค้า
               </a>
             </div>

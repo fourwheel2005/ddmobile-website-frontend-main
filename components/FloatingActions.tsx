@@ -41,7 +41,7 @@ export default function FloatingActions() {
         </button>
       )}
       <a
-        href="https://lin.ee/Zsq9ja0"
+        href="https://lin.ee/rewiz9b"
         target="_blank"
         rel="noopener noreferrer"
         aria-label="ทักไลน์สอบถามแอดมิน"
