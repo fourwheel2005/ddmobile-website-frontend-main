@@ -12,14 +12,13 @@ interface CatalogItem { id: string; type: string; productName: string; sku: stri
 
 const baht = (n: number | null | undefined) => (n == null ? "-" : "฿" + Number(n).toLocaleString());
 
-/* ============================ ตารางผ่อนจากโปสเตอร์ (พรีเซ็ต) ============================ */
-/* แอดมินกดนำเข้าได้เลย แล้วแก้ทีหลังได้ · overlap รุ่นซ้ำในโปสเตอร์ใช้ค่าจากตารางใหญ่ "iPhone 17 Series" */
+/* ============================ ตารางผ่อนจากโปสเตอร์ (พรีเซ็ต — เฉพาะ "มือ 1") ============================ */
+/* แอดมินกดนำเข้าได้เลย แล้วแก้ทีหลังได้
+ * หมายเหตุ: ตารางบนสุดของโปสเตอร์ (iPhone 15/16/16 Plus 128GB ไม่มีป้าย) = "มือ 2" → ไม่รวมที่นี่
+ * รวมเฉพาะ section ที่เขียน "(มือ 1)" + รุ่น Pro/Pro Max ที่อยู่ในตารางมือ 1 */
 type PromoTerm = [number, number]; // [งวด, บาท/เดือน]
 const PROMO: Record<string, { down: number; terms: PromoTerm[] }> = {
-  "iphone15|128":      { down: 4590,  terms: [[12, 2190], [15, 1590], [18, 1790]] },
   "iphone15plus|256":  { down: 7590,  terms: [[10, 2390], [12, 2190], [15, 2190], [18, 1890], [24, 1690]] },
-  "iphone16|128":      { down: 6990,  terms: [[15, 2290], [18, 1890]] },
-  "iphone16plus|128":  { down: 9900,  terms: [[10, 2590], [12, 2290], [15, 1890], [18, 1890]] },
   "iphone16pro|128":   { down: 9900,  terms: [[10, 2990], [12, 2590], [15, 2590], [18, 2290], [24, 2090]] },
   "iphone16promax|256":{ down: 10900, terms: [[10, 3090], [12, 2790], [15, 2790], [18, 2490], [24, 2290]] },
   "iphone16promax|512":{ down: 11900, terms: [[10, 3190], [12, 2890], [15, 2890], [18, 2590], [24, 2390]] },
@@ -167,6 +166,21 @@ function ModelTab({ plans, models, reload }: { plans: Plan[]; models: CatalogIte
     } finally { setImporting(false); }
   };
 
+  // ล้างตารางผ่อนทั้งหมด (ลบเฉพาะ "ราคาผ่อน" ไม่กระทบสินค้าใน Stock) — ไว้รีเซ็ตของผิดแล้วนำเข้าใหม่
+  const clearAll = async () => {
+    if (!confirm("ล้างตารางผ่อน (มือ 1) ทั้งหมด? — ลบเฉพาะราคาผ่อน ไม่กระทบตัวสินค้า")) return;
+    setImporting(true);
+    try {
+      const res = await api.get("/admin/installment/plans");
+      const list: Plan[] = Array.isArray(res.data) ? res.data : [];
+      for (const p of list) await api.delete(`/admin/installment/plans/${p.id}`);
+      toast.success(`ล้างตารางผ่อนแล้ว ${list.length} รายการ`);
+      reload();
+    } catch {
+      toast.error("ล้างไม่สำเร็จ");
+    } finally { setImporting(false); }
+  };
+
   const editPlan = (p: Plan) => {
     setForm({ productId: p.productId, modelName: p.modelName ?? "", storage: p.storage ?? "", downPayment: p.downPayment != null ? String(p.downPayment) : "", note: p.note ?? "" });
     setTerms(p.terms.length ? p.terms.map((t) => ({ months: t.months, monthly: t.monthly })) : [{ months: 12, monthly: "" }]);
@@ -209,9 +223,14 @@ function ModelTab({ plans, models, reload }: { plans: Plan[]; models: CatalogIte
       <div className="rounded-2xl border border-border-default bg-white p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h3 className="font-bold text-text-heading">เพิ่ม / แก้ตารางผ่อน (มือ 1)</h3>
-          <button onClick={importAll} disabled={importing} className="inline-flex items-center gap-2 rounded-xl bg-text-heading px-4 py-2 text-sm font-semibold text-white transition-transform hover:-translate-y-0.5 disabled:opacity-50">
-            {importing ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />} นำเข้าราคาตามโปสเตอร์ (ทุกรุ่นในคลัง)
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={clearAll} disabled={importing} className="inline-flex items-center gap-2 rounded-xl border border-error-text/40 px-3 py-2 text-sm font-semibold text-error-text transition-colors hover:bg-error-bg disabled:opacity-50">
+              <Trash2 size={15} /> ล้างทั้งหมด
+            </button>
+            <button onClick={importAll} disabled={importing} className="inline-flex items-center gap-2 rounded-xl bg-text-heading px-4 py-2 text-sm font-semibold text-white transition-transform hover:-translate-y-0.5 disabled:opacity-50">
+              {importing ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />} นำเข้าราคาตามโปสเตอร์ (ทุกรุ่นในคลัง)
+            </button>
+          </div>
         </div>
         <p className="mb-4 text-xs text-text-muted">เลือกรุ่น+ความจุ ระบบจะกรอกราคาตามโปสเตอร์ให้อัตโนมัติ (แก้ตัวเลขแล้วกดบันทึกได้)</p>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
