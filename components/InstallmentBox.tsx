@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { MessageCircle, Copy, Sparkles, CreditCard } from "lucide-react";
+import { MessageCircle, Copy, Sparkles, CreditCard, FileText, CheckCircle2, IdCard } from "lucide-react";
 import toast from "react-hot-toast";
 
 export interface InstallmentTerm { months: number; monthly: number; }
@@ -85,6 +85,13 @@ export default function InstallmentBox({ info, product }: { info: InstallmentInf
           </div>
         </div>
 
+        {/* สรุปแผนผ่อนของเครื่องนี้ (ชัดเจน) */}
+        {term && (
+          <div className="mt-3 rounded-xl bg-yellow/15 px-4 py-2.5 text-center text-sm font-semibold text-text-heading">
+            เครื่องนี้ดาวน์ <span className="text-price">{baht(info.downPayment)}</span> แล้วผ่อนสบาย <span className="text-price">{baht(term.monthly)}</span> × {term.months} เดือน
+          </div>
+        )}
+
         {/* เลือกจำนวนงวด (ถ้ามีหลายช่วง) */}
         {terms.length > 1 && (
           <div className="mt-4">
@@ -111,6 +118,23 @@ export default function InstallmentBox({ info, product }: { info: InstallmentInf
             <Sparkles size={16} className="flex-shrink-0" /> {info.note}
           </div>
         )}
+
+        {/* เอกสารที่ใช้ + จุดเด่น */}
+        <div className="mt-4 rounded-xl border border-border-default bg-white p-3.5">
+          <p className="mb-2 flex items-center gap-1.5 text-sm font-bold text-text-heading">
+            <FileText size={15} className="text-yellow-hover" /> เอกสารที่ใช้ผ่อน
+          </p>
+          <p className="flex items-center gap-2 text-sm text-text-body">
+            <IdCard size={18} className="flex-shrink-0 text-success-text" /> ใช้<span className="font-bold text-text-heading">บัตรประชาชนใบเดียว</span>เท่านั้น
+          </p>
+          <div className="mt-2.5 flex flex-wrap gap-1.5">
+            {["อนุมัติไวใน 1 วัน", "ไม่ต้องใช้บัตรเครดิต", "อาชีพไหนก็ผ่อนได้"].map((b) => (
+              <span key={b} className="inline-flex items-center gap-1 rounded-full bg-bg-subtle px-2.5 py-1 text-[11px] font-medium text-text-body">
+                <CheckCircle2 size={11} className="text-success-text" /> {b}
+              </span>
+            ))}
+          </div>
+        </div>
 
         <button onClick={goLine} className="line-cta mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-[#06C755] py-3.5 text-base font-bold text-white shadow-[0_8px_22px_rgba(6,199,85,0.35)] transition-transform hover:-translate-y-0.5">
           <MessageCircle size={20} /> ยืนยันผ่อนเครื่องนี้ · ทักแอดมินทาง LINE
