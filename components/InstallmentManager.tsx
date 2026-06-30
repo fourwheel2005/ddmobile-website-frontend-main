@@ -6,7 +6,7 @@ import api from "@/lib/api";
 
 interface Term { months: number | string; monthly: number | string; }
 interface Plan { id: number; productId: string; modelName: string | null; storage: string; downPayment: number | null; terms: { months: number; monthly: number }[]; note: string | null; active: boolean; }
-interface SerialPlan { id: number; serialId: string; label: string | null; downPayment: number | null; months: number | null; monthly: number | null; note: string | null; active: boolean; }
+interface SerialPlan { id: number; serialId: string; label: string | null; downPayment: number | null; months: number | null; monthly: number | null; terms: { months: number; monthly: number }[]; note: string | null; active: boolean; }
 interface VariantOption { storage: string | null; }
 interface CatalogItem { id: string; type: string; productName: string; sku: string; storage: string | null; conditionLabel: string; options: VariantOption[] | null; }
 
@@ -29,6 +29,22 @@ const PROMO: Record<string, { down: number; terms: PromoTerm[] }> = {
   "iphone17|256":       { down: 8990,  terms: [[10, 1990], [12, 1990], [18, 1690]] },
   "iphone17pro|256":    { down: 16900, terms: [[12, 2390], [18, 2290], [24, 2090]] },
   "iphone17promax|256": { down: 18900, terms: [[12, 2690], [18, 2690], [24, 2290]] },
+};
+
+// มือ 2 (Used) — คอลัมน์โปสเตอร์: ดาวน์ / 10 / 12 / 15 / 18 เดือน (โปสเตอร์พิมพ์ 126GB = 128GB)
+const PROMO_USED: Record<string, { down: number; terms: PromoTerm[] }> = {
+  "iphone13|128":       { down: 1490,  terms: [[12, 1790], [15, 1590]] },
+  "iphone13pro|128":    { down: 2590,  terms: [[10, 2190], [12, 1890], [15, 1690]] },
+  "iphone13promax|128": { down: 2990,  terms: [[10, 3390], [12, 2290], [15, 1890]] },
+  "iphone14pro|128":    { down: 1990,  terms: [[10, 2090], [12, 1890], [15, 1790]] },
+  "iphone14promax|128": { down: 6590,  terms: [[10, 2290], [12, 1990], [15, 1790]] },
+  "iphone15|128":       { down: 5990,  terms: [[10, 2490], [12, 2190], [15, 1890]] },
+  "iphone15plus|128":   { down: 6990,  terms: [[10, 2590], [12, 2290], [15, 1990], [18, 1790]] },
+  "iphone16pro|128":    { down: 7590,  terms: [[10, 2490], [12, 2290], [15, 1890], [18, 1690]] },
+  "iphone16promax|256": { down: 10900, terms: [[10, 3090], [12, 2790], [15, 2490], [18, 2290]] },
+  "iphone17|256":       { down: 8590,  terms: [[10, 2490], [12, 2490], [15, 1890], [18, 1690]] },
+  "iphone17air|256":    { down: 8590,  terms: [[10, 2490], [12, 2290], [15, 1890], [18, 1690]] },
+  "iphone17promax|256": { down: 15900, terms: [[10, 3090], [12, 3090], [15, 2790], [18, 2390]] },
 };
 
 /** แปลงชื่อรุ่นจาก catalog → key มาตรฐาน (รองรับ Apple/(พิเศษ)/Pro Max ฯลฯ) */
@@ -55,6 +71,9 @@ function canonModel(name: string): string {
 const storageDigits = (s: string | null | undefined) => String(s ?? "").replace(/[^0-9]/g, "");
 function matchPromo(name: string, storage: string | null | undefined) {
   return PROMO[`${canonModel(name)}|${storageDigits(storage)}`] ?? null;
+}
+function matchUsed(name: string, storage: string | null | undefined) {
+  return PROMO_USED[`${canonModel(name)}|${storageDigits(storage)}`] ?? null;
 }
 
 export default function InstallmentManager() {
@@ -308,34 +327,82 @@ function ModelTab({ plans, models, reload }: { plans: Plan[]; models: CatalogIte
 
 /* ============================ มือ 2: ราย เครื่อง ============================ */
 function SerialTab({ serials, units, reload }: { serials: SerialPlan[]; units: CatalogItem[]; reload: () => void }) {
-  const empty = { serialId: "", label: "", downPayment: "", months: "", monthly: "", note: "" };
+  const empty = { serialId: "", label: "", downPayment: "", note: "" };
   const [form, setForm] = useState(empty);
+  const [terms, setTerms] = useState<Term[]>([{ months: 12, monthly: "" }]);
   const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
+
+  // เลือกเครื่อง → กรอกราคามือ 2 ตามโปสเตอร์ให้อัตโนมัติ (ตามรุ่น+ความจุ)
+  const pickDevice = (serialId: string) => {
+    const u = units.find((x) => x.id === serialId);
+    const promo = u ? matchUsed(u.productName, u.storage) : null;
+    setForm({ serialId, label: u?.productName ?? "", downPayment: promo ? String(promo.down) : "", note: "" });
+    setTerms(promo ? promo.terms.map(([months, monthly]) => ({ months, monthly })) : [{ months: 12, monthly: "" }]);
+    if (promo) toast.success("กรอกราคามือ 2 ตามโปสเตอร์ให้แล้ว — ตรวจแล้วกดบันทึก");
+  };
 
   const editSerial = (s: SerialPlan) => {
-    setForm({ serialId: s.serialId, label: s.label ?? "", downPayment: s.downPayment != null ? String(s.downPayment) : "", months: s.months != null ? String(s.months) : "", monthly: s.monthly != null ? String(s.monthly) : "", note: s.note ?? "" });
+    setForm({ serialId: s.serialId, label: s.label ?? "", downPayment: s.downPayment != null ? String(s.downPayment) : "", note: s.note ?? "" });
+    setTerms(s.terms?.length ? s.terms.map((t) => ({ months: t.months, monthly: t.monthly })) : [{ months: 12, monthly: "" }]);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const save = async () => {
     if (!form.serialId) { toast.error("เลือกเครื่องก่อน"); return; }
+    const cleanTerms = terms
+      .filter((t) => String(t.months).trim() && String(t.monthly).trim())
+      .map((t) => ({ months: Number(t.months), monthly: Number(t.monthly) }));
     setSaving(true);
     try {
       await api.post("/admin/installment/serials", {
         serialId: form.serialId,
         label: form.label || units.find((u) => u.id === form.serialId)?.productName || null,
         downPayment: form.downPayment ? Number(form.downPayment) : null,
-        months: form.months ? Number(form.months) : null,
-        monthly: form.monthly ? Number(form.monthly) : null,
+        terms: cleanTerms,
         note: form.note || null,
         active: true,
       });
       toast.success("บันทึกราคาผ่อนพิเศษแล้ว");
-      setForm(empty);
+      setForm(empty); setTerms([{ months: 12, monthly: "" }]);
       reload();
     } catch {
       toast.error("บันทึกไม่สำเร็จ");
     } finally { setSaving(false); }
+  };
+
+  // นำเข้าราคามือ 2 ตามโปสเตอร์ ให้ทุกเครื่องมือสองในคลังที่ตรงรุ่น+ความจุ
+  const importAll = async () => {
+    if (units.length === 0) { toast("ยังไม่มีเครื่องมือสองในคลัง", { icon: "📦" }); return; }
+    if (!confirm("นำเข้าราคาผ่อนมือ 2 ตามโปสเตอร์ ให้ทุกเครื่องที่ตรงรุ่น+ความจุ?")) return;
+    setImporting(true);
+    let ok = 0; const skipped: string[] = [];
+    try {
+      for (const u of units) {
+        const promo = matchUsed(u.productName, u.storage);
+        if (!promo) { skipped.push(`${u.productName}`); continue; }
+        await api.post("/admin/installment/serials", {
+          serialId: u.id, label: u.productName,
+          downPayment: promo.down, terms: promo.terms.map(([months, monthly]) => ({ months, monthly })),
+          note: null, active: true,
+        });
+        ok++;
+      }
+      toast.success(`นำเข้า ${ok} เครื่อง${skipped.length ? ` · ข้าม ${skipped.length}` : ""}`, { duration: 5000 });
+      reload();
+    } catch { toast.error("นำเข้าไม่สำเร็จบางส่วน"); }
+    finally { setImporting(false); }
+  };
+
+  const clearAll = async () => {
+    if (!confirm("ล้างราคาผ่อนมือ 2 ทั้งหมด? — ลบเฉพาะราคา ไม่กระทบสินค้า")) return;
+    setImporting(true);
+    try {
+      for (const s of serials) await api.delete(`/admin/installment/serials/${s.id}`);
+      toast.success(`ล้างแล้ว ${serials.length} รายการ`);
+      reload();
+    } catch { toast.error("ล้างไม่สำเร็จ"); }
+    finally { setImporting(false); }
   };
 
   const del = async (id: number) => {
@@ -344,35 +411,62 @@ function SerialTab({ serials, units, reload }: { serials: SerialPlan[]; units: C
     catch { toast.error("ลบไม่สำเร็จ"); }
   };
 
+  const termText = (s: SerialPlan) => {
+    const t = s.terms?.length ? s.terms : (s.months ? [{ months: s.months, monthly: s.monthly ?? 0 }] : []);
+    return t.map((x) => `${x.months}ด.${baht(x.monthly)}`).join(" · ") || "-";
+  };
+
   return (
     <div className="space-y-6">
       <div className="rounded-2xl border border-border-default bg-white p-5">
-        <h3 className="mb-4 font-bold text-text-heading">เพิ่ม / แก้ราคาผ่อนพิเศษ (มือ 2 ราย เครื่อง)</h3>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h3 className="font-bold text-text-heading">เพิ่ม / แก้ราคาผ่อนพิเศษ (มือ 2 ราย เครื่อง)</h3>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={clearAll} disabled={importing} className="inline-flex items-center gap-2 rounded-xl border border-error-text/40 px-3 py-2 text-sm font-semibold text-error-text transition-colors hover:bg-error-bg disabled:opacity-50">
+              <Trash2 size={15} /> ล้างทั้งหมด
+            </button>
+            <button onClick={importAll} disabled={importing} className="inline-flex items-center gap-2 rounded-xl bg-text-heading px-4 py-2 text-sm font-semibold text-white transition-transform hover:-translate-y-0.5 disabled:opacity-50">
+              {importing ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />} นำเข้าราคามือ 2 ตามโปสเตอร์ (ทุกเครื่องในคลัง)
+            </button>
+          </div>
+        </div>
+        <p className="mb-4 text-xs text-text-muted">เลือกเครื่อง ระบบจะกรอกราคามือ 2 ตามโปสเตอร์ให้อัตโนมัติ (แก้ตัวเลขแล้วกดบันทึกได้)</p>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <label className="text-sm md:col-span-2">
             <span className="mb-1 block font-medium text-text-muted">เครื่อง (มือสอง)</span>
-            <select value={form.serialId} onChange={(e) => setForm({ ...form, serialId: e.target.value })} className="w-full rounded-xl border border-border-default px-3 py-2">
+            <select value={form.serialId} onChange={(e) => pickDevice(e.target.value)} className="w-full rounded-xl border border-border-default px-3 py-2">
               <option value="">— เลือกเครื่อง —</option>
               {units.map((u) => <option key={u.id} value={u.id}>{u.productName} · {u.sku}</option>)}
             </select>
           </label>
           <label className="text-sm">
             <span className="mb-1 block font-medium text-text-muted">เงินดาวน์ (บาท)</span>
-            <input type="number" value={form.downPayment} onChange={(e) => setForm({ ...form, downPayment: e.target.value })} className="w-full rounded-xl border border-border-default px-3 py-2" placeholder="เช่น 4900" />
-          </label>
-          <label className="text-sm">
-            <span className="mb-1 block font-medium text-text-muted">จำนวนงวด (เดือน)</span>
-            <input type="number" value={form.months} onChange={(e) => setForm({ ...form, months: e.target.value })} className="w-full rounded-xl border border-border-default px-3 py-2" placeholder="เช่น 12" />
-          </label>
-          <label className="text-sm">
-            <span className="mb-1 block font-medium text-text-muted">ค่างวด/เดือน (บาท)</span>
-            <input type="number" value={form.monthly} onChange={(e) => setForm({ ...form, monthly: e.target.value })} className="w-full rounded-xl border border-border-default px-3 py-2" placeholder="เช่น 2280" />
+            <input type="number" value={form.downPayment} onChange={(e) => setForm({ ...form, downPayment: e.target.value })} className="w-full rounded-xl border border-border-default px-3 py-2" placeholder="เช่น 5900" />
           </label>
           <label className="text-sm">
             <span className="mb-1 block font-medium text-text-muted">ข้อความโปร (ถ้ามี)</span>
             <input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} className="w-full rounded-xl border border-border-default px-3 py-2" placeholder="เช่น พิเศษ ปรับดาวน์ 4900 ผ่อน 2280*12ด." />
           </label>
         </div>
+
+        {/* ค่างวด (หลายช่วง) */}
+        <div className="mt-4">
+          <p className="mb-2 text-sm font-medium text-text-muted">ค่างวด (เพิ่มได้หลายช่วง)</p>
+          <div className="space-y-2">
+            {terms.map((t, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <input type="number" value={t.months} onChange={(e) => setTerms(terms.map((x, j) => j === i ? { ...x, months: e.target.value } : x))} className="w-24 rounded-xl border border-border-default px-3 py-2 text-sm" placeholder="งวด" />
+                <span className="text-sm text-text-muted">เดือน ×</span>
+                <input type="number" value={t.monthly} onChange={(e) => setTerms(terms.map((x, j) => j === i ? { ...x, monthly: e.target.value } : x))} className="w-32 rounded-xl border border-border-default px-3 py-2 text-sm" placeholder="บาท/เดือน" />
+                <button onClick={() => setTerms(terms.filter((_, j) => j !== i))} className="rounded-lg p-2 text-error-text hover:bg-error-bg"><X size={16} /></button>
+              </div>
+            ))}
+          </div>
+          <button onClick={() => setTerms([...terms, { months: "", monthly: "" }])} className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-yellow-hover hover:underline">
+            <Plus size={14} /> เพิ่มงวด
+          </button>
+        </div>
+
         <button onClick={save} disabled={saving} className="btn-primary mt-5 disabled:opacity-50">
           {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} บันทึก
         </button>
@@ -380,7 +474,7 @@ function SerialTab({ serials, units, reload }: { serials: SerialPlan[]; units: C
 
       <div className="overflow-x-auto rounded-2xl border border-border-default bg-white">
         <table className="table-dd">
-          <thead><tr><th>เครื่อง</th><th>ดาวน์</th><th>ผ่อน</th><th>โปร</th><th></th></tr></thead>
+          <thead><tr><th>เครื่อง</th><th>ดาวน์</th><th>งวด</th><th>โปร</th><th></th></tr></thead>
           <tbody>
             {serials.length === 0 ? (
               <tr><td colSpan={5} className="py-8 text-center text-text-muted">ยังไม่มีราคาพิเศษราย เครื่อง</td></tr>
@@ -388,7 +482,7 @@ function SerialTab({ serials, units, reload }: { serials: SerialPlan[]; units: C
               <tr key={s.id}>
                 <td className="font-medium text-text-heading">{s.label || s.serialId}</td>
                 <td className="font-display tabular-nums">{baht(s.downPayment)}</td>
-                <td className="text-xs text-text-muted">{s.months ? `${baht(s.monthly)} × ${s.months}ด.` : "-"}</td>
+                <td className="text-xs text-text-muted">{termText(s)}</td>
                 <td className="text-xs">{s.note || "-"}</td>
                 <td className="whitespace-nowrap text-right">
                   <button onClick={() => editSerial(s)} className="mr-1 rounded-lg px-2 py-1 text-xs font-semibold text-info-text hover:bg-info-bg">แก้</button>

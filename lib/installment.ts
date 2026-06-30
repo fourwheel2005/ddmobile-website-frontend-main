@@ -11,6 +11,7 @@ export interface InstallmentSerial {
   downPayment: number | null;
   months: number | null;
   monthly: number | null;
+  terms?: { months: number; monthly: number }[] | null;
   note: string | null;
 }
 export interface InstInfo { down: number | null; monthly: number | null; note: string | null; }
@@ -32,7 +33,9 @@ export function buildInstLookup(plans: InstallmentPlan[], serials: InstallmentSe
   return (it: CatalogLike): InstInfo | null => {
     if (it.type === "UNIT") {
       const s = serialMap.get(it.id);
-      return s ? { down: s.downPayment, monthly: s.monthly, note: s.note } : null;
+      if (!s) return null;
+      const minMonthly = (s.terms ?? []).reduce<number | null>((mn, t) => (mn == null ? t.monthly : Math.min(mn, t.monthly)), null);
+      return { down: s.downPayment, monthly: minMonthly ?? s.monthly, note: s.note };
     }
     if (it.type === "MODEL") {
       let best: InstInfo | null = null;
