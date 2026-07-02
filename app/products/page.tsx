@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import api from "@/lib/api";
 import { Search, Smartphone, CheckCircle2, ArrowUpDown, X, BatteryMedium, Sparkles, RotateCcw, ShoppingCart, CreditCard } from "lucide-react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import { ProductGridSkeleton } from "@/components/Skeletons";
 import { useCart } from "@/context/CartContext";
@@ -44,7 +44,7 @@ interface CatalogItem {
 }
 
 type SortKey = "recommended" | "price-asc" | "price-desc" | "newest" | "name";
-type Cond = "all" | "NEW" | "SECOND_HAND";
+type Cond = "NEW" | "SECOND_HAND";
 
 const sortOptions: { key: SortKey; label: string }[] = [
   { key: "recommended", label: "แนะนำ" },
@@ -72,8 +72,7 @@ export default function ProductsPage() {
 
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("recommended");
-  const [cond, setCond] = useState<Cond>("all");
-  const [category, setCategory] = useState<string>("all");
+  const [cond, setCond] = useState<Cond>("NEW");
   const [maxPrice, setMaxPrice] = useState<string>("");
   const [showSuggest, setShowSuggest] = useState(false);
   const [plans, setPlans] = useState<InstallmentPlan[]>([]);
@@ -106,26 +105,17 @@ export default function ProductsPage() {
   // ตารางผ่อน (overlay DD) → ผ่อนเริ่มต้นต่อสินค้า (มือ1 ตาม productId+ความจุ / มือ2 ตาม serialId)
   const instFor = useMemo(() => buildInstLookup(plans, serials), [plans, serials]);
 
-  // หมวดหมู่จริงจาก stock (iPhone / สายชาร์จ-อะแดปเตอร์ ...) + จำนวน
-  const categories = useMemo(() => {
-    const m = new Map<string, number>();
-    items.forEach((it) => m.set(it.category, (m.get(it.category) || 0) + 1));
-    return Array.from(m.entries()).sort((a, b) => b[1] - a[1]);
-  }, [items]);
-
   const condCounts = useMemo(() => ({
-    all: items.length,
     NEW: items.filter((i) => i.condition === "NEW").length,
     SECOND_HAND: items.filter((i) => i.condition === "SECOND_HAND").length,
   }), [items]);
 
-  // กรอง + เรียง (client-side, instant)
+  // กรอง + เรียง (client-side, instant) — แยกตามสภาพ (มือ1/มือ2) เสมอ ไม่มี "ทั้งหมด"
   const displayed = useMemo(() => {
     const q = search.trim().toLowerCase();
     const max = maxPrice ? Number(maxPrice) : null;
     let arr = items.filter((it) => {
-      if (cond !== "all" && it.condition !== cond) return false;
-      if (category !== "all" && it.category !== category) return false;
+      if (it.condition !== cond) return false;
       if (max != null && it.minPrice != null && it.minPrice > max) return false;
       if (q) {
         const hay = `${it.productName} ${it.sku} ${it.color ?? ""} ${it.storage ?? ""} ${it.brand} ${it.category}`.toLowerCase();
@@ -141,7 +131,22 @@ export default function ProductsPage() {
       default: arr.sort((a, b) => b.score - a.score); // recommended
     }
     return arr;
-  }, [items, search, sortBy, cond, category, maxPrice]);
+  }, [items, search, sortBy, cond, maxPrice]);
+
+  // จัดกลุ่มตามหมวด (iPhone / สายชาร์จ-อะแดปเตอร์ ...) แยกเป็นชนิด ๆ — มือถือมาก่อน
+  const grouped = useMemo(() => {
+    const m = new Map<string, CatalogItem[]>();
+    displayed.forEach((it) => {
+      const k = it.category || "อื่นๆ";
+      if (!m.has(k)) m.set(k, []);
+      m.get(k)!.push(it);
+    });
+    const isPhone = (c: string) => /iphone|โทรศัพท์|มือถือ|phone/i.test(c);
+    return Array.from(m.entries()).sort((a, b) => {
+      const pa = isPhone(a[0]) ? 0 : 1, pb = isPhone(b[0]) ? 0 : 1;
+      return pa !== pb ? pa - pb : b[1].length - a[1].length;
+    });
+  }, [displayed]);
 
   const suggestions = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -207,32 +212,18 @@ export default function ProductsPage() {
           </div>
         </div>
 
-        {/* Condition tabs (หมวดสภาพ) */}
-        <div className="mb-4 flex gap-2">
-          {([["all", "ทั้งหมด"], ["NEW", "มือ 1 (ใหม่)"], ["SECOND_HAND", "มือ 2 (มือสอง)"]] as const).map(([k, label]) => (
+        {/* เลือกสภาพเครื่อง: มือ 1 / มือ 2 แยกกันชัด (ไม่มี "ทั้งหมด") */}
+        <div className="mb-5 inline-flex rounded-full border border-border-default bg-bg-subtle p-1">
+          {([["NEW", "มือ 1 (ใหม่)", Sparkles], ["SECOND_HAND", "มือ 2 (มือสอง)", RotateCcw]] as const).map(([k, label, Icon]) => (
             <button
               key={k}
               onClick={() => setCond(k)}
-              className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${cond === k ? "bg-text-heading text-white" : "bg-bg-subtle text-text-body hover:bg-border-default"}`}
+              className={`inline-flex items-center gap-1.5 rounded-full px-5 py-2.5 text-sm font-semibold transition-colors ${cond === k ? (k === "NEW" ? "bg-success-text text-white" : "bg-info-text text-white") : "text-text-body hover:text-text-heading"}`}
             >
-              {label} <span className="opacity-60">({condCounts[k]})</span>
+              <Icon size={15} /> {label} <span className="opacity-70">({condCounts[k]})</span>
             </button>
           ))}
         </div>
-
-        {/* Category chips (หมวดหมู่จริงจาก stock) */}
-        {categories.length > 1 && (
-          <div className="mb-4 flex flex-wrap gap-2">
-            <button onClick={() => setCategory("all")} className={`rounded-full border px-3.5 py-1.5 text-sm transition-colors ${category === "all" ? "border-yellow bg-yellow text-text-heading" : "border-border-default bg-white text-text-body hover:border-yellow"}`}>
-              ทุกหมวด
-            </button>
-            {categories.map(([c, n]) => (
-              <button key={c} onClick={() => setCategory(c)} className={`rounded-full border px-3.5 py-1.5 text-sm transition-colors ${category === c ? "border-yellow bg-yellow text-text-heading" : "border-border-default bg-white text-text-body hover:border-yellow"}`}>
-                {c} <span className="opacity-60">({n})</span>
-              </button>
-            ))}
-          </div>
-        )}
 
         {/* Sort + price + count */}
         <div className="mb-8 flex flex-wrap items-center gap-3 border-b border-border-default pb-5">
@@ -265,13 +256,20 @@ export default function ProductsPage() {
             <p className="mt-1 text-sm text-text-muted">ลองเปลี่ยนคำค้นหา หมวดหมู่ หรือเงื่อนไขสภาพเครื่อง</p>
           </div>
         ) : (
-          <motion.div layout className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            <AnimatePresence mode="popLayout">
-              {displayed.map((it) => {
-                const inst = instFor(it);
-                return (
-                <motion.div key={it.id} layout initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.25 }}>
-                  <Link href={`/products/${encodeURIComponent(it.id)}`} className="card-dd group flex h-full flex-col overflow-hidden !p-0">
+          <div className="space-y-10">
+            {grouped.map(([cat, list]) => (
+              <section key={cat}>
+                {/* หัวข้อหมวด — แยกชนิดสินค้าให้เห็นชัด */}
+                <div className="mb-4 flex items-center gap-2.5 border-l-4 border-yellow pl-3">
+                  <h2 className="text-lg font-bold text-text-heading md:text-xl">{cat}</h2>
+                  <span className="rounded-full bg-bg-subtle px-2.5 py-0.5 text-xs font-medium text-text-muted">{list.length} รายการ</span>
+                </div>
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                  {list.map((it) => {
+                    const inst = instFor(it);
+                    return (
+                    <motion.div key={it.id} layout initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.25 }}>
+                      <Link href={`/products/${encodeURIComponent(it.id)}`} className="card-dd group flex h-full flex-col overflow-hidden !p-0">
                     <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-bg-subtle p-4">
                       <span className={`badge-dd absolute left-3 top-3 z-10 ${it.condition === "NEW" ? "badge-success" : "badge-info"}`}>
                         {it.condition === "NEW" ? <Sparkles size={11} /> : <RotateCcw size={11} />} {it.conditionLabel}
@@ -329,12 +327,14 @@ export default function ProductsPage() {
                         )}
                       </div>
                     </div>
-                  </Link>
-                </motion.div>
-                );
-              })}
-            </AnimatePresence>
-          </motion.div>
+                      </Link>
+                    </motion.div>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
         )}
       </div>
     </div>
