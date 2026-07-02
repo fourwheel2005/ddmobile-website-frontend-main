@@ -7,13 +7,14 @@ import {
   LayoutDashboard, Smartphone, ClipboardList, Users, Settings,
   LogOut, Bell, Search, Clock, CheckCircle2, XCircle, Loader2,
   X, AlertTriangle, Warehouse, Menu,
-  ShoppingBag, Check, Eye, Truck, Store, CreditCard, Receipt
+  ShoppingBag, Check, Eye, Truck, Store, CreditCard, Receipt, UserCog
 } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import StockInventory from "@/components/StockInventory";
 import SalesLogs from "@/components/SalesLogs";
 import InstallmentManager from "@/components/InstallmentManager";
+import EmployeeManager from "@/components/EmployeeManager";
 import CountUp from "@/components/CountUp";
 
 interface InstallmentApp {
@@ -521,6 +522,9 @@ export default function AdminDashboard() {
 
               {/* ตารางผ่อน (overlay DD เอง) */}
               {activeMenu === "ตารางผ่อน" && <InstallmentManager />}
+
+              {/* จัดการพนักงาน (ROLE_ADMIN เท่านั้น) */}
+              {activeMenu === "จัดการพนักงาน" && <EmployeeManager />}
             </>
           )}
         </div>
@@ -583,6 +587,7 @@ const menuItems = [
   { name: "ตารางผ่อน", icon: CreditCard },
   { name: "คำขอผ่อนสินค้า", icon: ClipboardList },
   { name: "จัดการลูกค้า", icon: Users },
+  { name: "จัดการพนักงาน", icon: UserCog },
   { name: "ตั้งค่าระบบ", icon: Settings },
 ];
 
