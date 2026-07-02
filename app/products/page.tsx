@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo, useRef } from "react";
 import api from "@/lib/api";
-import { Search, Smartphone, CheckCircle2, ArrowUpDown, X, BatteryMedium, Sparkles, RotateCcw, ShoppingCart, CreditCard } from "lucide-react";
+import { Search, Smartphone, CheckCircle2, ArrowUpDown, X, BatteryMedium, Sparkles, RotateCcw, ShoppingCart, CreditCard, Cable } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
@@ -44,7 +44,11 @@ interface CatalogItem {
 }
 
 type SortKey = "recommended" | "price-asc" | "price-desc" | "newest" | "name";
-type Cond = "NEW" | "SECOND_HAND";
+type Cond = "NEW" | "SECOND_HAND" | "ACCESSORY";
+
+// จัดหมวดหลักของสินค้า: อุปกรณ์เสริม (GROUP) แยกออกจากมือถือ · มือถือแบ่งมือ1/มือ2
+const kindOf = (it: { type: string; condition: string }): Cond =>
+  it.type === "GROUP" ? "ACCESSORY" : (it.condition === "SECOND_HAND" ? "SECOND_HAND" : "NEW");
 
 const sortOptions: { key: SortKey; label: string }[] = [
   { key: "recommended", label: "แนะนำ" },
@@ -106,16 +110,17 @@ export default function ProductsPage() {
   const instFor = useMemo(() => buildInstLookup(plans, serials), [plans, serials]);
 
   const condCounts = useMemo(() => ({
-    NEW: items.filter((i) => i.condition === "NEW").length,
-    SECOND_HAND: items.filter((i) => i.condition === "SECOND_HAND").length,
+    NEW: items.filter((i) => kindOf(i) === "NEW").length,
+    SECOND_HAND: items.filter((i) => kindOf(i) === "SECOND_HAND").length,
+    ACCESSORY: items.filter((i) => kindOf(i) === "ACCESSORY").length,
   }), [items]);
 
-  // กรอง + เรียง (client-side, instant) — แยกตามสภาพ (มือ1/มือ2) เสมอ ไม่มี "ทั้งหมด"
+  // กรอง + เรียง (client-side, instant) — แยกหมวดหลัก (มือ1/มือ2/อุปกรณ์เสริม)
   const displayed = useMemo(() => {
     const q = search.trim().toLowerCase();
     const max = maxPrice ? Number(maxPrice) : null;
     let arr = items.filter((it) => {
-      if (it.condition !== cond) return false;
+      if (kindOf(it) !== cond) return false;
       if (max != null && it.minPrice != null && it.minPrice > max) return false;
       if (q) {
         const hay = `${it.productName} ${it.sku} ${it.color ?? ""} ${it.storage ?? ""} ${it.brand} ${it.category}`.toLowerCase();
@@ -212,13 +217,17 @@ export default function ProductsPage() {
           </div>
         </div>
 
-        {/* เลือกสภาพเครื่อง: มือ 1 / มือ 2 แยกกันชัด (ไม่มี "ทั้งหมด") */}
-        <div className="mb-5 inline-flex rounded-full border border-border-default bg-bg-subtle p-1">
-          {([["NEW", "มือ 1 (ใหม่)", Sparkles], ["SECOND_HAND", "มือ 2 (มือสอง)", RotateCcw]] as const).map(([k, label, Icon]) => (
+        {/* หมวดหลัก: มือ 1 / มือ 2 / อุปกรณ์เสริม แยกกันชัด */}
+        <div className="mb-5 inline-flex flex-wrap gap-1 rounded-2xl border border-border-default bg-bg-subtle p-1">
+          {([
+            ["NEW", "มือ 1 (ใหม่)", Sparkles, "bg-success-text"],
+            ["SECOND_HAND", "มือ 2 (มือสอง)", RotateCcw, "bg-info-text"],
+            ["ACCESSORY", "อุปกรณ์เสริม", Cable, "bg-text-heading"],
+          ] as const).map(([k, label, Icon, activeBg]) => (
             <button
               key={k}
               onClick={() => setCond(k)}
-              className={`inline-flex items-center gap-1.5 rounded-full px-5 py-2.5 text-sm font-semibold transition-colors ${cond === k ? (k === "NEW" ? "bg-success-text text-white" : "bg-info-text text-white") : "text-text-body hover:text-text-heading"}`}
+              className={`inline-flex items-center gap-1.5 rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors ${cond === k ? `${activeBg} text-white` : "text-text-body hover:text-text-heading"}`}
             >
               <Icon size={15} /> {label} <span className="opacity-70">({condCounts[k]})</span>
             </button>
