@@ -43,6 +43,7 @@ interface CatalogItem {
   avgBatteryHealth: number | null;
   imei: string | null;
   warrantyExpire: string | null;
+  grade: string | null;
   options: VariantOption[] | null;
 }
 
@@ -360,14 +361,47 @@ export default function ProductDetailPage() {
             )}
 
             <div className="mt-6 space-y-3">
-              <h3 className="font-bold text-text-heading">รายละเอียด</h3>
+              <h3 className="font-bold text-text-heading">{isUnit ? "สภาพเครื่องมือสอง (ตรวจสอบแล้ว)" : "รายละเอียด"}</h3>
+
+              {/* แบตเตอรี่ มือสอง — แสดงเป็นแถบชัดเจน */}
+              {isUnit && item.avgBatteryHealth != null && (
+                <div className="rounded-xl border border-border-default bg-bg-subtle p-3.5">
+                  <div className="mb-1.5 flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-1.5 font-semibold text-text-heading"><BatteryMedium size={16} className="text-success-text" /> สุขภาพแบตเตอรี่</span>
+                    <span className="font-bold text-text-heading">{item.avgBatteryHealth}%</span>
+                  </div>
+                  <div className="h-2.5 overflow-hidden rounded-full bg-border-default">
+                    <div className={`h-full rounded-full transition-all ${item.avgBatteryHealth >= 85 ? "bg-success-text" : item.avgBatteryHealth >= 75 ? "bg-yellow" : "bg-error-text"}`} style={{ width: `${Math.min(100, item.avgBatteryHealth)}%` }} />
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-3 gap-2 text-sm"><span className="text-text-muted">สภาพเครื่อง</span><span className="col-span-2 font-medium text-text-heading">{item.conditionLabel}</span></div>
+              {isUnit && item.grade && <div className="grid grid-cols-3 gap-2 text-sm"><span className="text-text-muted">เกรดสภาพ</span><span className="col-span-2"><span className="badge-dd badge-info">เกรด {item.grade}</span></span></div>}
               <div className="grid grid-cols-3 gap-2 text-sm"><span className="text-text-muted">หมวดหมู่</span><span className="col-span-2 font-medium text-text-heading">{item.category}</span></div>
               {effColor && <div className="grid grid-cols-3 gap-2 text-sm"><span className="text-text-muted">สี</span><span className="col-span-2 font-medium text-text-heading">{effColor}</span></div>}
               {effStorage && <div className="grid grid-cols-3 gap-2 text-sm"><span className="text-text-muted">ความจุ</span><span className="col-span-2 font-medium text-text-heading">{effStorage}</span></div>}
               {isUnit && item.imei && <div className="grid grid-cols-3 gap-2 text-sm"><span className="text-text-muted">IMEI</span><span className="col-span-2 flex items-center gap-1.5 font-mono text-xs text-text-body"><Hash size={13} /> {item.imei}</span></div>}
               <div className="grid grid-cols-3 gap-2 text-sm"><span className="text-text-muted">SKU</span><span className="col-span-2 font-mono text-xs text-text-body">{item.sku}</span></div>
               <div className="grid grid-cols-3 gap-2 text-sm"><span className="text-text-muted">การรับประกัน</span><span className="col-span-2 flex items-center gap-2 font-medium text-success-text"><ShieldCheck size={16} /> {warranty}</span></div>
+
+              {/* การันตีคุณภาพเครื่องมือสอง */}
+              {isUnit && (
+                <div className="mt-1 grid grid-cols-2 gap-2 pt-1 sm:grid-cols-3">
+                  {[
+                    "ผ่านการตรวจสอบคุณภาพ",
+                    "สภาพดี ใช้งานปกติ",
+                    item.avgBatteryHealth != null ? `แบตเตอรี่ ${item.avgBatteryHealth}%` : "แบตเตอรี่พร้อมใช้",
+                    "จัดส่งด่วนทั่วไทย",
+                    "รับประกันหลังการขาย",
+                    "เครื่องแท้ 100%",
+                  ].map((t) => (
+                    <span key={t} className="inline-flex items-center gap-1.5 rounded-lg bg-success-bg px-2.5 py-1.5 text-[11px] font-medium text-success-text">
+                      <CheckCircle2 size={13} className="flex-shrink-0" /> {t}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="mt-8 space-y-3">
