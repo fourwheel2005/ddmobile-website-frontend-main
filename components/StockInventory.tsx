@@ -150,6 +150,13 @@ export default function StockInventory() {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
+  // รีเฟรช + ล้างแคช catalog หน้าเว็บ (60 วิ) ทันที — ใช้หลังแก้/ลบรูปหรือสินค้าใน Stock
+  const refreshAll = useCallback(async () => {
+    await api.post("/admin/stock/refresh-catalog").catch(() => { /* ล้มก็ยัง fetchAll ต่อ */ });
+    await fetchAll();
+    toast.success("รีเฟรชแล้ว — หน้าเว็บดึงสินค้า/รูปใหม่จาก Stock ทันที");
+  }, [fetchAll]);
+
   // จัดกลุ่มเครื่อง IN_STOCK เป็นรุ่นย่อย (variant)
   const variants = useMemo<VariantGroup[]>(() => {
     const inStock = items.filter((i) => i.status === "IN_STOCK");
@@ -225,8 +232,8 @@ export default function StockInventory() {
             <p className="text-xs text-text-muted">ดึงสดจากระบบ Stock — อัปเดตอัตโนมัติเมื่อมีการขาย</p>
           </div>
         </div>
-        <button onClick={fetchAll} disabled={isLoading} className="btn-ghost" aria-label="รีเฟรชข้อมูล">
-          <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} /> รีเฟรช
+        <button onClick={refreshAll} disabled={isLoading} className="btn-ghost" aria-label="รีเฟรชข้อมูล + อัปเดตหน้าเว็บ">
+          <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} /> รีเฟรช (อัปเดตหน้าเว็บ)
         </button>
       </div>
 
