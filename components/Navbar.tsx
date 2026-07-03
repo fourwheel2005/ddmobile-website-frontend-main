@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { useCart } from '@/context/CartContext';
 import NotificationBell from '@/components/NotificationBell';
+import WelcomeWheelGate from '@/components/WelcomeWheelGate';
 
 interface UserData {
   email: string;
@@ -62,6 +63,9 @@ export default function Navbar() {
 
   return (
     <>
+      {/* วงล้อต้อนรับสมาชิกใหม่ (เด้งอัตโนมัติเมื่อยังไม่เคยหมุน) */}
+      <WelcomeWheelGate />
+
       {/* ===================== TOP BAR ===================== */}
       <nav className="sticky top-0 z-[100] border-b border-border-default bg-white/95 backdrop-blur-sm">
         <div className="container-dd flex h-16 items-center justify-between">
