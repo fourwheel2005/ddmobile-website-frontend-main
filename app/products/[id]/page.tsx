@@ -152,9 +152,11 @@ export default function ProductDetailPage() {
   const effVariantId = isModel ? (selOption?.variantId ?? item.variantId) : item.variantId;
   const effColor = isModel ? (selOption?.color ?? null) : item.color;
   const effStorage = isModel ? (selOption?.storage ?? null) : item.storage;
-  const images = isModel
+  // gallery รวมรูปปก (index 0) อยู่แล้ว → ใช้ gallery ตรง ๆ + dedupe กันรูปซ้ำ (cover ซ้ำ / URL ซ้ำจาก Stock)
+  const rawImages = isModel
     ? (selOption?.gallery && selOption.gallery.length > 0 ? selOption.gallery : (selOption?.imageUrl ? [selOption.imageUrl] : []))
-    : [item.imageUrl, ...(item.gallery ?? [])].filter((x): x is string => !!x);
+    : (item.gallery && item.gallery.length > 0 ? item.gallery : (item.imageUrl ? [item.imageUrl] : []));
+  const images = Array.from(new Set(rawImages.filter((x): x is string => !!x)));
   const mainImg = images[activeImg] ?? images[0] ?? null;
   const canBuy = effPrice != null && effQty > 0;
 
