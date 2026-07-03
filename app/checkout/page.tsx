@@ -6,9 +6,11 @@ import { getApiError } from "@/lib/errorMessage";
 import { useCart } from "@/context/CartContext";
 import toast from "react-hot-toast";
 import Link from "next/link";
-import { Banknote, Smartphone, ArrowRight, ShoppingCart, MessageCircle } from "lucide-react";
+import { Banknote, Smartphone, ArrowRight, ShoppingCart, MessageCircle, TicketPercent } from "lucide-react";
 
 const money = (v: number) => "฿" + Number(v).toLocaleString();
+
+interface Coupon { code: string; percent: number; expiresAt: string | null; }
 
 /**
  * ชำระเงินซื้อขาด (โอน/PromptPay + แนบสลิป) เท่านั้น
@@ -23,12 +25,25 @@ export default function CheckoutPage() {
   const [address, setAddress] = useState("");
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [couponCode, setCouponCode] = useState("");
 
   useEffect(() => {
     const u = localStorage.getItem("user");
     if (!u) { router.replace("/login?redirect=/checkout"); return; }
     try { const user = JSON.parse(u); if (user.name) setName(user.name); } catch { /* */ }
+    // คูปองที่ใช้ได้ของลูกค้า → auto เลือกใบที่ลดมากสุด
+    api.get("/coupons/mine").then((r) => {
+      const list: Coupon[] = Array.isArray(r.data) ? r.data : [];
+      setCoupons(list);
+      if (list.length) setCouponCode(list.reduce((a, b) => (b.percent > a.percent ? b : a)).code);
+    }).catch(() => { /* ไม่มีคูปอง/ผิดพลาด → เงียบ */ });
   }, [router]);
+
+  // ส่วนลด (แสดงผลเท่านั้น — server คิดใหม่ตอนสร้างออเดอร์)
+  const selectedCoupon = coupons.find((c) => c.code === couponCode) || null;
+  const discount = selectedCoupon ? Math.round((total * selectedCoupon.percent) / 100) : 0;
+  const payable = Math.max(0, total - discount);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,6 +61,7 @@ export default function CheckoutPage() {
         shippingAddress: address.trim(),
         note: note.trim() || null,
         installmentMonths: null,
+        couponCode: couponCode || null,
       });
       clear();
       toast.success("สร้างคำสั่งซื้อสำเร็จ!");
@@ -123,6 +139,31 @@ export default function CheckoutPage() {
                 <label className="label-dd">หมายเหตุ (ถ้ามี)</label>
                 <input value={note} onChange={(e) => setNote(e.target.value)} className="input-dd" placeholder="เช่น สีที่ต้องการ / เวลาจัดส่ง" />
               </div>
+
+              {/* คูปองส่วนลด (จากวงล้อ ฯลฯ) */}
+              {coupons.length > 0 && (
+                <div className="mt-4 rounded-xl border border-yellow/40 bg-yellow/5 p-4">
+                  <p className="mb-2 flex items-center gap-1.5 text-sm font-bold text-text-heading">
+                    <TicketPercent size={16} className="text-yellow-hover" /> โค้ดส่วนลดของคุณ
+                  </p>
+                  <div className="space-y-2">
+                    {coupons.map((c) => (
+                      <label key={c.code} className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors ${couponCode === c.code ? "border-yellow bg-yellow/10" : "border-border-default hover:border-yellow"}`}>
+                        <input type="radio" name="coupon" checked={couponCode === c.code} onChange={() => setCouponCode(c.code)} className="accent-yellow-hover" />
+                        <span className="flex flex-1 flex-wrap items-center gap-2">
+                          <span className="font-mono font-bold text-text-heading">{c.code}</span>
+                          <span className="rounded-full bg-yellow px-2 py-0.5 text-xs font-bold text-[#1a1a1a]">ลด {c.percent}%</span>
+                          {c.expiresAt && <span className="text-[11px] text-text-muted">ถึง {new Date(c.expiresAt).toLocaleDateString("th-TH")}</span>}
+                        </span>
+                      </label>
+                    ))}
+                    <button type="button" onClick={() => setCouponCode("")}
+                      className={`w-full rounded-xl border p-2 text-sm transition-colors ${couponCode === "" ? "border-yellow bg-yellow/10 text-text-heading" : "border-border-default text-text-muted hover:border-yellow"}`}>
+                      ไม่ใช้โค้ด
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -144,9 +185,15 @@ export default function CheckoutPage() {
                   </div>
                 ))}
               </div>
-              <div className="mt-4 flex items-center justify-between border-t border-border-default pt-3">
-                <span className="font-bold text-text-heading">รวมทั้งสิ้น</span>
-                <span className="text-xl font-bold text-price">{money(total)}</span>
+              <div className="mt-4 space-y-2 border-t border-border-default pt-3 text-sm">
+                <div className="flex justify-between"><span className="text-text-muted">ราคาสินค้า</span><span className="font-medium text-text-heading">{money(total)}</span></div>
+                {discount > 0 && (
+                  <div className="flex justify-between text-success-text"><span>ส่วนลดคูปอง ({selectedCoupon?.percent}%)</span><span className="font-semibold">−{money(discount)}</span></div>
+                )}
+                <div className="flex items-center justify-between border-t border-border-default pt-2">
+                  <span className="font-bold text-text-heading">รวมทั้งสิ้น</span>
+                  <span className="text-xl font-bold text-price">{money(payable)}</span>
+                </div>
               </div>
               <button type="submit" disabled={submitting} className="btn-primary mt-5 w-full py-3.5 text-base">
                 {submitting ? "กำลังสร้างคำสั่งซื้อ..." : <>ยืนยันคำสั่งซื้อ <ArrowRight size={18} /></>}

@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Smartphone, ClipboardList, Users, Settings,
   LogOut, Bell, Search, Clock, CheckCircle2, XCircle, Loader2,
   X, AlertTriangle, Warehouse, Menu,
-  ShoppingBag, Check, Eye, Truck, Store, CreditCard, Receipt, UserCog
+  ShoppingBag, Check, Eye, Truck, Store, CreditCard, Receipt, UserCog, TicketPercent
 } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
@@ -15,6 +15,7 @@ import StockInventory from "@/components/StockInventory";
 import SalesLogs from "@/components/SalesLogs";
 import InstallmentManager from "@/components/InstallmentManager";
 import EmployeeManager from "@/components/EmployeeManager";
+import CouponAdmin from "@/components/CouponAdmin";
 import CountUp from "@/components/CountUp";
 
 interface InstallmentApp {
@@ -528,6 +529,9 @@ export default function AdminDashboard() {
 
               {/* จัดการพนักงาน (ROLE_ADMIN เท่านั้น) */}
               {activeMenu === "จัดการพนักงาน" && <EmployeeManager />}
+
+              {/* คูปองส่วนลด (จากวงล้อ) */}
+              {activeMenu === "คูปองส่วนลด" && <CouponAdmin />}
             </>
           )}
         </div>
@@ -588,6 +592,7 @@ const menuItems = [
   { name: "คำสั่งซื้อ (เว็บ)", icon: ShoppingBag },
   { name: "บิล & สต็อก (Logs)", icon: Receipt },
   { name: "ตารางผ่อน", icon: CreditCard },
+  { name: "คูปองส่วนลด", icon: TicketPercent },
   { name: "คำขอผ่อนสินค้า", icon: ClipboardList },
   { name: "จัดการลูกค้า", icon: Users },
   { name: "จัดการพนักงาน", icon: UserCog },
