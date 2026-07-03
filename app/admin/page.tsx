@@ -257,8 +257,11 @@ export default function AdminDashboard() {
           ))}
         </nav>
 
-        <div className="border-t border-border-default p-3">
-          <button onClick={handleLogout} className="flex w-full items-center gap-3 px-4 py-3 font-display text-sm uppercase tracking-wider text-error-text transition-colors hover:bg-error-bg">
+        <div className="space-y-1 border-t border-border-default p-3">
+          <Link href="/" className="flex w-full items-center gap-3 rounded-lg px-4 py-3 font-display text-sm uppercase tracking-wider text-text-body transition-colors hover:bg-bg-tinted hover:text-text-heading">
+            <Store size={18} className="text-yellow-hover" /> ดูหน้าร้าน
+          </Link>
+          <button onClick={handleLogout} className="flex w-full items-center gap-3 rounded-lg px-4 py-3 font-display text-sm uppercase tracking-wider text-error-text transition-colors hover:bg-error-bg">
             <LogOut size={18} /> ออกจากระบบ
           </button>
         </div>
