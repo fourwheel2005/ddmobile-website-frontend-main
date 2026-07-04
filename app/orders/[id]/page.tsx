@@ -84,7 +84,10 @@ export default function OrderDetailPage() {
       const res = await api.post(`/orders/${id}/slip`, fd);
       setOrder(res.data);
       setSlipPreview(URL.createObjectURL(compressed));
-      toast.success("แนบสลิปสำเร็จ รอแอดมินตรวจสอบ");
+      // ตรวจสลิปผ่าน → ระบบยืนยันออเดอร์ให้อัตโนมัติทันที
+      toast.success(res.data?.status === "CONFIRMED"
+        ? "ตรวจสลิปผ่าน! ยืนยันคำสั่งซื้อเรียบร้อย 🎉"
+        : "แนบสลิปสำเร็จ รอแอดมินตรวจสอบ");
     } catch (err: any) {
       toast.error(getApiError(err, "แนบสลิปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"));
     } finally {
