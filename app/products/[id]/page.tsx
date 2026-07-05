@@ -45,6 +45,8 @@ interface CatalogItem {
   warrantyExpire: string | null;
   grade: string | null;
   options: VariantOption[] | null;
+  sold?: boolean;
+  soldAt?: string | null;
 }
 
 export default function ProductDetailPage() {
@@ -217,6 +219,14 @@ export default function ProductDetailPage() {
               <span className={`badge-dd absolute left-5 top-5 z-10 ${isNew ? "badge-success" : "badge-info"}`}>
                 {isNew ? <Sparkles size={12} /> : <RotateCcw size={12} />} {item.conditionLabel}
               </span>
+              {/* เครื่องขายแล้ว — ป้ายทับกลางรูป */}
+              {item.sold && (
+                <span className="absolute inset-0 z-20 flex items-center justify-center">
+                  <span className="-rotate-12 rounded-xl border-2 border-white/90 bg-text-heading/85 px-6 py-2 text-2xl font-extrabold tracking-wide text-white shadow-xl">
+                    ขายแล้ว
+                  </span>
+                </span>
+              )}
               <AnimatePresence mode="wait" initial={false}>
                 {mainImg ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -226,7 +236,7 @@ export default function ProductDetailPage() {
                     alt={item.productName}
                     width={420}
                     height={420}
-                    className="h-full w-full max-w-sm object-contain"
+                    className={`h-full w-full max-w-sm object-contain ${item.sold ? "opacity-40 grayscale" : ""}`}
                     initial={reduceMotion ? false : { opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 1.03 }}
@@ -286,7 +296,7 @@ export default function ProductDetailPage() {
                   </>
                 )}
               </div>
-              {effPrice != null && !installment && (
+              {effPrice != null && !item.sold && !installment && (
                 <div className="mt-4 flex items-center gap-3 border-t border-border-default pt-4 text-sm">
                   <span className="text-text-muted">ผ่อนเริ่มต้นเพียง</span>
                   <span className="text-lg font-bold text-text-heading"><CountUp value={roughMonthly} prefix="฿" /> / เดือน</span>
@@ -412,11 +422,11 @@ export default function ProductDetailPage() {
                   <ShoppingCart size={20} /> เพิ่มลงตะกร้า
                 </button>
                 <button disabled={!canBuy} onClick={buyNow} className="btn-primary flex-1 py-3.5 text-base disabled:opacity-40">
-                  <Zap size={20} /> {item.quantity > 0 ? (item.minPrice == null ? "สอบถามราคา" : "ซื้อเลย") : "สินค้าหมด"}
+                  <Zap size={20} /> {item.sold ? "ขายแล้ว" : item.quantity > 0 ? (item.minPrice == null ? "สอบถามราคา" : "ซื้อเลย") : "สินค้าหมด"}
                 </button>
               </div>
-              {/* ผ่อน → ทักไลน์โดยตรง (เมื่อมีกล่องผ่อน InstallmentBox มีปุ่มผ่อนของตัวเองแล้ว) */}
-              {!installment && (
+              {/* ผ่อน → ทักไลน์โดยตรง (เมื่อมีกล่องผ่อน InstallmentBox มีปุ่มผ่อนของตัวเองแล้ว) · ไม่โชว์กับเครื่องขายแล้ว */}
+              {!item.sold && !installment && (
                 <a href="https://lin.ee/rewiz9b" target="_blank" rel="noopener noreferrer"
                   className="line-cta group flex w-full items-center gap-3 rounded-full bg-[#06C755] px-5 py-3.5 text-white shadow-[0_10px_30px_rgba(6,199,85,0.4)] transition-transform hover:-translate-y-0.5">
                   <MessageCircle size={24} className="flex-shrink-0" />
@@ -442,7 +452,7 @@ export default function ProductDetailPage() {
           <ShoppingCart size={18} />
         </button>
         <button disabled={!canBuy} onClick={buyNow} className="btn-primary flex-1 py-3 disabled:opacity-40">
-          <Zap size={18} /> {item.quantity > 0 ? (item.minPrice == null ? "สอบถามราคา" : "ซื้อเลย") : "สินค้าหมด"}
+          <Zap size={18} /> {item.sold ? "ขายแล้ว" : item.quantity > 0 ? (item.minPrice == null ? "สอบถามราคา" : "ซื้อเลย") : "สินค้าหมด"}
         </button>
       </div>
     </div>

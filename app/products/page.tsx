@@ -41,6 +41,8 @@ interface CatalogItem {
   warrantyExpire: string | null;
   options: VariantOption[] | null;
   score: number;
+  sold?: boolean;          // เครื่องที่ขายแล้ว — โชว์ป้าย "ขายแล้ว" + รูปจาง ไม่ให้ซื้อ
+  soldAt?: string | null;
 }
 
 type SortKey = "recommended" | "price-asc" | "price-desc" | "newest" | "name";
@@ -135,6 +137,8 @@ export default function ProductsPage() {
       case "name": arr.sort((a, b) => a.productName.localeCompare(b.productName, "th")); break;
       default: arr.sort((a, b) => b.score - a.score); // recommended
     }
+    // เครื่องขายแล้วไปท้ายเสมอ (stable — คงลำดับเดิมภายในกลุ่ม) ไม่ว่าจะเรียงแบบไหน
+    arr.sort((a, b) => Number(!!a.sold) - Number(!!b.sold));
     return arr;
   }, [items, search, sortBy, cond, maxPrice]);
 
@@ -284,12 +288,20 @@ export default function ProductsPage() {
                         {it.condition === "NEW" ? <Sparkles size={11} /> : <RotateCcw size={11} />} {it.conditionLabel}
                       </span>
                       {it.imageUrl ? (
-                        <img src={it.imageUrl} alt={it.productName} loading="lazy" className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105" />
+                        <img src={it.imageUrl} alt={it.productName} loading="lazy" className={`h-full w-full object-contain transition-transform duration-300 group-hover:scale-105 ${it.sold ? "opacity-40 grayscale" : ""}`} />
                       ) : (
-                        <Smartphone size={52} className="text-text-disabled" />
+                        <Smartphone size={52} className={`text-text-disabled ${it.sold ? "opacity-40" : ""}`} />
+                      )}
+                      {/* เครื่องขายแล้ว — ป้ายทับกลางรูป (รูปจางอยู่แล้ว) */}
+                      {it.sold && (
+                        <span className="absolute inset-0 z-10 flex items-center justify-center">
+                          <span className="-rotate-12 rounded-lg border-2 border-white/90 bg-text-heading/85 px-4 py-1.5 text-base font-extrabold tracking-wide text-white shadow-lg">
+                            ขายแล้ว
+                          </span>
+                        </span>
                       )}
                       {/* ป้ายเงินดาวน์ (มุมล่างซ้ายของรูป) — เด่นชวนผ่อน */}
-                      {inst?.down != null && (
+                      {!it.sold && inst?.down != null && (
                         <span className="absolute bottom-0 left-0 z-10 rounded-tr-xl bg-text-heading px-3 py-1.5 text-xs font-bold text-white shadow-md">
                           ดาวน์ <span className="text-yellow">฿{inst.down.toLocaleString()}</span>
                         </span>
@@ -309,7 +321,7 @@ export default function ProductsPage() {
                           <p className={`font-bold text-price ${it.minPrice == null ? "text-sm" : "text-lg"}`}>
                             {priceText(it.minPrice)}{(it.type === "GROUP" || it.type === "MODEL") && it.maxPrice != null && it.maxPrice !== it.minPrice ? ` - ${Number(it.maxPrice).toLocaleString()}` : ""}
                           </p>
-                          {it.type === "MODEL" ? (
+                          {it.sold ? null : it.type === "MODEL" ? (
                             <span className="flex h-8 flex-shrink-0 items-center rounded-full bg-bg-tinted px-3 text-[11px] font-semibold text-text-body">เลือกแบบ →</span>
                           ) : it.minPrice != null && it.quantity > 0 ? (
                             <button onClick={(e) => quickAdd(e, it)} aria-label="เพิ่มลงตะกร้า" className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-yellow text-[#1a1a1a] transition-transform hover:scale-110">
@@ -317,17 +329,21 @@ export default function ProductsPage() {
                             </button>
                           ) : null}
                         </div>
-                        {/* ผ่อนเริ่มต้น + โปร (ถ้าตั้งตารางผ่อนไว้) — ดึงดูดให้กดเข้าไปดู */}
-                        {inst?.monthly != null && (
+                        {/* ผ่อนเริ่มต้น + โปร (ถ้าตั้งตารางผ่อนไว้) — ดึงดูดให้กดเข้าไปดู · ไม่โชว์กับเครื่องขายแล้ว */}
+                        {!it.sold && inst?.monthly != null && (
                           <div className="mb-2 flex items-center gap-1.5 rounded-lg bg-yellow/15 px-2 py-1.5 text-xs font-bold text-text-heading">
                             <CreditCard size={13} className="flex-shrink-0 text-yellow-hover" />
                             ผ่อนเริ่ม ฿{inst.monthly.toLocaleString()}<span className="font-medium text-text-muted">/เดือน</span>
                           </div>
                         )}
-                        {inst?.note && (
+                        {!it.sold && inst?.note && (
                           <p className="mb-2 line-clamp-1 text-[11px] font-semibold text-yellow-hover">✨ {inst.note}</p>
                         )}
-                        {it.quantity > 0 ? (
+                        {it.sold ? (
+                          <span className="badge-dd bg-text-heading/10 text-text-muted">
+                            <CheckCircle2 size={12} /> ขายแล้ว
+                          </span>
+                        ) : it.quantity > 0 ? (
                           <span className="badge-dd badge-success">
                             <CheckCircle2 size={12} /> {it.type === "UNIT" ? "พร้อมส่ง" : `พร้อมส่ง ${it.quantity} ชิ้น`}
                           </span>
