@@ -314,17 +314,21 @@ export default function ProductDetailPage() {
                       {colors.map((c) => {
                         const opt = options.find((o) => o.color === c);
                         const active = c === selColor;
+                        // สีที่หมดสต๊อก (ทุกความจุ qty 0) → โชว์จาง + ป้าย "หมด" แบบ Shopee (ยังกดดูได้)
+                        const soldOut = !options.some((o) => o.color === c && o.quantity > 0);
                         return (
                           <button
                             key={c}
                             onClick={() => pickColor(c)}
-                            className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${active ? "border-yellow ring-2 ring-yellow text-text-heading" : "border-border-default text-text-body hover:border-text-muted"}`}
+                            title={soldOut ? `${c} — สินค้าหมด (รอเติมสต๊อก)` : c}
+                            className={`relative flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition ${active ? "border-yellow ring-2 ring-yellow text-text-heading" : "border-border-default text-text-body hover:border-text-muted"} ${soldOut ? "opacity-40" : ""}`}
                           >
                             {opt?.imageUrl && (
                               // eslint-disable-next-line @next/next/no-img-element
-                              <img src={opt.imageUrl} alt={c} className="h-7 w-7 rounded object-cover" />
+                              <img src={opt.imageUrl} alt={c} className={`h-7 w-7 rounded object-cover ${soldOut ? "grayscale" : ""}`} />
                             )}
                             {c}
+                            {soldOut && <span className="ml-1 rounded bg-text-heading/10 px-1 text-[10px] font-medium text-text-muted">หมด</span>}
                           </button>
                         );
                       })}
