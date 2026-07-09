@@ -10,7 +10,7 @@ interface SerialPlan { id: number; serialId: string; label: string | null; downP
 interface VariantOption { storage: string | null; }
 interface CatalogItem { id: string; type: string; productName: string; sku: string; storage: string | null; conditionLabel: string; options: VariantOption[] | null; }
 
-const baht = (n: number | null | undefined) => (n == null ? "-" : "฿" + Number(n).toLocaleString());
+import { baht } from "@/lib/money";
 
 /* ============================ ตารางผ่อนจากโปสเตอร์ (พรีเซ็ต — เฉพาะ "มือ 1") ============================ */
 /* แอดมินกดนำเข้าได้เลย แล้วแก้ทีหลังได้
@@ -373,7 +373,7 @@ function SerialTab({ serials, units, reload }: { serials: SerialPlan[]; units: C
 
   // นำเข้าราคามือ 2 ตามโปสเตอร์ ให้ทุกเครื่องมือสองในคลังที่ตรงรุ่น+ความจุ
   const importAll = async () => {
-    if (units.length === 0) { toast("ยังไม่มีเครื่องมือสองในคลัง", { icon: "📦" }); return; }
+    if (units.length === 0) { toast("ยังไม่มีเครื่องมือสองในคลัง"); return; }
     if (!confirm("นำเข้าราคาผ่อนมือ 2 ตามโปสเตอร์ ให้ทุกเครื่องที่ตรงรุ่น+ความจุ?")) return;
     setImporting(true);
     let ok = 0; const skipped: string[] = [];

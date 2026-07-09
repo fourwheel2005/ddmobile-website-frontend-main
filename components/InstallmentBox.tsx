@@ -21,8 +21,8 @@ interface ProductInfo {
   price?: number | null;
 }
 
-const LINE_URL = "https://lin.ee/rewiz9b";
-const baht = (n: number | null | undefined) => (n == null ? "-" : "฿" + Number(n).toLocaleString());
+import { LINE_URL } from "@/lib/contact";
+import { baht } from "@/lib/money";
 
 /**
  * กล่องผ่อน + ปุ่มดึงเข้า LINE (เหมือนตัวอย่าง ufriend):
@@ -136,7 +136,7 @@ export default function InstallmentBox({ info, product }: { info: InstallmentInf
           </div>
         </div>
 
-        <button onClick={goLine} className="line-cta mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-[#06C755] py-3.5 text-base font-bold text-white shadow-[0_8px_22px_rgba(6,199,85,0.35)] transition-transform hover:-translate-y-0.5">
+        <button onClick={goLine} className="line-cta mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-line py-3.5 text-base font-bold text-white shadow-[var(--shadow-line)] transition-transform hover:-translate-y-0.5">
           <MessageCircle size={20} /> ยืนยันผ่อนเครื่องนี้ · ทักแอดมินทาง LINE
         </button>
         <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-xs text-text-muted">

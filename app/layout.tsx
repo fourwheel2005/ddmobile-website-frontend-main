@@ -1,16 +1,17 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, IBM_Plex_Sans_Thai } from "next/font/google";
+import { Anuphan, IBM_Plex_Sans_Thai } from "next/font/google";
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import FloatingActions from "@/components/FloatingActions";
 import { Toaster } from "react-hot-toast"; // ✅ 1. นำเข้า Toaster ที่นี่
 import { CartProvider } from "@/context/CartContext";
 import "./globals.css";
 
-// Display (หัวข้อ/ตัวเลข) — ฟอนต์เดียวกับหน้า Stock UI
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-space",
+// Display (หัวข้อ/ตัวเลข) — Anuphan มี glyph ไทย+ละตินครบ (Space Grotesk เดิมไม่มีไทย → หัวข้อฟอนต์ผสม)
+const anuphan = Anuphan({
+  variable: "--font-anuphan",
   weight: ["500", "600", "700"],
-  subsets: ["latin"],
+  subsets: ["latin", "thai"],
   display: "swap",
 });
 
@@ -33,12 +34,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="th" className={`${spaceGrotesk.variable} ${plexThai.variable}`}>
+    <html lang="th" className={`${anuphan.variable} ${plexThai.variable}`}>
       {/* พื้นหลัง/ฟอนต์หลักกำหนดใน globals.css (@layer base body) */}
       <body className="antialiased">
         <CartProvider>
           <Navbar />
           <main className="pb-[calc(64px+env(safe-area-inset-bottom))] md:pb-0">{children}</main>
+          <Footer />
           <FloatingActions />
         </CartProvider>
 

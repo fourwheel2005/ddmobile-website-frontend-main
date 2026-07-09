@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ShoppingCart, Trash2, Minus, Plus, Smartphone, ArrowRight, Sparkles, RotateCcw } from "lucide-react";
 
-const money = (v: number) => "฿" + Number(v).toLocaleString();
+import { baht as money } from "@/lib/money";
 
 export default function CartPage() {
   const { items, total, count, remove, setQty, clear } = useCart();

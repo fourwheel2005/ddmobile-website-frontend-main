@@ -1,10 +1,11 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
 import api from "@/lib/api";
+import { LINE_URL } from "@/lib/contact";
 import { buildInstLookup, type InstallmentPlan, type InstallmentSerial, type InstInfo } from "@/lib/installment";
 import {
   Zap, ShieldCheck, Smartphone, CreditCard,
-  MessageCircle, Facebook, Instagram, Phone, ChevronRight, Sparkles, RotateCcw
+  MessageCircle, ChevronRight, Sparkles, RotateCcw
 } from "lucide-react";
 import Link from "next/link";
 import Reveal from "@/components/Reveal";
@@ -156,7 +157,7 @@ export default function Home() {
           <p className="mx-auto mt-3 max-w-2xl text-sm text-text-heading/70 md:text-base">
             ไม่ต้องรอเก็บเงินก้อน ทักแชทหาแอดมินวันนี้ ประเมินสิทธิ์ฟรี ไม่มีค่าใช้จ่ายแอบแฝง
           </p>
-          <a href="https://lin.ee/rewiz9b" target="_blank" rel="noopener noreferrer"
+          <a href={LINE_URL} target="_blank" rel="noopener noreferrer"
             className="mt-6 inline-flex items-center gap-2 rounded-full bg-text-heading px-7 py-3 font-semibold text-white shadow-sm transition-transform hover:-translate-y-0.5">
             <MessageCircle size={20} /> ทักไลน์สอบถามเลย
           </a>
@@ -164,70 +165,7 @@ export default function Home() {
         </Reveal>
       </section>
 
-      {/* ===================== FOOTER ===================== */}
-      <footer className="border-t border-border-default bg-bg-subtle pt-12 pb-10">
-        <div className="container-dd grid grid-cols-1 gap-8 sm:grid-cols-2 md:grid-cols-4">
-          <div className="md:col-span-2">
-            <Link href="/" className="mb-4 inline-block">
-              <img src="/images/logo.png" alt="DDMOBILE Logo" width={120} height={48} className="h-11 w-auto object-contain" />
-            </Link>
-            <p className="max-w-sm text-sm leading-relaxed text-text-muted">
-              ผู้นำด้านบริการผ่อนโทรศัพท์มือถือและสินค้าไอที อนุมัติไว เงื่อนไขง่าย เข้าถึงได้ทุกคน
-            </p>
-          </div>
-          <div>
-            <h4 className="mb-3 font-bold text-text-heading">เมนูทางลัด</h4>
-            <ul className="space-y-2 text-sm text-text-muted">
-              <li><Link href="/" className="hover:text-yellow-hover">หน้าหลัก</Link></li>
-              <li><Link href="/products" className="hover:text-yellow-hover">สินค้าทั้งหมด</Link></li>
-              <li><Link href="/installments" className="hover:text-yellow-hover">ขั้นตอนการผ่อน</Link></li>
-              <li><Link href="/contact" className="hover:text-yellow-hover">ติดต่อเรา</Link></li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="mb-3 font-bold text-text-heading">ติดตามเรา</h4>
-            <div className="flex flex-col gap-3">
-              <a href="https://www.facebook.com/iphoneeasyinstallment" target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-3 rounded-xl border border-border-default bg-white p-3 transition-colors hover:border-yellow">
-                <Facebook size={20} className="text-[#1877F2]" />
-                <span className="text-sm text-text-body">ไอโฟนผ่อนง่ายสำรอง</span>
-              </a>
-              <a href="https://www.tiktok.com/@ddmobile_" target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-3 rounded-xl border border-border-default bg-white p-3 transition-colors hover:border-yellow">
-                <TikTokIcon className="h-5 w-5 text-text-heading" />
-                <span className="text-sm text-text-body">ddmobile_</span>
-              </a>
-              <a href="https://www.instagram.com/ddmobileplus/" target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-3 rounded-xl border border-border-default bg-white p-3 transition-colors hover:border-yellow">
-                <Instagram size={20} className="text-[#E4405F]" />
-                <span className="text-sm text-text-body">ddmobileplus</span>
-              </a>
-              <a href="https://lin.ee/rewiz9b" target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-3 rounded-xl border border-border-default bg-white p-3 transition-colors hover:border-yellow">
-                <MessageCircle size={20} className="text-[#06C755]" />
-                <span className="text-sm text-text-body">LINE: ไอโฟนผ่อนง่าย</span>
-              </a>
-              <a href="tel:0888188385"
-                className="flex items-center gap-3 rounded-xl border border-border-default bg-white p-3 transition-colors hover:border-yellow">
-                <Phone size={20} className="text-yellow-hover" />
-                <span className="text-sm text-text-body">088-818-8385</span>
-              </a>
-            </div>
-          </div>
-        </div>
-        <div className="container-dd mt-10 border-t border-border-default pt-6 text-center text-xs text-text-muted">
-          © {new Date().getFullYear()} DDMOBILE. All rights reserved.
-        </div>
-      </footer>
     </div>
-  );
-}
-
-function TikTokIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
-      <path d="M16.5 3a5.6 5.6 0 0 0 4.5 4.9v3a8.6 8.6 0 0 1-4.5-1.3v6.1a6.3 6.3 0 1 1-6.3-6.3c.3 0 .6 0 .9.1v3.1a3.3 3.3 0 1 0 2.3 3.1V3h3.1Z" />
-    </svg>
   );
 }
 
@@ -264,7 +202,7 @@ function ProductCard({ product, inst }: { product: CatalogItem; inst?: InstInfo 
               ผ่อนเริ่ม ฿{inst.monthly.toLocaleString()}<span className="font-medium text-text-muted">/เดือน</span>
             </div>
           )}
-          {inst?.note && <p className="mt-1 line-clamp-1 text-[11px] font-semibold text-yellow-hover">✨ {inst.note}</p>}
+          {inst?.note && <p className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-yellow-hover"><Sparkles size={11} className="flex-shrink-0" /> <span className="line-clamp-1">{inst.note}</span></p>}
         </div>
       </div>
     </Link>

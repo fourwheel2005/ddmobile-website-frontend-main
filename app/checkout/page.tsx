@@ -8,7 +8,8 @@ import toast from "react-hot-toast";
 import Link from "next/link";
 import { Banknote, Smartphone, ArrowRight, ShoppingCart, MessageCircle, TicketPercent } from "lucide-react";
 
-const money = (v: number) => "฿" + Number(v).toLocaleString();
+import { baht as money } from "@/lib/money";
+import { LINE_URL } from "@/lib/contact";
 
 interface Coupon { code: string; percent: number; expiresAt: string | null; }
 
@@ -124,11 +125,11 @@ export default function CheckoutPage() {
               </div>
 
               {/* อยากผ่อน → ทักไลน์ */}
-              <a href="https://lin.ee/rewiz9b" target="_blank" rel="noopener noreferrer"
-                className="mt-3 flex items-center gap-2 rounded-xl border border-dashed border-[#06C755]/50 bg-[#06C755]/5 px-4 py-3 text-sm text-text-body transition-colors hover:bg-[#06C755]/10">
-                <MessageCircle size={18} className="flex-shrink-0 text-[#06C755]" />
+              <a href={LINE_URL} target="_blank" rel="noopener noreferrer"
+                className="mt-3 flex items-center gap-2 rounded-xl border border-dashed border-line/50 bg-line/5 px-4 py-3 text-sm text-text-body transition-colors hover:bg-line/10">
+                <MessageCircle size={18} className="flex-shrink-0 text-line" />
                 <span>อยาก<span className="font-semibold text-text-heading">ผ่อนเครื่องนี้</span>? ทักแอดมินทางไลน์เพื่อทำเรื่องผ่อน</span>
-                <ArrowRight size={16} className="ml-auto flex-shrink-0 text-[#06C755]" />
+                <ArrowRight size={16} className="ml-auto flex-shrink-0 text-line" />
               </a>
 
               <div className="mt-4">

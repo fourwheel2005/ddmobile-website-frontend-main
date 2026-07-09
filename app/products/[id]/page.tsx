@@ -3,6 +3,8 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import api from "@/lib/api";
+import { baht } from "@/lib/money";
+import { LINE_URL } from "@/lib/contact";
 import {
   Smartphone, Loader2, ShieldCheck, CheckCircle2, XCircle,
   MessageCircle, ArrowLeft, ChevronRight, Sparkles, RotateCcw, BatteryMedium, Hash, ShoppingCart, Zap
@@ -189,8 +191,7 @@ export default function ProductDetailPage() {
     if (r.ok || r.reason === "เครื่องนี้อยู่ในตะกร้าแล้ว") router.push("/checkout");
     else toast(r.reason || "เพิ่มไม่ได้", { icon: "🛒" });
   };
-  const roughMonthly = effPrice ? Math.ceil(effPrice / 10) : 0;
-  const priceText = effPrice == null ? "สอบถามราคา" : "฿" + effPrice.toLocaleString();
+  const priceText = baht(effPrice, "สอบถามราคา");
   const warranty = item.warrantyExpire
     ? `ประกันถึง ${new Date(item.warrantyExpire).toLocaleDateString("th-TH")}`
     : isNew ? "ประกันศูนย์ 1 ปี" : "ตรวจเช็คคุณภาพแล้ว";
@@ -296,12 +297,6 @@ export default function ProductDetailPage() {
                   </>
                 )}
               </div>
-              {effPrice != null && !item.sold && !installment && (
-                <div className="mt-4 flex items-center gap-3 border-t border-border-default pt-4 text-sm">
-                  <span className="text-text-muted">ผ่อนเริ่มต้นเพียง</span>
-                  <span className="text-lg font-bold text-text-heading"><CountUp value={roughMonthly} prefix="฿" /> / เดือน</span>
-                </div>
-              )}
             </div>
 
             {/* มือ 1 (MODEL): เลือกสี / ความจุ แบบ Shopee */}
@@ -328,7 +323,7 @@ export default function ProductDetailPage() {
                               <img src={opt.imageUrl} alt={c} className={`h-7 w-7 rounded object-cover ${soldOut ? "grayscale" : ""}`} />
                             )}
                             {c}
-                            {soldOut && <span className="ml-1 rounded bg-text-heading/10 px-1 text-[10px] font-medium text-text-muted">หมด</span>}
+                            {soldOut && <span className="ml-1 rounded bg-text-heading/10 px-1 text-[11px] font-medium text-text-muted">หมด</span>}
                           </button>
                         );
                       })}
@@ -431,8 +426,8 @@ export default function ProductDetailPage() {
               </div>
               {/* ผ่อน → ทักไลน์โดยตรง (เมื่อมีกล่องผ่อน InstallmentBox มีปุ่มผ่อนของตัวเองแล้ว) · ไม่โชว์กับเครื่องขายแล้ว */}
               {!item.sold && !installment && (
-                <a href="https://lin.ee/rewiz9b" target="_blank" rel="noopener noreferrer"
-                  className="line-cta group flex w-full items-center gap-3 rounded-full bg-[#06C755] px-5 py-3.5 text-white shadow-[0_10px_30px_rgba(6,199,85,0.4)] transition-transform hover:-translate-y-0.5">
+                <a href={LINE_URL} target="_blank" rel="noopener noreferrer"
+                  className="line-cta group flex w-full items-center gap-3 rounded-full bg-line px-5 py-3.5 text-white shadow-[var(--shadow-line)] transition-transform hover:-translate-y-0.5">
                   <MessageCircle size={24} className="flex-shrink-0" />
                   <span className="flex flex-col text-left leading-tight">
                     <span className="text-base font-bold">ผ่อนเครื่องนี้ · ทักไลน์รับสิทธิ์เลย</span>

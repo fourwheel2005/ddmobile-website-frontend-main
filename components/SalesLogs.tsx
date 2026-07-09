@@ -27,7 +27,7 @@ interface StockTxn {
 function toArr<T>(d: any): T[] {
   return Array.isArray(d) ? d : (Array.isArray(d?.content) ? d.content : []);
 }
-const money = (v: number | null) => (v == null ? "-" : "฿" + Number(v).toLocaleString());
+import { baht as money } from "@/lib/money";
 const dt = (v: string | null) => {
   if (!v) return "-";
   const d = new Date(v);

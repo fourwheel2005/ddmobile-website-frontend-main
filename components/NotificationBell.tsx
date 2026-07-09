@@ -91,7 +91,7 @@ export default function NotificationBell() {
       <button onClick={toggle} aria-label="การแจ้งเตือน" className="relative rounded-full p-2 text-text-muted transition-colors hover:bg-bg-subtle hover:text-text-heading">
         <Bell size={20} />
         {unread > 0 && (
-          <span key={unread} className="dd-pop absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-yellow px-1 text-[10px] font-bold text-[#1a1a1a]">
+          <span key={unread} className="dd-pop absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-yellow px-1 text-[11px] font-bold text-[#1a1a1a]">
             {unread > 9 ? "9+" : unread}
           </span>
         )}
@@ -126,7 +126,7 @@ export default function NotificationBell() {
                     <div className="min-w-0 flex-1">
                       <p className={`text-sm ${it.read ? "text-text-body" : "font-semibold text-text-heading"}`}>{it.title}</p>
                       <p className="line-clamp-2 text-xs text-text-muted">{it.message}</p>
-                      <p className="mt-0.5 text-[10px] text-text-disabled">{timeAgo(it.createdAt)}</p>
+                      <p className="mt-0.5 text-[11px] text-text-disabled">{timeAgo(it.createdAt)}</p>
                     </div>
                     {!it.read && <span className="mt-1.5 h-2 w-2 flex-shrink-0 rounded-full bg-yellow" />}
                   </button>

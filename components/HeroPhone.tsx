@@ -1,6 +1,6 @@
 "use client";
 import { motion, useMotionValue, useSpring, useTransform, useReducedMotion } from "framer-motion";
-import { Sparkles, Truck, Star } from "lucide-react";
+import { Sparkles, Truck, ShieldCheck } from "lucide-react";
 import type { ReactNode } from "react";
 
 /**
@@ -44,7 +44,7 @@ export default function HeroPhone() {
         <Truck size={13} className="text-yellow-hover" /> ส่งด่วนทั่วไทย
       </Chip>
       <Chip className="bottom-[16%] left-[4%]" delay={1.2} reduce={!!reduce}>
-        <Star size={13} className="text-yellow-hover" /> รีวิว 4.9
+        <ShieldCheck size={13} className="text-info-text" /> เครื่องแท้ 100%
       </Chip>
 
       <motion.div

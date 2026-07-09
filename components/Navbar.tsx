@@ -97,7 +97,7 @@ export default function Navbar() {
             <Link href="/cart" aria-label="ตะกร้าสินค้า" className="relative rounded-full p-2 text-text-muted transition-colors hover:bg-bg-subtle hover:text-text-heading">
               <ShoppingCart size={20} />
               {count > 0 && (
-                <span key={count} className="dd-pop absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-yellow px-1 text-[10px] font-bold text-[#1a1a1a]">{count}</span>
+                <span key={count} className="dd-pop absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-yellow px-1 text-[11px] font-bold text-[#1a1a1a]">{count}</span>
               )}
             </Link>
 

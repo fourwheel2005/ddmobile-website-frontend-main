@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import api from "@/lib/api";
 import {
   Warehouse, Loader2, AlertTriangle, RefreshCw,
-  PackageCheck, Sparkles, RotateCcw, Search, ChevronRight, BatteryMedium,
+  PackageCheck, Sparkles, RotateCcw, Search, ChevronRight, BatteryMedium, CheckCircle2,
   Pencil, X, UploadCloud, ImageOff
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -89,7 +89,7 @@ function toArray<T>(data: unknown): T[] {
   return [];
 }
 
-const money = (v: number | null) => (v == null ? "-" : "฿" + Number(v).toLocaleString());
+import { baht as money } from "@/lib/money";
 
 const priceRange = (min: number | null, max: number | null) => {
   if (min == null) return "-";
@@ -270,7 +270,7 @@ export default function StockInventory() {
                 </thead>
                 <tbody>
                   {alerts.length === 0 ? (
-                    <tr><td colSpan={5} className="p-8 text-center font-display uppercase tracking-widest text-text-muted">ไม่มีสินค้าใกล้หมด 🎉</td></tr>
+                    <tr><td colSpan={5} className="p-8 text-center font-display uppercase tracking-widest text-text-muted"><CheckCircle2 size={15} className="mr-1.5 inline -translate-y-px text-success-text" />ไม่มีสินค้าใกล้หมด</td></tr>
                   ) : (
                     alerts.map((a) => (
                       <tr key={a.id}>
@@ -370,7 +370,7 @@ function FragmentRows({ v, open, onToggle, cfg, onEdit }: { v: VariantGroup; ope
               <Pencil size={13} /> แก้ราคา/รูป
             </button>
           ) : (
-            <span className="text-[10px] text-text-muted">-</span>
+            <span className="text-[11px] text-text-muted">-</span>
           )}
         </td>
       </tr>
@@ -380,7 +380,7 @@ function FragmentRows({ v, open, onToggle, cfg, onEdit }: { v: VariantGroup; ope
             <div className="overflow-x-auto px-4 py-3">
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="border-b border-border-default text-[10px] uppercase tracking-widest text-text-muted">
+                  <tr className="border-b border-border-default text-[11px] uppercase tracking-widest text-text-muted">
                     <th className="py-2 pr-4 font-display">IMEI / Serial</th>
                     <th className="py-2 pr-4 font-display">สภาพ</th>
                     <th className="py-2 pr-4 font-display">แบต</th>
@@ -510,7 +510,7 @@ function EditVariantModal({ cfg, onClose, onSaved }: { cfg: VariantConfig; onClo
           <div>
             <label htmlFor="ev-price" className="mb-1 block text-xs font-semibold uppercase tracking-wider text-text-muted">ราคาขาย (บาท)</label>
             <input id="ev-price" type="number" min={0} value={price} onChange={(e) => setPrice(e.target.value)} className="input-dd" placeholder="เช่น 18900" />
-            <p className="mt-1 text-[10px] text-text-muted">ราคาขายของเครื่องนี้ (บันทึกเข้า Stock — ไหลเข้าบิลตอนขายจริง)</p>
+            <p className="mt-1 text-[11px] text-text-muted">ราคาขายของเครื่องนี้ (บันทึกเข้า Stock — ไหลเข้าบิลตอนขายจริง)</p>
           </div>
 
           <div>
@@ -539,7 +539,7 @@ function EditVariantModal({ cfg, onClose, onSaved }: { cfg: VariantConfig; onClo
               <UploadCloud size={16} /> เพิ่มรูป
               <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => addImages(e.target.files)} />
             </label>
-            <p className="mt-1 text-[10px] text-text-muted">เพิ่มได้หลายรูป (สูงสุด {MAX}) — รูปแรก = รูปปก · บันทึกเมื่อกด “บันทึก”</p>
+            <p className="mt-1 text-[11px] text-text-muted">เพิ่มได้หลายรูป (สูงสุด {MAX}) — รูปแรก = รูปปก · บันทึกเมื่อกด “บันทึก”</p>
           </div>
         </div>
         <div className="flex justify-end gap-2 border-t border-border-default p-4">

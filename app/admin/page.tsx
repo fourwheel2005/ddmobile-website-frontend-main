@@ -5,13 +5,14 @@ import { getApiError } from "@/lib/errorMessage";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   LayoutDashboard, Smartphone, ClipboardList, Users, Settings,
-  LogOut, Bell, Search, Clock, CheckCircle2, XCircle, Loader2,
+  LogOut, Clock, CheckCircle2, XCircle, Loader2,
   X, AlertTriangle, Warehouse, Menu,
   ShoppingBag, Check, Eye, Truck, Store, CreditCard, Receipt, UserCog, TicketPercent
 } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import StockInventory from "@/components/StockInventory";
+import NotificationBell from "@/components/NotificationBell";
 import SalesLogs from "@/components/SalesLogs";
 import InstallmentManager from "@/components/InstallmentManager";
 import EmployeeManager from "@/components/EmployeeManager";
@@ -282,14 +283,8 @@ export default function AdminDashboard() {
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
-            <div className="relative hidden md:block">
-              <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-text-muted" size={16} />
-              <input type="text" placeholder="ค้นหา..." aria-label="ค้นหา" className="input-dd w-56 pl-11" />
-            </div>
-            <button aria-label="การแจ้งเตือน" className="relative p-2 text-text-muted hover:text-yellow">
-              <Bell size={22} />
-              <span className="absolute right-1 top-1 h-2 w-2 bg-error-text" />
-            </button>
+            {/* กระดิ่งแจ้งเตือนจริง (poll + badge + dropdown) — ตัวเดียวกับหน้าร้าน */}
+            <NotificationBell />
           </div>
         </header>
 
@@ -333,7 +328,7 @@ export default function AdminDashboard() {
                         </thead>
                         <tbody>
                           {stockLow.length === 0 ? (
-                            <tr><td colSpan={4} className="p-8 text-center font-display uppercase tracking-widest text-text-muted">สินค้าทุกรุ่นมีสต็อกเพียงพอ 🎉</td></tr>
+                            <tr><td colSpan={4} className="p-8 text-center font-display uppercase tracking-widest text-text-muted"><CheckCircle2 size={15} className="mr-1.5 inline -translate-y-px text-success-text" />สินค้าทุกรุ่นมีสต็อกเพียงพอ</td></tr>
                           ) : (
                             stockLow.map((it) => (
                               <tr key={it.id}>
@@ -432,7 +427,7 @@ export default function AdminDashboard() {
                     <h2 className="flex items-center gap-2 font-display text-xl"><ShoppingBag className="text-yellow" size={20} /> คำสั่งซื้อจากหน้าเว็บ</h2>
                     <div className="flex flex-wrap items-center gap-2">
                       {slaCounts.action > 0 && <span className="badge-dd badge-info">ต้องดำเนินการ {slaCounts.action}</span>}
-                      {slaCounts.overdue > 0 && <span className="badge-dd badge-error">⏱ เกินกำหนด {slaCounts.overdue}</span>}
+                      {slaCounts.overdue > 0 && <span className="badge-dd badge-error"><Clock size={12} /> เกินกำหนด {slaCounts.overdue}</span>}
                       <span className="badge-dd badge-warning">{webOrders.length} รายการ</span>
                     </div>
                   </div>
@@ -454,7 +449,7 @@ export default function AdminDashboard() {
                                 <td>
                                   <p className="font-semibold text-text-heading">#{o.id}</p>
                                   <p className="text-xs text-text-muted">{new Date(o.createdAt).toLocaleDateString("th-TH")}</p>
-                                  {o.stockOrderId && <p className="mt-0.5 font-mono text-[10px] text-success-text">บิล: {o.stockOrderId}</p>}
+                                  {o.stockOrderId && <p className="mt-0.5 font-mono text-[11px] text-success-text">บิล: {o.stockOrderId}</p>}
                                 </td>
                                 <td><p className="font-semibold text-text-heading">{o.customerName}</p><p className="text-xs text-text-muted">{o.customerTel}</p></td>
                                 <td className="max-w-[220px]"><p className="truncate text-sm text-text-body">{o.items.map((i) => `${i.productName} x${i.quantity}`).join(", ")}</p>{o.shippingAddress && <p className="truncate text-xs text-text-muted">{o.shippingAddress}</p>}</td>
@@ -466,18 +461,18 @@ export default function AdminDashboard() {
                                       : <><Store size={12} /> รับที่ร้าน</>}
                                   </span>
                                   {o.paymentMethod === "INSTALLMENT" && o.downPayment != null && (
-                                    <p className="mt-1 text-[10px] text-text-muted">ดาวน์ ฿{o.downPayment?.toLocaleString()}</p>
+                                    <p className="mt-1 text-[11px] text-text-muted">ดาวน์ ฿{o.downPayment?.toLocaleString()}</p>
                                   )}
                                 </td>
                                 <td>
                                   <span className={`badge-dd ${st.c}`}>{st.t}</span>
                                   {o.slipFileId && o.slipVerified != null && (
-                                    <span className={`mt-1 block text-[10px] font-medium ${o.slipVerified ? "text-success-text" : "text-error-text"}`}>
-                                      {o.slipVerified ? "✓ สลิปยอดตรง" : "⚠ ยอดไม่ตรง/ซ้ำ"}
+                                    <span className={`mt-1 block text-[11px] font-medium ${o.slipVerified ? "text-success-text" : "text-error-text"}`}>
+                                      {o.slipVerified ? <><CheckCircle2 size={11} className="mr-0.5 inline -translate-y-px" /> สลิปยอดตรง</> : <><AlertTriangle size={11} className="mr-0.5 inline -translate-y-px" /> ยอดไม่ตรง/ซ้ำ</>}
                                     </span>
                                   )}
                                   {sla && (
-                                    <span className={`mt-1 flex items-center gap-1 text-[10px] font-semibold ${sla.level === "red" ? "text-error-text" : sla.level === "yellow" ? "text-yellow-hover" : "text-success-text"}`}>
+                                    <span className={`mt-1 flex items-center gap-1 text-[11px] font-semibold ${sla.level === "red" ? "text-error-text" : sla.level === "yellow" ? "text-yellow-hover" : "text-success-text"}`}>
                                       <span className={`inline-block h-1.5 w-1.5 rounded-full ${sla.level === "red" ? "bg-error-text" : sla.level === "yellow" ? "bg-yellow" : "bg-success-text"}`} />
                                       {sla.level === "red" ? `เกินกำหนด ${Math.floor(sla.hours)} ชม.` : `รอ ${Math.floor(sla.hours)} ชม.`}
                                     </span>

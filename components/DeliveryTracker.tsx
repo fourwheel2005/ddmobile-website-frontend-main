@@ -1,6 +1,6 @@
 "use client";
 import { motion, useReducedMotion } from "framer-motion";
-import { CheckCircle2, Package, Truck, Home, Store, ShoppingBag, Copy, ExternalLink } from "lucide-react";
+import { CheckCircle2, Package, Truck, Home, Store, ShoppingBag, Copy, ExternalLink, PartyPopper } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -121,7 +121,7 @@ export default function DeliveryTracker({ order }: { order: TrackOrder }) {
                   <Icon size={15} />
                 </div>
                 <span className={`mt-2 whitespace-nowrap text-[11px] ${done ? "font-semibold text-text-heading" : "text-text-muted"}`}>{s.label}</span>
-                {s.at && <span className="text-[9px] text-text-muted">{fmt(s.at)}</span>}
+                {s.at && <span className="text-[11px] text-text-muted">{fmt(s.at)}</span>}
               </div>
             );
           })}
@@ -149,7 +149,7 @@ export default function DeliveryTracker({ order }: { order: TrackOrder }) {
       )}
 
       {(order.status === "DELIVERED" || order.status === "PICKED_UP" || order.status === "COMPLETED") && (
-        <p className="mt-4 text-center text-sm font-semibold text-success-text">🎉 ขอบคุณที่อุดหนุน DD Mobile!</p>
+        <p className="mt-4 flex items-center justify-center gap-1.5 text-center text-sm font-semibold text-success-text"><PartyPopper size={15} /> ขอบคุณที่อุดหนุน DD Mobile!</p>
       )}
     </div>
   );

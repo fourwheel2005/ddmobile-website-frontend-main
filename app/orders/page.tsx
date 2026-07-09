@@ -12,7 +12,7 @@ interface Order {
   createdAt: string; items: OrderItem[];
 }
 
-const money = (v: number) => "฿" + Number(v).toLocaleString();
+import { baht as money } from "@/lib/money";
 
 export default function OrdersPage() {
   const router = useRouter();

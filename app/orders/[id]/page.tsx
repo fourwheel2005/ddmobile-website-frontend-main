@@ -10,7 +10,7 @@ import { compressImage } from "@/lib/imageCompress";
 import DeliveryTracker from "@/components/DeliveryTracker";
 import { QRCodeCanvas } from "qrcode.react";
 import {
-  Loader2, Smartphone, ArrowLeft, UploadCloud, Banknote, Store, Truck,
+  Loader2, Smartphone, ArrowLeft, UploadCloud, Banknote, Store, Truck, Clock,
   CheckCircle2, AlertTriangle, ShieldCheck, Package
 } from "lucide-react";
 
@@ -31,7 +31,7 @@ interface Order {
 
 const FULFILLMENT = ["CONFIRMED", "PREPARING", "SHIPPED", "DELIVERED", "READY_PICKUP", "PICKED_UP", "COMPLETED"];
 
-const money = (v: number) => "฿" + Number(v).toLocaleString();
+import { baht as money } from "@/lib/money";
 const condLabel = (c: string) => (c === "NEW" ? "มือ 1" : "มือ 2");
 
 export default function OrderDetailPage() {
@@ -86,7 +86,7 @@ export default function OrderDetailPage() {
       setSlipPreview(URL.createObjectURL(compressed));
       // ตรวจสลิปผ่าน → ระบบยืนยันออเดอร์ให้อัตโนมัติทันที
       toast.success(res.data?.status === "CONFIRMED"
-        ? "ตรวจสลิปผ่าน! ยืนยันคำสั่งซื้อเรียบร้อย 🎉"
+        ? "ตรวจสลิปผ่าน! ยืนยันคำสั่งซื้อเรียบร้อย"
         : "แนบสลิปสำเร็จ รอแอดมินตรวจสอบ");
     } catch (err: any) {
       toast.error(getApiError(err, "แนบสลิปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"));
@@ -234,7 +234,7 @@ export default function OrderDetailPage() {
                     ) : order.slipVerified === false ? (
                       <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-error-text"><AlertTriangle size={14} /> สลิปยอดไม่ตรง/อาจซ้ำ — แอดมินจะตรวจสอบอีกครั้ง</p>
                     ) : (
-                      <p className="mt-2 text-xs text-text-muted">⏳ รอแอดมินตรวจสอบสลิป</p>
+                      <p className="mt-2 flex items-center gap-1.5 text-xs text-text-muted"><Clock size={14} /> รอแอดมินตรวจสอบสลิป</p>
                     )
                   )}
                 </>

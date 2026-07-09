@@ -7,17 +7,8 @@ const config: Config = {
         "./components/**/*.{js,ts,jsx,tsx,mdx}", // เพิ่มบรรทัดนี้
         "./pages/**/*.{js,ts,jsx,tsx,mdx}",
       ],
-  theme: {
-    extend: {
-      colors: {
-        dd: {
-          yellow: "#FACC15", // สีเหลืองหลักจากรูปตัวอย่าง
-          black: "#1A1A1A",  // สีดำพรีเมียม
-          gray: "#333333",
-        },
-      },
-    },
-  },
+  // สี/ฟอนต์/เงา กำหนดที่เดียวใน app/globals.css (@theme) — ห้ามประกาศซ้ำที่นี่ (เคยมีเหลือง 2 ค่าไม่ตรงกัน)
+  theme: { extend: {} },
   plugins: [],
 };
 export default config;

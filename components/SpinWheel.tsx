@@ -64,7 +64,7 @@ export default function SpinWheel({ segments, alreadyWon, onClose }: {
       <div onClick={(e) => e.stopPropagation()} className="relative w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-[0_20px_60px_rgba(0,0,0,0.3)]">
         <button onClick={onClose} aria-label="ปิด" className="absolute right-4 top-4 rounded-full p-1.5 text-text-muted hover:bg-bg-subtle"><X size={20} /></button>
         <div className="mb-1 flex items-center justify-center gap-2 text-yellow-hover"><Gift size={22} /><h3 className="text-xl font-bold text-text-heading">ต้อนรับสมาชิกใหม่!</h3></div>
-        <p className="mb-3 text-sm text-text-muted">หมุนวงล้อ 1 ครั้ง รับโค้ดส่วนลดทันที 🎉</p>
+        <p className="mb-3 text-sm text-text-muted">หมุนวงล้อ 1 ครั้ง รับโค้ดส่วนลดทันที</p>
 
         {/* วงล้อ */}
         <div className="relative mx-auto my-2 h-60 w-60">

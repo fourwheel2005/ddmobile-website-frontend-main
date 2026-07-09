@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo, useRef } from "react";
 import api from "@/lib/api";
+import { baht } from "@/lib/money";
 import { Search, Smartphone, CheckCircle2, ArrowUpDown, X, BatteryMedium, Sparkles, RotateCcw, ShoppingCart, CreditCard, Cable } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -60,7 +61,7 @@ const sortOptions: { key: SortKey; label: string }[] = [
   { key: "name", label: "ชื่อ ก-ฮ / A-Z" },
 ];
 
-const priceText = (v: number | null) => (v == null ? "สอบถามราคา" : "฿" + Number(v).toLocaleString());
+const priceText = (v: number | null) => baht(v, "สอบถามราคา");
 
 function Highlight({ text, query }: { text: string; query: string }) {
   const q = query.trim();
@@ -337,7 +338,7 @@ export default function ProductsPage() {
                           </div>
                         )}
                         {!it.sold && inst?.note && (
-                          <p className="mb-2 line-clamp-1 text-[11px] font-semibold text-yellow-hover">✨ {inst.note}</p>
+                          <p className="mb-2 flex items-center gap-1 text-[11px] font-semibold text-yellow-hover"><Sparkles size={11} className="flex-shrink-0" /> <span className="line-clamp-1">{inst.note}</span></p>
                         )}
                         {it.sold ? (
                           <span className="badge-dd bg-text-heading/10 text-text-muted">

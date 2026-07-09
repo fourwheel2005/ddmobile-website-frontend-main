@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { MessageCircle, ArrowUp } from "lucide-react";
+import { LINE_URL } from "@/lib/contact";
 
 /**
  * ปุ่มลอยมุมขวาล่าง: ทักไลน์ (เสมอ) + ขึ้นบนสุด (โผล่เมื่อเลื่อนลง)
@@ -41,11 +42,11 @@ export default function FloatingActions() {
         </button>
       )}
       <a
-        href="https://lin.ee/rewiz9b"
+        href={LINE_URL}
         target="_blank"
         rel="noopener noreferrer"
         aria-label="ทักไลน์สอบถามแอดมิน"
-        className="flex h-14 w-14 items-center justify-center rounded-full bg-[#06C755] text-white shadow-[0_8px_22px_rgba(6,199,85,0.45)] transition-transform hover:-translate-y-0.5"
+        className="flex h-14 w-14 items-center justify-center rounded-full bg-line text-white shadow-[var(--shadow-line)] transition-transform hover:-translate-y-0.5"
       >
         <MessageCircle size={26} />
       </a>

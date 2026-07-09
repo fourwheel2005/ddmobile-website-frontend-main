@@ -20,7 +20,7 @@ export default function InstallmentsPage() {
           </p>
           <div className="mt-6 inline-flex items-baseline gap-3 rounded-2xl border border-border-default bg-white px-6 py-4 shadow-card">
             <span className="text-sm text-text-muted">ผ่อนเริ่มต้นเพียง</span>
-            <span className="text-3xl font-bold text-price">1,570.-</span>
+            <span className="text-3xl font-bold text-price">฿1,570</span>
             <span className="text-sm text-text-muted">/เดือน</span>
           </div>
         </div>
