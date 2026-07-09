@@ -1,8 +1,10 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, TicketPercent, CheckCircle2, Clock } from "lucide-react";
+import { TicketPercent, CheckCircle2, Clock, Search } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
+import StatCard from "@/components/ui/StatCard";
+import { TableSkeleton } from "@/components/Skeletons";
 
 interface Coupon {
   id: number;
@@ -21,6 +23,7 @@ const expired = (s: string | null) => (s ? new Date(s).getTime() < Date.now() : 
 export default function CouponAdmin() {
   const [list, setList] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState("");
 
   useEffect(() => {
     api.get("/admin/coupons")
@@ -35,30 +38,36 @@ export default function CouponAdmin() {
     active: list.filter((c) => !c.used && !expired(c.expiresAt)).length,
   }), [list]);
 
-  if (loading) return <div className="flex justify-center py-20 text-yellow-hover"><Loader2 className="animate-spin" /></div>;
+  const filtered = q.trim()
+    ? list.filter((c) => `${c.userEmail} ${c.code}`.toLowerCase().includes(q.trim().toLowerCase()))
+    : list;
+
+  if (loading) return <div className="overflow-hidden rounded-2xl border border-border-default bg-white"><TableSkeleton rows={6} cols={6} /></div>;
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {[
           { label: "คูปองทั้งหมด", value: stats.total, icon: TicketPercent, color: "text-text-heading" },
           { label: "ใช้แล้ว", value: stats.used, icon: CheckCircle2, color: "text-success-text" },
           { label: "ยังใช้ได้", value: stats.active, icon: Clock, color: "text-info-text" },
         ].map((s) => (
-          <div key={s.label} className="rounded-2xl border border-border-default bg-white p-4">
-            <div className="flex items-center gap-2 text-text-muted"><s.icon size={16} /> <span className="text-xs">{s.label}</span></div>
-            <p className={`mt-1 font-display text-3xl tabular-nums ${s.color}`}>{s.value}</p>
-          </div>
+          <StatCard key={s.label} icon={s.icon} label={s.label} value={s.value} unit="ใบ" iconClass={s.color} />
         ))}
+      </div>
+
+      <div className="relative w-full sm:w-72">
+        <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={15} />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาอีเมล / โค้ด..." aria-label="ค้นหาคูปอง" className="input-dd min-h-0 py-2 pl-9 text-sm" />
       </div>
 
       <div className="overflow-x-auto rounded-2xl border border-border-default bg-white">
         <table className="table-dd">
           <thead><tr><th>เจ้าของ (อีเมล)</th><th>โค้ด</th><th>ส่วนลด</th><th>ประเภท</th><th>สถานะ</th><th>หมดอายุ</th></tr></thead>
           <tbody>
-            {list.length === 0 ? (
-              <tr><td colSpan={6} className="py-8 text-center text-text-muted">ยังไม่มีคูปอง</td></tr>
-            ) : list.map((c) => (
+            {filtered.length === 0 ? (
+              <tr><td colSpan={6} className="py-8 text-center text-text-muted">{list.length === 0 ? "ยังไม่มีคูปอง" : "ไม่พบคูปองที่ค้นหา"}</td></tr>
+            ) : filtered.map((c) => (
               <tr key={c.id}>
                 <td className="text-xs text-text-muted">{c.userEmail}</td>
                 <td className="font-mono font-semibold text-text-heading">{c.code}</td>

@@ -32,6 +32,7 @@ export default function Home() {
   const [plans, setPlans] = useState<InstallmentPlan[]>([]);
   const [serials, setSerials] = useState<InstallmentSerial[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -46,6 +47,7 @@ export default function Home() {
         setSerials(Array.isArray(ser.data) ? ser.data : []);
       } catch (error) {
         console.error("Error fetching catalog:", error);
+        setLoadError(true);   // โชว์ error จริง — ไม่หลอกผู้ใช้ว่า "ยังไม่มีสินค้า"
       } finally {
         setIsLoading(false);
       }
@@ -136,6 +138,12 @@ export default function Home() {
 
         {isLoading ? (
           <ProductGridSkeleton count={4} />
+        ) : loadError ? (
+          <div className="rounded-2xl border border-dashed border-border-default bg-bg-subtle py-16 text-center">
+            <Smartphone size={40} className="mx-auto mb-3 text-text-disabled" />
+            <p className="font-bold text-text-heading">โหลดสินค้าไม่สำเร็จ</p>
+            <p className="mt-1 text-sm text-text-muted">กรุณาลองใหม่อีกครั้ง หรือทักไลน์สอบถามได้เลย</p>
+          </div>
         ) : products.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border-default py-16 text-center text-text-muted">
             ยังไม่มีสินค้าในระบบ

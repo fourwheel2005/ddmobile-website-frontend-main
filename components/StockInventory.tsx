@@ -7,7 +7,8 @@ import {
   Pencil, X, UploadCloud, ImageOff
 } from "lucide-react";
 import toast from "react-hot-toast";
-import CountUp from "@/components/CountUp";
+import StatCard from "@/components/ui/StatCard";
+import { TableSkeleton, StatCardSkeleton } from "@/components/Skeletons";
 import { compressImage } from "@/lib/imageCompress";
 
 /* ---------- ชนิดข้อมูลตาม API จริงของระบบ stock ---------- */
@@ -238,27 +239,21 @@ export default function StockInventory() {
       </div>
 
       {isLoading && !summary ? (
-        <div className="flex flex-col items-center justify-center py-20 text-yellow">
-          <Loader2 size={40} className="mb-4 animate-spin" />
-          <p className="font-display uppercase tracking-widest">กำลังโหลดข้อมูลคลัง</p>
+        <div className="space-y-4">
+          <StatCardSkeleton count={3} />
+          <div className="overflow-hidden rounded-2xl border border-border-default bg-white"><TableSkeleton rows={7} cols={6} /></div>
         </div>
       ) : (
         <>
           {/* summary cards */}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {summaryCards.map((c, i) => (
-              <div key={i} className="card-dd">
-                <div className="mb-3 flex items-start justify-between">
-                  <div className={`flex h-11 w-11 items-center justify-center bg-bg-tinted ${c.color}`}><c.icon size={22} /></div>
-                </div>
-                <p className="text-xs text-text-muted">{c.label}</p>
-                <CountUp value={c.value} className="block font-display text-4xl tabular-nums text-text-heading" />
-              </div>
+              <StatCard key={i} icon={c.icon} label={c.label} value={c.value} unit="เครื่อง" iconClass={c.color} />
             ))}
           </div>
 
           {/* low stock alerts */}
-          <div className="border border-border-default">
+          <div className="overflow-hidden rounded-2xl border border-border-default bg-white">
             <div className="flex items-center gap-2 border-b border-border-default bg-bg-surface p-4">
               <AlertTriangle className="text-yellow" size={20} />
               <h2 className="font-display text-xl">แจ้งเตือนสินค้าใกล้หมด ({alerts.length})</h2>
@@ -278,7 +273,7 @@ export default function StockInventory() {
                         <td className="font-semibold text-text-heading">{a.productName}</td>
                         <td className="text-center"><span className={`badge-dd ${a.currentQty === 0 ? "badge-error" : "badge-warning"}`}>{a.currentQty}</span></td>
                         <td className="text-center text-text-muted">{a.thresholdQty}</td>
-                        <td><span className="badge-dd badge-info">{a.status}</span></td>
+                        <td><span className={`badge-dd ${(a.status || "").toUpperCase() === "ACTIVE" ? "badge-warning" : "badge-success"}`}>{(a.status || "").toUpperCase() === "ACTIVE" ? "รอเติมของ" : "แก้ไขแล้ว"}</span></td>
                       </tr>
                     ))
                   )}
@@ -288,7 +283,7 @@ export default function StockInventory() {
           </div>
 
           {/* inventory by variant (รุ่นย่อย) */}
-          <div className="border border-border-default">
+          <div className="overflow-hidden rounded-2xl border border-border-default bg-white">
             <div className="flex flex-col gap-3 border-b border-border-default bg-bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="font-display text-xl">สต็อกตามรุ่นย่อย ({filteredVariants.length} รุ่น)</h2>
               <div className="relative w-full sm:w-80">
@@ -495,8 +490,8 @@ function EditVariantModal({ cfg, onClose, onSaved }: { cfg: VariantConfig; onClo
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div className="w-full max-w-md border border-border-default bg-bg-surface" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
+      <div className="modal-dd max-h-[90vh] w-full max-w-md overflow-y-auto !p-0" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-border-default p-4">
           <h3 className="font-display text-lg">แก้ไขราคา / รูป</h3>
           <button onClick={onClose} className="text-text-muted hover:text-text-heading" aria-label="ปิด"><X size={20} /></button>

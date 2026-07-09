@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { Loader2, Save, Trash2, UserPlus, ShieldCheck, IdCard } from "lucide-react";
 import toast from "react-hot-toast";
+import { confirmDialog } from "@/components/ui/confirmDialog";
 import api from "@/lib/api";
 import { getApiError } from "@/lib/errorMessage";
 
@@ -58,7 +59,7 @@ export default function EmployeeManager() {
   };
 
   const del = async (emp: Employee) => {
-    if (!confirm(`ลบบัญชี "${emp.name}" (${emp.email})?`)) return;
+    if (!(await confirmDialog({ title: `ลบบัญชี "${emp.name}"?`, message: emp.email, confirmText: "ลบบัญชี", danger: true }))) return;
     try { await api.delete(`/admin/employees/${emp.id}`); toast.success("ลบแล้ว"); load(); }
     catch (e) { toast.error(getApiError(e, "ลบไม่สำเร็จ")); }
   };
@@ -74,27 +75,27 @@ export default function EmployeeManager() {
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <label className="text-sm">
             <span className="mb-1 block font-medium text-text-muted">ชื่อ-นามสกุล *</span>
-            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full rounded-xl border border-border-default px-3 py-2" placeholder="เช่น สมชาย ใจดี" />
+            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="input-dd" placeholder="เช่น สมชาย ใจดี" />
           </label>
           <label className="text-sm">
             <span className="mb-1 block font-medium text-text-muted">ตำแหน่ง</span>
-            <input value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} className="w-full rounded-xl border border-border-default px-3 py-2" placeholder="เช่น พนักงานขาย / ผู้จัดการสาขา" />
+            <input value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} className="input-dd" placeholder="เช่น พนักงานขาย / ผู้จัดการสาขา" />
           </label>
           <label className="text-sm">
             <span className="mb-1 block font-medium text-text-muted">อีเมล (ใช้เข้าระบบ) *</span>
-            <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="w-full rounded-xl border border-border-default px-3 py-2" placeholder="staff@ddmobile.com" />
+            <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="input-dd" placeholder="staff@ddmobile.com" />
           </label>
           <label className="text-sm">
             <span className="mb-1 block font-medium text-text-muted">รหัสพนักงาน</span>
-            <input value={form.employeeCode} onChange={(e) => setForm({ ...form, employeeCode: e.target.value })} className="w-full rounded-xl border border-border-default px-3 py-2" placeholder="เช่น EMP-001" />
+            <input value={form.employeeCode} onChange={(e) => setForm({ ...form, employeeCode: e.target.value })} className="input-dd" placeholder="เช่น EMP-001" />
           </label>
           <label className="text-sm">
             <span className="mb-1 block font-medium text-text-muted">รหัสผ่าน * (อย่างน้อย 6 ตัว)</span>
-            <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="w-full rounded-xl border border-border-default px-3 py-2" placeholder="••••••••" />
+            <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="input-dd" placeholder="••••••••" />
           </label>
           <label className="text-sm">
             <span className="mb-1 block font-medium text-text-muted">สิทธิ์</span>
-            <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className="w-full rounded-xl border border-border-default px-3 py-2">
+            <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className="input-dd">
               <option value="ROLE_EMPLOYEE">พนักงาน (ROLE_EMPLOYEE)</option>
               <option value="ROLE_ADMIN">แอดมิน (ROLE_ADMIN)</option>
             </select>

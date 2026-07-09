@@ -6,7 +6,7 @@ import api from "@/lib/api";
 import { baht } from "@/lib/money";
 import { LINE_URL } from "@/lib/contact";
 import {
-  Smartphone, Loader2, ShieldCheck, CheckCircle2, XCircle,
+  Smartphone, ShieldCheck, CheckCircle2, XCircle,
   MessageCircle, ArrowLeft, ChevronRight, Sparkles, RotateCcw, BatteryMedium, Hash, ShoppingCart, Zap
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -118,8 +118,22 @@ export default function ProductDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-bg-base text-yellow-hover">
-        <Loader2 size={44} className="animate-spin" />
+      <div className="page-wrapper min-h-screen bg-bg-base">
+        <div className="container-dd py-8 md:py-12">
+          <div className="skeleton mb-6 h-4 w-64 rounded" />
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+            <div className="skeleton aspect-square w-full rounded-2xl" />
+            <div className="space-y-4">
+              <div className="skeleton h-3 w-32 rounded" />
+              <div className="skeleton h-8 w-3/4 rounded" />
+              <div className="flex gap-2"><div className="skeleton h-6 w-20 rounded-full" /><div className="skeleton h-6 w-24 rounded-full" /></div>
+              <div className="skeleton h-24 w-full rounded-2xl" />
+              <div className="skeleton h-10 w-1/2 rounded" />
+              <div className="space-y-2 pt-4"><div className="skeleton h-3 w-full rounded" /><div className="skeleton h-3 w-5/6 rounded" /><div className="skeleton h-3 w-2/3 rounded" /></div>
+              <div className="flex gap-3 pt-4"><div className="skeleton h-12 flex-1 rounded-full" /><div className="skeleton h-12 flex-1 rounded-full" /></div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import api from "@/lib/api";
-import { Loader2, Package, ChevronRight } from "lucide-react";
+import { Package, ChevronRight } from "lucide-react";
 import { statusOf } from "@/lib/orderStatus";
 
 interface OrderItem { productName: string; conditionLabel: string; quantity: number; }
@@ -29,7 +29,22 @@ export default function OrdersPage() {
   }, [router]);
 
   if (loading) {
-    return <div className="flex min-h-screen items-center justify-center bg-bg-base text-yellow-hover"><Loader2 size={40} className="animate-spin" /></div>;
+    return (
+      <div className="page-wrapper min-h-screen bg-bg-base">
+        <div className="container-dd py-8 md:py-12">
+          <div className="skeleton mb-6 h-8 w-56 rounded" />
+          <div className="space-y-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="card-dd flex items-center gap-4">
+                <div className="skeleton h-12 w-12 flex-shrink-0 rounded-xl" />
+                <div className="flex-1 space-y-2"><div className="skeleton h-4 w-1/3 rounded" /><div className="skeleton h-3 w-1/2 rounded" /></div>
+                <div className="skeleton h-6 w-24 rounded-full" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

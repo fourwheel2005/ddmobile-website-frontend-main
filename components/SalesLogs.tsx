@@ -6,6 +6,7 @@ import {
   Globe, Store, ArrowDownToLine, ArrowUpFromLine, Settings2
 } from "lucide-react";
 import toast from "react-hot-toast";
+import { TableSkeleton } from "@/components/Skeletons";
 
 /* ---------- ชนิดข้อมูลตาม API จริงของ Stock ---------- */
 interface SalesBill {
@@ -40,6 +41,18 @@ const payLabel = (p: string | null) => ({
   CASH: "เงินสด", TRANSFER: "โอน", QR: "QR/พร้อมเพย์", INSTALLMENT: "ผ่อน", CARD: "บัตร", MIXED: "ผสม",
 } as Record<string, string>)[p || ""] || (p || "-");
 
+// สถานะบิล → ไทย + สีตามความหมาย
+const BILL_STATUS: Record<string, { t: string; c: string }> = {
+  PAID: { t: "ชำระแล้ว", c: "badge-success" },
+  COMPLETED: { t: "เสร็จสมบูรณ์", c: "badge-success" },
+  PARTIALLY_PAID: { t: "ชำระบางส่วน", c: "badge-warning" },
+  PENDING: { t: "รอชำระ", c: "badge-warning" },
+  DRAFT: { t: "ร่างบิล", c: "badge-info" },
+  REFUNDED: { t: "คืนเงินแล้ว", c: "badge-error" },
+  CANCELLED: { t: "ยกเลิก", c: "badge-error" },
+};
+const billStatus = (st: string) => BILL_STATUS[(st || "").toUpperCase()] ?? { t: st || "-", c: "badge-info" };
+
 // ประเภทความเคลื่อนไหว: เข้า (เขียว) / ออก-ขาย (เหลือง-แดง) / ปรับ (ฟ้า)
 const txnKind = (t: string) => {
   const u = (t || "").toUpperCase();
@@ -56,6 +69,7 @@ export default function SalesLogs() {
   const [moves, setMoves] = useState<StockTxn[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [limit, setLimit] = useState(30);   // โหลดเพิ่มทีละ 30 (เลิก render ทั้งก้อน)
 
   const fetchAll = useCallback(async () => {
     setIsLoading(true);
@@ -94,19 +108,19 @@ export default function SalesLogs() {
   return (
     <div className="space-y-4">
       {/* แถบหัว + แท็บย่อย + ค้นหา */}
-      <div className="flex flex-col gap-3 border border-border-default bg-bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-2xl border border-border-default bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex gap-2">
-          <button onClick={() => setTab("sales")} className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${tab === "sales" ? "bg-text-heading text-white" : "bg-bg-subtle text-text-body hover:bg-border-default"}`}>
+          <button onClick={() => { setTab("sales"); setLimit(30); }} className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${tab === "sales" ? "bg-text-heading text-white" : "bg-bg-subtle text-text-body hover:bg-border-default"}`}>
             <Receipt size={15} /> บิลการขาย <span className="opacity-60">({sales.length})</span>
           </button>
-          <button onClick={() => setTab("moves")} className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${tab === "moves" ? "bg-text-heading text-white" : "bg-bg-subtle text-text-body hover:bg-border-default"}`}>
+          <button onClick={() => { setTab("moves"); setLimit(30); }} className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${tab === "moves" ? "bg-text-heading text-white" : "bg-bg-subtle text-text-body hover:bg-border-default"}`}>
             <ArrowDownUp size={15} /> ความเคลื่อนไหวสต็อก <span className="opacity-60">({moves.length})</span>
           </button>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative w-full sm:w-64">
             <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={15} />
-            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="ค้นหา บิล / สินค้า / ลูกค้า" aria-label="ค้นหาบันทึก" className="input-dd min-h-0 py-2 pl-9 text-sm" />
+            <input type="text" value={search} onChange={(e) => { setSearch(e.target.value); setLimit(30); }} placeholder="ค้นหา บิล / สินค้า / ลูกค้า" aria-label="ค้นหาบันทึก" className="input-dd min-h-0 py-2 pl-9 text-sm" />
           </div>
           <button onClick={fetchAll} disabled={isLoading} className="btn-ghost" aria-label="รีเฟรช">
             <RefreshCw size={16} className={isLoading ? "animate-spin" : ""} />
@@ -115,11 +129,11 @@ export default function SalesLogs() {
       </div>
 
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-20 text-yellow"><Loader2 size={40} className="mb-4 animate-spin" /><p className="font-display uppercase tracking-widest">กำลังโหลดบันทึก</p></div>
+        <div className="overflow-hidden rounded-2xl border border-border-default bg-white"><TableSkeleton rows={8} cols={6} /></div>
       ) : tab === "sales" ? (
         /* ---------- บิลการขาย ---------- */
-        <div className="border border-border-default">
-          <div className="overflow-x-auto">
+        <div className="overflow-hidden rounded-2xl border border-border-default bg-white">
+          <div className="max-h-[65vh] overflow-auto">
             <table className="table-dd">
               <thead>
                 <tr><th>เลขบิล / วันที่</th><th>ลูกค้า</th><th className="text-center">ช่องทาง</th><th className="text-center">ชำระ</th><th className="text-right">ยอดรวม</th><th>สถานะ</th></tr>
@@ -128,7 +142,7 @@ export default function SalesLogs() {
                 {filteredSales.length === 0 ? (
                   <tr><td colSpan={6} className="p-8 text-center font-display uppercase tracking-widest text-text-muted">ยังไม่มีบิลการขาย</td></tr>
                 ) : (
-                  filteredSales.map((s) => {
+                  filteredSales.slice(0, limit).map((s) => {
                     const ch = channel(s.orderChannel);
                     return (
                       <tr key={s.id}>
@@ -137,7 +151,7 @@ export default function SalesLogs() {
                         <td className="text-center"><span className={`badge-dd ${ch.cls}`}><ch.icon size={11} /> {ch.label}</span></td>
                         <td className="text-center text-sm text-text-body">{payLabel(s.paymentMethod)}{s.installmentMonths ? ` ${s.installmentMonths}ด.` : ""}</td>
                         <td className="text-right font-display tabular-nums text-yellow">{money(s.grandTotal)}</td>
-                        <td><span className="badge-dd badge-info">{s.status}</span></td>
+                        <td>{(() => { const b = billStatus(s.status); return <span className={`badge-dd ${b.c}`}>{b.t}</span>; })()}</td>
                       </tr>
                     );
                   })
@@ -145,11 +159,16 @@ export default function SalesLogs() {
               </tbody>
             </table>
           </div>
+          {filteredSales.length > limit && (
+            <div className="border-t border-border-default p-3 text-center">
+              <button onClick={() => setLimit((n) => n + 30)} className="btn-ghost">แสดงเพิ่ม ({filteredSales.length - limit} รายการที่เหลือ)</button>
+            </div>
+          )}
         </div>
       ) : (
         /* ---------- ความเคลื่อนไหวสต็อก ---------- */
-        <div className="border border-border-default">
-          <div className="overflow-x-auto">
+        <div className="overflow-hidden rounded-2xl border border-border-default bg-white">
+          <div className="max-h-[65vh] overflow-auto">
             <table className="table-dd">
               <thead>
                 <tr><th>เลขที่ / วันที่</th><th>สินค้า / SKU</th><th className="text-center">ประเภท</th><th className="text-center">จำนวน</th><th className="text-center">ก่อน → หลัง</th><th>อ้างอิง</th></tr>
@@ -158,13 +177,13 @@ export default function SalesLogs() {
                 {filteredMoves.length === 0 ? (
                   <tr><td colSpan={6} className="p-8 text-center font-display uppercase tracking-widest text-text-muted">ยังไม่มีความเคลื่อนไหวสต็อก</td></tr>
                 ) : (
-                  filteredMoves.map((m) => {
+                  filteredMoves.slice(0, limit).map((m) => {
                     const k = txnKind(m.type);
                     return (
                       <tr key={m.id}>
                         <td><p className="font-mono text-xs font-semibold text-text-heading">{m.transactionNo}</p><p className="text-xs text-text-muted">{dt(m.performedAt)}</p></td>
                         <td><p className="font-semibold text-text-heading">{m.productName || "-"}</p><p className="font-mono text-xs text-text-muted">{m.sku}</p></td>
-                        <td className="text-center"><span className={`badge-dd ${k.cls}`}><k.icon size={11} /> {k.label} <span className="opacity-60">({m.type})</span></span></td>
+                        <td className="text-center"><span className={`badge-dd ${k.cls}`}><k.icon size={11} /> {k.label}</span></td>
                         <td className="text-center font-display tabular-nums text-text-heading">{m.quantity ?? "-"}</td>
                         <td className="text-center text-sm text-text-muted">{m.qtyBefore ?? "-"} → <span className="font-semibold text-text-heading">{m.qtyAfter ?? "-"}</span></td>
                         <td className="text-xs text-text-muted">{m.referenceNo || "-"}{m.referenceType ? ` · ${m.referenceType}` : ""}</td>
@@ -175,6 +194,11 @@ export default function SalesLogs() {
               </tbody>
             </table>
           </div>
+          {filteredMoves.length > limit && (
+            <div className="border-t border-border-default p-3 text-center">
+              <button onClick={() => setLimit((n) => n + 30)} className="btn-ghost">แสดงเพิ่ม ({filteredMoves.length - limit} รายการที่เหลือ)</button>
+            </div>
+          )}
         </div>
       )}
     </div>

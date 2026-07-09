@@ -4,9 +4,9 @@ import api from "@/lib/api";
 import { getApiError } from "@/lib/errorMessage";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  LayoutDashboard, Smartphone, ClipboardList, Users, Settings,
+  LayoutDashboard, Smartphone, ClipboardList, Users,
   LogOut, Clock, CheckCircle2, XCircle, Loader2,
-  X, AlertTriangle, Warehouse, Menu,
+  X, AlertTriangle, Warehouse, Menu, Search,
   ShoppingBag, Check, Eye, Truck, Store, CreditCard, Receipt, UserCog, TicketPercent
 } from "lucide-react";
 import Link from "next/link";
@@ -17,7 +17,9 @@ import SalesLogs from "@/components/SalesLogs";
 import InstallmentManager from "@/components/InstallmentManager";
 import EmployeeManager from "@/components/EmployeeManager";
 import CouponAdmin from "@/components/CouponAdmin";
-import CountUp from "@/components/CountUp";
+import StatCard from "@/components/ui/StatCard";
+import { confirmDialog } from "@/components/ui/confirmDialog";
+import { TableSkeleton, StatCardSkeleton } from "@/components/Skeletons";
 
 interface InstallmentApp {
   id: number;
@@ -72,6 +74,10 @@ export default function AdminDashboard() {
   const [shipModal, setShipModal] = useState<{ id: number } | null>(null);
   const [shipPartner, setShipPartner] = useState("");
   const [shipTracking, setShipTracking] = useState("");
+  const [orderQ, setOrderQ] = useState("");             // ค้นหาออเดอร์ (ชื่อ/เบอร์/สินค้า/#id)
+  const [orderStatus, setOrderStatus] = useState("");   // กรองสถานะออเดอร์
+  const [orderLimit, setOrderLimit] = useState(20);     // โหลดเพิ่มทีละ 20 (เลิกโชว์ทั้งก้อน)
+  const [custQ, setCustQ] = useState("");               // ค้นหาลูกค้า
 
   // Stock real-time (ผ่าน DD BFF — ไม่ต้อง login stock แยก)
   const [stockSummary, setStockSummary] = useState<StockSummary | null>(null);
@@ -142,7 +148,7 @@ export default function AdminDashboard() {
 
   // ===== คำสั่งซื้อจากเว็บ =====
   const confirmWebOrder = async (id: number) => {
-    if (!confirm("ยืนยันคำสั่งซื้อนี้? ระบบจะตัดสต็อกจริงที่คลังทันที")) return;
+    if (!(await confirmDialog({ title: "ยืนยันคำสั่งซื้อนี้?", message: "ระบบจะตัดสต็อกจริงที่คลังทันที" }))) return;
     setBusyOrderId(id);
     try {
       const res = await api.post(`/admin/orders/${id}/confirm`);
@@ -156,7 +162,7 @@ export default function AdminDashboard() {
   };
 
   const rejectWebOrder = async (id: number) => {
-    if (!confirm("ปฏิเสธคำสั่งซื้อนี้? สินค้าที่จองไว้จะถูกปล่อยคืน")) return;
+    if (!(await confirmDialog({ title: "ปฏิเสธคำสั่งซื้อนี้?", message: "สินค้าที่จองไว้จะถูกปล่อยคืนกลับเข้าคลัง", confirmText: "ปฏิเสธออเดอร์", danger: true }))) return;
     setBusyOrderId(id);
     try {
       const res = await api.post(`/admin/orders/${id}/reject`);
@@ -207,6 +213,19 @@ export default function AdminDashboard() {
     webOrders.forEach(o => { const s = slaInfo(o); if (s) { action++; if (s.level === "red") overdue++; } });
     return { action, overdue };
   }, [webOrders]);
+  const filteredWeb = useMemo(() => {
+    const q = orderQ.trim().toLowerCase();
+    return orderedWeb.filter(o => {
+      if (orderStatus && o.status !== orderStatus) return false;
+      if (!q) return true;
+      const hay = `#${o.id} ${o.customerName} ${o.customerTel} ${o.items.map(i => i.productName).join(" ")}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [orderedWeb, orderQ, orderStatus]);
+  const filteredCustomers = useMemo(() => {
+    const q = custQ.trim().toLowerCase();
+    return q ? customers.filter(c => c.email.toLowerCase().includes(q)) : customers;
+  }, [customers, custQ]);
 
   if (!isAuthorized) {
     return (
@@ -220,10 +239,10 @@ export default function AdminDashboard() {
   const pendingOrders = webOrders.filter(o => ["RESERVED", "PENDING_REVIEW", "PENDING_PICKUP"].includes(o.status)).length;
 
   const statsUI = [
-    { title: "พร้อมขายทั้งหมด", value: stockSummary?.totalAvailable ?? 0, growth: "เครื่อง", icon: Warehouse, color: "text-yellow" },
-    { title: "เครื่องใหม่ (มือ 1)", value: stockSummary?.newAvailable ?? 0, growth: "พร้อมส่ง", icon: CheckCircle2, color: "text-success-text" },
-    { title: "เครื่องมือสอง (มือ 2)", value: stockSummary?.secondHandAvailable ?? 0, growth: "พร้อมส่ง", icon: Smartphone, color: "text-info-text" },
-    { title: "คำสั่งซื้อรอดำเนินการ", value: pendingOrders, growth: "ออเดอร์", icon: ShoppingBag, color: "text-error-text" },
+    { title: "พร้อมขายทั้งหมด", value: stockSummary?.totalAvailable ?? 0, unit: "เครื่อง", icon: Warehouse, color: "text-yellow" },
+    { title: "เครื่องใหม่ (มือ 1)", value: stockSummary?.newAvailable ?? 0, unit: "เครื่อง", icon: CheckCircle2, color: "text-success-text" },
+    { title: "เครื่องมือสอง (มือ 2)", value: stockSummary?.secondHandAvailable ?? 0, unit: "เครื่อง", icon: Smartphone, color: "text-info-text" },
+    { title: "คำสั่งซื้อรอดำเนินการ", value: pendingOrders, unit: "ออเดอร์", icon: ShoppingBag, color: "text-error-text" },
   ];
 
   return (
@@ -249,7 +268,7 @@ export default function AdminDashboard() {
             <button
               key={item.name}
               onClick={() => { setActiveMenu(item.name); setSidebarOpen(false); }}
-              className={`flex w-full items-center gap-3 px-4 py-3 font-display text-sm uppercase tracking-wider transition-colors ${
+              className={`flex w-full items-center gap-3 rounded-lg px-4 py-3 font-display text-sm font-semibold transition-colors ${
                 activeMenu === item.name ? "bg-yellow text-black" : "text-text-muted hover:bg-bg-tinted hover:text-text-heading"
               }`}
             >
@@ -260,10 +279,10 @@ export default function AdminDashboard() {
         </nav>
 
         <div className="space-y-1 border-t border-border-default p-3">
-          <Link href="/" className="flex w-full items-center gap-3 rounded-lg px-4 py-3 font-display text-sm uppercase tracking-wider text-text-body transition-colors hover:bg-bg-tinted hover:text-text-heading">
+          <Link href="/" className="flex w-full items-center gap-3 rounded-lg px-4 py-3 font-display text-sm font-semibold text-text-body transition-colors hover:bg-bg-tinted hover:text-text-heading">
             <Store size={18} className="text-yellow-hover" /> ดูหน้าร้าน
           </Link>
-          <button onClick={handleLogout} className="flex w-full items-center gap-3 rounded-lg px-4 py-3 font-display text-sm uppercase tracking-wider text-error-text transition-colors hover:bg-error-bg">
+          <button onClick={handleLogout} className="flex w-full items-center gap-3 rounded-lg px-4 py-3 font-display text-sm font-semibold text-error-text transition-colors hover:bg-error-bg">
             <LogOut size={18} /> ออกจากระบบ
           </button>
         </div>
@@ -290,31 +309,22 @@ export default function AdminDashboard() {
 
         <div className="flex-1 overflow-y-auto p-4 md:p-6">
           {isLoading ? (
-            <div className="flex h-64 flex-col items-center justify-center text-yellow">
-              <Loader2 size={48} className="mb-4 animate-spin" />
-              <p className="font-display uppercase tracking-widest">กำลังโหลดข้อมูล</p>
+            <div className="space-y-6">
+              <StatCardSkeleton />
+              <div className="overflow-hidden rounded-2xl border border-border-default bg-white"><TableSkeleton rows={6} cols={5} /></div>
             </div>
           ) : (
             <>
               {/* ภาพรวมระบบ */}
               {activeMenu === "ภาพรวมระบบ" && (
                 <div className="stagger-children">
-                  <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-4">
+                  <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                     {statsUI.map((stat, idx) => (
-                      <div key={idx} className="card-dd">
-                        <div className="mb-4 flex items-start justify-between">
-                          <div className={`flex h-11 w-11 items-center justify-center bg-bg-tinted ${stat.color}`}>
-                            <stat.icon size={22} />
-                          </div>
-                          <span className="badge-dd badge-warning">{stat.growth}</span>
-                        </div>
-                        <p className="text-xs text-text-muted">{stat.title}</p>
-                        <CountUp value={stat.value} className="block font-display text-4xl tabular-nums text-text-heading" />
-                      </div>
+                      <StatCard key={idx} icon={stat.icon} label={stat.title} value={stat.value} unit={stat.unit} iconClass={stat.color} />
                     ))}
                   </div>
 
-                  <div className="border border-border-default">
+                  <div className="overflow-hidden rounded-2xl border border-border-default bg-white">
                     <div className="flex items-center justify-between border-b border-border-default bg-bg-surface p-4">
                       <h2 className="flex items-center gap-2 font-display text-xl"><AlertTriangle className="text-yellow" size={20} /> แจ้งเตือนสินค้าใกล้หมด (จาก Stock real-time)</h2>
                       <button onClick={() => setActiveMenu("คลังสินค้า")} className="btn-ghost">ดูคลังทั้งหมด →</button>
@@ -350,18 +360,18 @@ export default function AdminDashboard() {
 
               {/* คำขอผ่อนสินค้า */}
               {activeMenu === "คำขอผ่อนสินค้า" && (
-                <div className="border border-border-default">
+                <div className="overflow-hidden rounded-2xl border border-border-default bg-white">
                   <div className="border-b border-border-default bg-bg-surface p-4">
                     <h2 className="font-display text-xl">คำขอผ่อนสินค้าล่าสุด (ยื่นผ่านระบบ)</h2>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="table-dd">
                       <thead>
-                        <tr><th>ลูกค้า</th><th>รุ่นสินค้า</th><th>วันที่ยื่นเรื่อง</th><th>สถานะ</th><th className="text-right">จัดการ</th></tr>
+                        <tr><th>ลูกค้า</th><th>รุ่นสินค้า</th><th>วันที่ยื่นเรื่อง</th><th>สถานะ</th></tr>
                       </thead>
                       <tbody>
                         {applications.length === 0 ? (
-                          <tr><td colSpan={5} className="p-8 text-center font-display uppercase tracking-widest text-text-muted">ยังไม่มีข้อมูลคำขอผ่อนสินค้าผ่านระบบเว็บ</td></tr>
+                          <tr><td colSpan={4} className="p-8 text-center font-display uppercase tracking-widest text-text-muted">ยังไม่มีข้อมูลคำขอผ่อนสินค้าผ่านระบบเว็บ</td></tr>
                         ) : (
                           applications.map((app) => (
                             <tr key={app.id}>
@@ -373,7 +383,6 @@ export default function AdminDashboard() {
                                   {app.status === "รออนุมัติ" ? <Clock size={12} /> : app.status === "อนุมัติแล้ว" ? <CheckCircle2 size={12} /> : <XCircle size={12} />} {app.status}
                                 </span>
                               </td>
-                              <td className="text-right"><button className="btn-ghost">ตรวจสอบ →</button></td>
                             </tr>
                           ))
                         )}
@@ -385,21 +394,27 @@ export default function AdminDashboard() {
 
               {/* จัดการลูกค้า */}
               {activeMenu === "จัดการลูกค้า" && (
-                <div className="border border-border-default">
+                <div className="overflow-hidden rounded-2xl border border-border-default bg-white">
                   <div className="flex items-center justify-between border-b border-border-default bg-bg-surface p-4">
                     <h2 className="flex items-center gap-2 font-display text-xl"><Users className="text-yellow" size={20} /> รายชื่อลูกค้าทั้งหมด</h2>
-                    <span className="badge-dd badge-warning">จำนวนลูกค้า: {customers.length} คน</span>
+                    <div className="flex items-center gap-2">
+                      <div className="relative">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={14} />
+                        <input value={custQ} onChange={(e) => setCustQ(e.target.value)} placeholder="ค้นหาอีเมล..." aria-label="ค้นหาลูกค้า" className="input-dd min-h-0 w-44 py-2 pl-9 text-sm" />
+                      </div>
+                      <span className="badge-dd badge-warning">{filteredCustomers.length} คน</span>
+                    </div>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="table-dd">
                       <thead>
-                        <tr><th>รหัสลูกค้า</th><th>บัญชี (Email)</th><th>ระดับสิทธิ์</th><th>สถานะบัญชี</th><th className="text-right">จัดการ</th></tr>
+                        <tr><th>รหัสลูกค้า</th><th>บัญชี (Email)</th><th>ระดับสิทธิ์</th><th>สถานะบัญชี</th></tr>
                       </thead>
                       <tbody>
-                        {customers.length === 0 ? (
-                          <tr><td colSpan={5} className="p-8 text-center font-display uppercase tracking-widest text-text-muted">ยังไม่มีข้อมูลลูกค้าในระบบ</td></tr>
+                        {filteredCustomers.length === 0 ? (
+                          <tr><td colSpan={4} className="p-8 text-center text-text-muted">ไม่พบลูกค้าที่ค้นหา</td></tr>
                         ) : (
-                          customers.map((customer) => (
+                          filteredCustomers.map((customer) => (
                             <tr key={customer.id} className="group">
                               <td className="text-text-muted">CUST-{customer.id.toString().padStart(4, "0")}</td>
                               <td>
@@ -410,7 +425,6 @@ export default function AdminDashboard() {
                               </td>
                               <td><span className="badge-dd badge-info">ลูกค้าทั่วไป</span></td>
                               <td><span className="badge-dd badge-success"><CheckCircle2 size={12} /> ปกติ (Active)</span></td>
-                              <td className="text-right"><button className="btn-ghost opacity-0 group-hover:opacity-100">ดูประวัติ →</button></td>
                             </tr>
                           ))
                         )}
@@ -422,25 +436,36 @@ export default function AdminDashboard() {
 
               {/* คำสั่งซื้อจากเว็บ */}
               {activeMenu === "คำสั่งซื้อ (เว็บ)" && (
-                <div className="border border-border-default">
+                <div className="overflow-hidden rounded-2xl border border-border-default bg-white">
                   <div className="flex items-center justify-between border-b border-border-default bg-bg-surface p-4">
                     <h2 className="flex items-center gap-2 font-display text-xl"><ShoppingBag className="text-yellow" size={20} /> คำสั่งซื้อจากหน้าเว็บ</h2>
                     <div className="flex flex-wrap items-center gap-2">
                       {slaCounts.action > 0 && <span className="badge-dd badge-info">ต้องดำเนินการ {slaCounts.action}</span>}
                       {slaCounts.overdue > 0 && <span className="badge-dd badge-error"><Clock size={12} /> เกินกำหนด {slaCounts.overdue}</span>}
-                      <span className="badge-dd badge-warning">{webOrders.length} รายการ</span>
+                      <span className="badge-dd badge-warning">{filteredWeb.length} รายการ</span>
                     </div>
                   </div>
-                  <div className="overflow-x-auto">
+                  {/* toolbar: ค้นหา + กรองสถานะ */}
+                  <div className="flex flex-wrap items-center gap-2 border-b border-border-default bg-bg-subtle px-4 py-3">
+                    <div className="relative">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={14} />
+                      <input value={orderQ} onChange={(e) => { setOrderQ(e.target.value); setOrderLimit(20); }} placeholder="ค้นหา #id / ชื่อ / เบอร์ / สินค้า..." aria-label="ค้นหาออเดอร์" className="input-dd min-h-0 w-64 py-2 pl-9 text-sm" />
+                    </div>
+                    <select value={orderStatus} onChange={(e) => { setOrderStatus(e.target.value); setOrderLimit(20); }} aria-label="กรองสถานะ" className="input-dd min-h-0 w-auto cursor-pointer py-2 text-sm">
+                      <option value="">ทุกสถานะ</option>
+                      {Object.entries(ORDER_LABEL).map(([k, v]) => <option key={k} value={k}>{v.t}</option>)}
+                    </select>
+                  </div>
+                  <div className="max-h-[65vh] overflow-auto">
                     <table className="table-dd">
                       <thead>
                         <tr><th>ออเดอร์</th><th>ลูกค้า</th><th>สินค้า</th><th className="text-right">ยอด</th><th className="text-center">รับสินค้า</th><th>สถานะ</th><th className="text-right">จัดการ</th></tr>
                       </thead>
                       <tbody>
-                        {webOrders.length === 0 ? (
-                          <tr><td colSpan={7} className="p-8 text-center font-display uppercase tracking-widest text-text-muted">ยังไม่มีคำสั่งซื้อจากเว็บ</td></tr>
+                        {filteredWeb.length === 0 ? (
+                          <tr><td colSpan={7} className="p-8 text-center text-text-muted">{webOrders.length === 0 ? "ยังไม่มีคำสั่งซื้อจากเว็บ" : "ไม่พบออเดอร์ที่ค้นหา"}</td></tr>
                         ) : (
-                          orderedWeb.map((o) => {
+                          filteredWeb.slice(0, orderLimit).map((o) => {
                             const st = ORDER_LABEL[o.status] || ORDER_LABEL.RESERVED;
                             const active = o.status !== "CONFIRMED" && o.status !== "REJECTED";
                             const sla = slaInfo(o);
@@ -510,6 +535,13 @@ export default function AdminDashboard() {
                       </tbody>
                     </table>
                   </div>
+                  {filteredWeb.length > orderLimit && (
+                    <div className="border-t border-border-default p-3 text-center">
+                      <button onClick={() => setOrderLimit((n) => n + 20)} className="btn-ghost">
+                        แสดงเพิ่ม ({filteredWeb.length - orderLimit} รายการที่เหลือ)
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -591,7 +623,6 @@ const menuItems = [
   { name: "คำขอผ่อนสินค้า", icon: ClipboardList },
   { name: "จัดการลูกค้า", icon: Users },
   { name: "จัดการพนักงาน", icon: UserCog },
-  { name: "ตั้งค่าระบบ", icon: Settings },
 ];
 
 const ORDER_LABEL: Record<string, { t: string; c: string }> = {

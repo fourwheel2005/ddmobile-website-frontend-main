@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, Save, Loader2, CreditCard, Smartphone, X, Download } from "lucide-react";
 import toast from "react-hot-toast";
+import { confirmDialog } from "@/components/ui/confirmDialog";
 import api from "@/lib/api";
 
 interface Term { months: number | string; monthly: number | string; }
@@ -110,11 +111,11 @@ export default function InstallmentManager() {
   return (
     <div>
       <div className="mb-5 flex gap-2">
-        <button onClick={() => setTab("model")} className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${tab === "model" ? "bg-yellow text-black" : "bg-bg-tinted text-text-muted hover:text-text-heading"}`}>
+        <button onClick={() => setTab("model")} className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${tab === "model" ? "bg-text-heading text-white" : "bg-bg-subtle text-text-body hover:bg-border-default"}`}>
           <CreditCard size={16} /> ตารางผ่อน (มือ 1 · ตามรุ่น)
         </button>
-        <button onClick={() => setTab("serial")} className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${tab === "serial" ? "bg-yellow text-black" : "bg-bg-tinted text-text-muted hover:text-text-heading"}`}>
-          <Smartphone size={16} /> ราคาพิเศษราย เครื่อง (มือ 2)
+        <button onClick={() => setTab("serial")} className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${tab === "serial" ? "bg-text-heading text-white" : "bg-bg-subtle text-text-body hover:bg-border-default"}`}>
+          <Smartphone size={16} /> ราคาพิเศษรายเครื่อง (มือ 2)
         </button>
       </div>
 
@@ -158,7 +159,7 @@ function ModelTab({ plans, models, reload }: { plans: Plan[]; models: CatalogIte
 
   // นำเข้าทุกรุ่นในคลังที่ตรงโปสเตอร์ (รุ่น × ความจุ) ในคลิกเดียว
   const importAll = async () => {
-    if (!confirm("นำเข้าราคาผ่อนตามโปสเตอร์ สำหรับทุกรุ่น+ความจุที่มีในคลัง? (ของเดิมที่ตรงกันจะถูกทับ)")) return;
+    if (!(await confirmDialog({ title: "นำเข้าราคาผ่อนตามโปสเตอร์?", message: "ใส่ให้ทุกรุ่น+ความจุที่มีในคลัง — ของเดิมที่ตรงกันจะถูกทับ" }))) return;
     setImporting(true);
     let ok = 0; const skipped: string[] = [];
     try {
@@ -185,7 +186,7 @@ function ModelTab({ plans, models, reload }: { plans: Plan[]; models: CatalogIte
 
   // ล้างตารางผ่อนทั้งหมด (ลบเฉพาะ "ราคาผ่อน" ไม่กระทบสินค้าใน Stock) — ไว้รีเซ็ตของผิดแล้วนำเข้าใหม่
   const clearAll = async () => {
-    if (!confirm("ล้างตารางผ่อน (มือ 1) ทั้งหมด? — ลบเฉพาะราคาผ่อน ไม่กระทบตัวสินค้า")) return;
+    if (!(await confirmDialog({ title: "ล้างตารางผ่อน (มือ 1) ทั้งหมด?", message: "ลบเฉพาะราคาผ่อน ไม่กระทบตัวสินค้าใน Stock", confirmText: "ล้างทั้งหมด", danger: true }))) return;
     setImporting(true);
     try {
       const res = await api.get("/admin/installment/plans");
@@ -229,7 +230,7 @@ function ModelTab({ plans, models, reload }: { plans: Plan[]; models: CatalogIte
   };
 
   const del = async (id: number) => {
-    if (!confirm("ลบตารางผ่อนนี้?")) return;
+    if (!(await confirmDialog({ title: "ลบตารางผ่อนนี้?", confirmText: "ลบ", danger: true }))) return;
     try { await api.delete(`/admin/installment/plans/${id}`); toast.success("ลบแล้ว"); reload(); }
     catch { toast.error("ลบไม่สำเร็จ"); }
   };
@@ -253,25 +254,25 @@ function ModelTab({ plans, models, reload }: { plans: Plan[]; models: CatalogIte
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <label className="text-sm">
             <span className="mb-1 block font-medium text-text-muted">รุ่น (เครื่องใหม่)</span>
-            <select value={form.productId} onChange={(e) => pickModel(e.target.value)} className="w-full rounded-xl border border-border-default px-3 py-2">
+            <select value={form.productId} onChange={(e) => pickModel(e.target.value)} className="input-dd">
               <option value="">— เลือกรุ่น —</option>
               {models.map((m) => <option key={m.id} value={m.id}>{m.productName}</option>)}
             </select>
           </label>
           <label className="text-sm">
             <span className="mb-1 block font-medium text-text-muted">ความจุ</span>
-            <select value={form.storage} onChange={(e) => pickStorage(e.target.value)} className="w-full rounded-xl border border-border-default px-3 py-2">
+            <select value={form.storage} onChange={(e) => pickStorage(e.target.value)} className="input-dd">
               <option value="">ทุกความจุ</option>
               {storagesFor(form.productId).map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </label>
           <label className="text-sm">
             <span className="mb-1 block font-medium text-text-muted">เงินดาวน์ (บาท)</span>
-            <input type="number" value={form.downPayment} onChange={(e) => setForm({ ...form, downPayment: e.target.value })} className="w-full rounded-xl border border-border-default px-3 py-2" placeholder="เช่น 6990" />
+            <input type="number" value={form.downPayment} onChange={(e) => setForm({ ...form, downPayment: e.target.value })} className="input-dd" placeholder="เช่น 6990" />
           </label>
           <label className="text-sm">
             <span className="mb-1 block font-medium text-text-muted">โปรโมชัน (ถ้ามี)</span>
-            <input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} className="w-full rounded-xl border border-border-default px-3 py-2" placeholder="เช่น ฟรีฟิล์ม+เคส" />
+            <input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} className="input-dd" placeholder="เช่น ฟรีฟิล์ม+เคส" />
           </label>
         </div>
 
@@ -281,9 +282,9 @@ function ModelTab({ plans, models, reload }: { plans: Plan[]; models: CatalogIte
           <div className="space-y-2">
             {terms.map((t, i) => (
               <div key={i} className="flex items-center gap-2">
-                <input type="number" value={t.months} onChange={(e) => setTerms(terms.map((x, j) => j === i ? { ...x, months: e.target.value } : x))} className="w-24 rounded-xl border border-border-default px-3 py-2 text-sm" placeholder="งวด" />
+                <input type="number" value={t.months} onChange={(e) => setTerms(terms.map((x, j) => j === i ? { ...x, months: e.target.value } : x))} className="input-dd w-24 min-w-0 text-sm" placeholder="งวด" />
                 <span className="text-sm text-text-muted">เดือน ×</span>
-                <input type="number" value={t.monthly} onChange={(e) => setTerms(terms.map((x, j) => j === i ? { ...x, monthly: e.target.value } : x))} className="w-32 rounded-xl border border-border-default px-3 py-2 text-sm" placeholder="บาท/เดือน" />
+                <input type="number" value={t.monthly} onChange={(e) => setTerms(terms.map((x, j) => j === i ? { ...x, monthly: e.target.value } : x))} className="input-dd w-32 min-w-0 text-sm" placeholder="บาท/เดือน" />
                 <button onClick={() => setTerms(terms.filter((_, j) => j !== i))} className="rounded-lg p-2 text-error-text hover:bg-error-bg"><X size={16} /></button>
               </div>
             ))}
@@ -325,7 +326,7 @@ function ModelTab({ plans, models, reload }: { plans: Plan[]; models: CatalogIte
   );
 }
 
-/* ============================ มือ 2: ราย เครื่อง ============================ */
+/* ============================ มือ 2: รายเครื่อง ============================ */
 function SerialTab({ serials, units, reload }: { serials: SerialPlan[]; units: CatalogItem[]; reload: () => void }) {
   const empty = { serialId: "", label: "", downPayment: "", note: "" };
   const [form, setForm] = useState(empty);
@@ -374,7 +375,7 @@ function SerialTab({ serials, units, reload }: { serials: SerialPlan[]; units: C
   // นำเข้าราคามือ 2 ตามโปสเตอร์ ให้ทุกเครื่องมือสองในคลังที่ตรงรุ่น+ความจุ
   const importAll = async () => {
     if (units.length === 0) { toast("ยังไม่มีเครื่องมือสองในคลัง"); return; }
-    if (!confirm("นำเข้าราคาผ่อนมือ 2 ตามโปสเตอร์ ให้ทุกเครื่องที่ตรงรุ่น+ความจุ?")) return;
+    if (!(await confirmDialog({ title: "นำเข้าราคาผ่อนมือ 2 ตามโปสเตอร์?", message: "ใส่ให้ทุกเครื่องที่ตรงรุ่น+ความจุ" }))) return;
     setImporting(true);
     let ok = 0; const skipped: string[] = [];
     try {
@@ -395,7 +396,7 @@ function SerialTab({ serials, units, reload }: { serials: SerialPlan[]; units: C
   };
 
   const clearAll = async () => {
-    if (!confirm("ล้างราคาผ่อนมือ 2 ทั้งหมด? — ลบเฉพาะราคา ไม่กระทบสินค้า")) return;
+    if (!(await confirmDialog({ title: "ล้างราคาผ่อนมือ 2 ทั้งหมด?", message: "ลบเฉพาะราคาผ่อน ไม่กระทบสินค้า", confirmText: "ล้างทั้งหมด", danger: true }))) return;
     setImporting(true);
     try {
       for (const s of serials) await api.delete(`/admin/installment/serials/${s.id}`);
@@ -406,7 +407,7 @@ function SerialTab({ serials, units, reload }: { serials: SerialPlan[]; units: C
   };
 
   const del = async (id: number) => {
-    if (!confirm("ลบราคาพิเศษนี้?")) return;
+    if (!(await confirmDialog({ title: "ลบราคาพิเศษนี้?", confirmText: "ลบ", danger: true }))) return;
     try { await api.delete(`/admin/installment/serials/${id}`); toast.success("ลบแล้ว"); reload(); }
     catch { toast.error("ลบไม่สำเร็จ"); }
   };
@@ -420,7 +421,7 @@ function SerialTab({ serials, units, reload }: { serials: SerialPlan[]; units: C
     <div className="space-y-6">
       <div className="rounded-2xl border border-border-default bg-white p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h3 className="font-bold text-text-heading">เพิ่ม / แก้ราคาผ่อนพิเศษ (มือ 2 ราย เครื่อง)</h3>
+          <h3 className="font-bold text-text-heading">เพิ่ม / แก้ราคาผ่อนพิเศษ (มือ 2 รายเครื่อง)</h3>
           <div className="flex flex-wrap gap-2">
             <button onClick={clearAll} disabled={importing} className="inline-flex items-center gap-2 rounded-xl border border-error-text/40 px-3 py-2 text-sm font-semibold text-error-text transition-colors hover:bg-error-bg disabled:opacity-50">
               <Trash2 size={15} /> ล้างทั้งหมด
@@ -434,18 +435,18 @@ function SerialTab({ serials, units, reload }: { serials: SerialPlan[]; units: C
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <label className="text-sm md:col-span-2">
             <span className="mb-1 block font-medium text-text-muted">เครื่อง (มือสอง)</span>
-            <select value={form.serialId} onChange={(e) => pickDevice(e.target.value)} className="w-full rounded-xl border border-border-default px-3 py-2">
+            <select value={form.serialId} onChange={(e) => pickDevice(e.target.value)} className="input-dd">
               <option value="">— เลือกเครื่อง —</option>
               {units.map((u) => <option key={u.id} value={u.id}>{u.productName} · {u.sku}</option>)}
             </select>
           </label>
           <label className="text-sm">
             <span className="mb-1 block font-medium text-text-muted">เงินดาวน์ (บาท)</span>
-            <input type="number" value={form.downPayment} onChange={(e) => setForm({ ...form, downPayment: e.target.value })} className="w-full rounded-xl border border-border-default px-3 py-2" placeholder="เช่น 5900" />
+            <input type="number" value={form.downPayment} onChange={(e) => setForm({ ...form, downPayment: e.target.value })} className="input-dd" placeholder="เช่น 5900" />
           </label>
           <label className="text-sm">
             <span className="mb-1 block font-medium text-text-muted">ข้อความโปร (ถ้ามี)</span>
-            <input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} className="w-full rounded-xl border border-border-default px-3 py-2" placeholder="เช่น พิเศษ ปรับดาวน์ 4900 ผ่อน 2280*12ด." />
+            <input value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} className="input-dd" placeholder="เช่น พิเศษ ปรับดาวน์ 4900 ผ่อน 2280*12ด." />
           </label>
         </div>
 
@@ -455,9 +456,9 @@ function SerialTab({ serials, units, reload }: { serials: SerialPlan[]; units: C
           <div className="space-y-2">
             {terms.map((t, i) => (
               <div key={i} className="flex items-center gap-2">
-                <input type="number" value={t.months} onChange={(e) => setTerms(terms.map((x, j) => j === i ? { ...x, months: e.target.value } : x))} className="w-24 rounded-xl border border-border-default px-3 py-2 text-sm" placeholder="งวด" />
+                <input type="number" value={t.months} onChange={(e) => setTerms(terms.map((x, j) => j === i ? { ...x, months: e.target.value } : x))} className="input-dd w-24 min-w-0 text-sm" placeholder="งวด" />
                 <span className="text-sm text-text-muted">เดือน ×</span>
-                <input type="number" value={t.monthly} onChange={(e) => setTerms(terms.map((x, j) => j === i ? { ...x, monthly: e.target.value } : x))} className="w-32 rounded-xl border border-border-default px-3 py-2 text-sm" placeholder="บาท/เดือน" />
+                <input type="number" value={t.monthly} onChange={(e) => setTerms(terms.map((x, j) => j === i ? { ...x, monthly: e.target.value } : x))} className="input-dd w-32 min-w-0 text-sm" placeholder="บาท/เดือน" />
                 <button onClick={() => setTerms(terms.filter((_, j) => j !== i))} className="rounded-lg p-2 text-error-text hover:bg-error-bg"><X size={16} /></button>
               </div>
             ))}
@@ -477,7 +478,7 @@ function SerialTab({ serials, units, reload }: { serials: SerialPlan[]; units: C
           <thead><tr><th>เครื่อง</th><th>ดาวน์</th><th>งวด</th><th>โปร</th><th></th></tr></thead>
           <tbody>
             {serials.length === 0 ? (
-              <tr><td colSpan={5} className="py-8 text-center text-text-muted">ยังไม่มีราคาพิเศษราย เครื่อง</td></tr>
+              <tr><td colSpan={5} className="py-8 text-center text-text-muted">ยังไม่มีราคาพิเศษรายเครื่อง</td></tr>
             ) : serials.map((s) => (
               <tr key={s.id}>
                 <td className="font-medium text-text-heading">{s.label || s.serialId}</td>
