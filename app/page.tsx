@@ -12,6 +12,7 @@ import Image from "next/image";
 import Reveal from "@/components/Reveal";
 import HeroPhone from "@/components/HeroPhone";
 import PromoCarousel from "@/components/PromoCarousel";
+import ReviewsSection from "@/components/ReviewsSection";
 import { ProductGridSkeleton } from "@/components/Skeletons";
 
 interface CatalogItem {
@@ -159,6 +160,9 @@ export default function Home() {
       </section>
 
       {/* ===================== CTA ===================== */}
+      {/* รีวิวจากลูกค้าที่ซื้อจริง (ซ่อนอัตโนมัติถ้ายังไม่มีรีวิว) */}
+      <ReviewsSection />
+
       <section className="container-dd pb-12 md:pb-16">
         <Reveal>
         <div className="rounded-3xl bg-yellow px-6 py-10 text-center md:px-16 md:py-14">

@@ -8,6 +8,7 @@ import { statusOf } from "@/lib/orderStatus";
 import { getApiError } from "@/lib/errorMessage";
 import { compressImage } from "@/lib/imageCompress";
 import DeliveryTracker from "@/components/DeliveryTracker";
+import ReviewBox from "@/components/ReviewBox";
 import { QRCodeCanvas } from "qrcode.react";
 import {
   Loader2, Smartphone, ArrowLeft, UploadCloud, Banknote, Store, Truck, Clock,
@@ -126,6 +127,9 @@ export default function OrderDetailPage() {
           {/* ซ้าย: รายการ + ที่อยู่ */}
           <div className="space-y-6 lg:col-span-2">
             {FULFILLMENT.includes(order.status) && <DeliveryTracker order={order} />}
+
+            {/* ให้คะแนนหลังได้รับสินค้า (โชว์เฉพาะสถานะรับของแล้ว) */}
+            <ReviewBox orderId={order.id} status={order.status} />
 
             <div className="card-dd">
               <h2 className="mb-4 font-bold text-text-heading">รายการสินค้า</h2>
