@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import api from "@/lib/api";
 import { baht } from "@/lib/money";
 import { LINE_URL } from "@/lib/contact";
@@ -245,18 +246,17 @@ export default function ProductDetailPage() {
               <AnimatePresence mode="wait" initial={false}>
                 {mainImg ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <motion.img
+                  <motion.div
                     key={mainImg}
-                    src={mainImg}
-                    alt={item.productName}
-                    width={420}
-                    height={420}
-                    className={`h-full w-full max-w-sm object-contain ${item.sold ? "opacity-40 grayscale" : ""}`}
+                    className="relative h-full w-full max-w-sm"
                     initial={reduceMotion ? false : { opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 1.03 }}
                     transition={{ duration: reduceMotion ? 0 : 0.28, ease: "easeOut" }}
-                  />
+                  >
+                    <Image src={mainImg} alt={item.productName} fill priority sizes="(max-width: 1024px) 90vw, 45vw"
+                           className={`object-contain ${item.sold ? "opacity-40 grayscale" : ""}`} />
+                  </motion.div>
                 ) : (
                   <Smartphone size={120} className="text-text-disabled" />
                 )}

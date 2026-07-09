@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Facebook, Instagram, MessageCircle, Phone } from "lucide-react";
 import { LINE_URL, TEL, TEL_HREF, FACEBOOK_URL, TIKTOK_URL, INSTAGRAM_URL } from "@/lib/contact";
@@ -22,8 +23,7 @@ export default function Footer() {
       <div className="container-dd grid grid-cols-1 gap-8 sm:grid-cols-2 md:grid-cols-4">
         <div className="md:col-span-2">
           <Link href="/" className="mb-4 inline-block">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/images/logo.png" alt="DDMOBILE Logo" width={120} height={48} className="h-11 w-auto object-contain" />
+            <Image src="/images/logo.png" alt="DDMOBILE Logo" width={120} height={48} className="h-11 w-auto object-contain" />
           </Link>
           <p className="max-w-sm text-sm leading-relaxed text-text-muted">
             ผู้นำด้านบริการผ่อนโทรศัพท์มือถือและสินค้าไอที อนุมัติไว เงื่อนไขง่าย เข้าถึงได้ทุกคน

@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ShoppingCart, User, LogOut, FileText, LayoutDashboard,
@@ -71,7 +72,7 @@ export default function Navbar() {
         <div className="container-dd flex h-16 items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
-            <img src="/images/logo.png" alt="DDMOBILE Logo" width={40} height={40} className="h-9 w-auto object-contain" />
+            <Image src="/images/logo.png" alt="DDMOBILE Logo" width={40} height={40} className="h-9 w-auto object-contain" />
             <span className="logo-dd">DD<span className="text-yellow-hover">MOBILE</span></span>
           </Link>
 

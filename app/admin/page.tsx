@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Smartphone, ClipboardList, Users,
   LogOut, Clock, CheckCircle2, XCircle, Loader2,
   X, AlertTriangle, Warehouse, Menu, Search,
-  ShoppingBag, Check, Eye, Truck, Store, CreditCard, Receipt, UserCog, TicketPercent
+  ShoppingBag, Check, Eye, Truck, Store, CreditCard, Receipt, UserCog, TicketPercent, Banknote, TrendingUp
 } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
@@ -18,6 +18,7 @@ import InstallmentManager from "@/components/InstallmentManager";
 import EmployeeManager from "@/components/EmployeeManager";
 import CouponAdmin from "@/components/CouponAdmin";
 import StatCard from "@/components/ui/StatCard";
+import SalesChart, { type DailySales } from "@/components/ui/SalesChart";
 import { confirmDialog } from "@/components/ui/confirmDialog";
 import { TableSkeleton, StatCardSkeleton } from "@/components/Skeletons";
 
@@ -56,6 +57,7 @@ interface WebOrder {
 }
 
 interface StockSummary { totalAvailable: number; newAvailable: number; secondHandAvailable: number; }
+interface SalesBillLite { grandTotal: number | null; status: string | null; createdAt: string | null; }
 interface StockLowItem { id: string; sku: string; productName: string; currentQty: number; thresholdQty: number; }
 function toArr<T>(d: any): T[] { return Array.isArray(d) ? d : (Array.isArray(d?.content) ? d.content : []); }
 
@@ -82,6 +84,7 @@ export default function AdminDashboard() {
   // Stock real-time (ผ่าน DD BFF — ไม่ต้อง login stock แยก)
   const [stockSummary, setStockSummary] = useState<StockSummary | null>(null);
   const [stockLow, setStockLow] = useState<StockLowItem[]>([]);
+  const [salesBills, setSalesBills] = useState<SalesBillLite[]>([]);   // บิลขายจริงจาก Stock → KPI + กราฟ
 
   useEffect(() => {
     const checkAuth = () => {
@@ -106,13 +109,14 @@ export default function AdminDashboard() {
 
     const fetchData = async () => {
       try {
-        const [statsRes, appsRes, customersRes, ordersRes, sumRes, lowRes] = await Promise.all([
+        const [statsRes, appsRes, customersRes, ordersRes, sumRes, lowRes, salesRes] = await Promise.all([
           api.get("/admin/stats"),
           api.get("/admin/applications"),
           api.get("/admin/customers"),
           api.get("/admin/orders"),
           api.get("/admin/stock/summary").catch(() => null),   // stock ล่มไม่ทำให้ทั้ง dashboard พัง
           api.get("/admin/stock/low-stock").catch(() => null),
+          api.get("/admin/stock/sales").catch(() => null),
         ]);
 
         setStatsData(statsRes.data);
@@ -121,6 +125,7 @@ export default function AdminDashboard() {
         setWebOrders(ordersRes.data);
         setStockSummary(sumRes?.data ?? null);
         setStockLow(toArr<StockLowItem>(lowRes?.data));
+        setSalesBills(toArr<SalesBillLite>(salesRes?.data));
       } catch (error: any) {
         console.error("Fetch Data Error:", error);
         if (error.response && (error.response.status === 401 || error.response.status === 403)) {
@@ -226,6 +231,33 @@ export default function AdminDashboard() {
     const q = custQ.trim().toLowerCase();
     return q ? customers.filter(c => c.email.toLowerCase().includes(q)) : customers;
   }, [customers, custQ]);
+  // ยอดขายจริงจาก Stock → รายวัน 14 วันล่าสุด (ไม่นับบิลคืนเงิน/ยกเลิก)
+  const sales14 = useMemo<DailySales[]>(() => {
+    const byDay = new Map<string, { total: number; bills: number }>();
+    for (const b of salesBills) {
+      const st = (b.status || "").toUpperCase();
+      if (st.includes("REFUND") || st.includes("CANCEL")) continue;
+      if (!b.createdAt) continue;
+      const d = new Date(b.createdAt);
+      if (isNaN(d.getTime())) continue;
+      const key = d.toLocaleDateString("sv-SE");   // YYYY-MM-DD ตามเวลาท้องถิ่น
+      const cur = byDay.get(key) ?? { total: 0, bills: 0 };
+      cur.total += b.grandTotal ?? 0;
+      cur.bills += 1;
+      byDay.set(key, cur);
+    }
+    const out: DailySales[] = [];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const key = d.toLocaleDateString("sv-SE");
+      const v = byDay.get(key);
+      out.push({ date: key, total: v?.total ?? 0, bills: v?.bills ?? 0 });
+    }
+    return out;
+  }, [salesBills]);
+  const revToday = sales14[13]?.total ?? 0;
+  const rev7 = sales14.slice(7).reduce((a, d) => a + d.total, 0);
+  const billsToday = sales14[13]?.bills ?? 0;
 
   if (!isAuthorized) {
     return (
@@ -322,6 +354,22 @@ export default function AdminDashboard() {
                     {statsUI.map((stat, idx) => (
                       <StatCard key={idx} icon={stat.icon} label={stat.title} value={stat.value} unit={stat.unit} iconClass={stat.color} />
                     ))}
+                  </div>
+
+                  {/* ยอดขายจริงจาก Stock (เดิม fetch มาแล้วไม่ได้โชว์ที่ไหนเลย) */}
+                  <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <StatCard icon={Banknote} label="ยอดขายวันนี้" value={revToday} prefix="฿" iconClass="text-success-text" />
+                    <StatCard icon={TrendingUp} label="ยอดขาย 7 วันล่าสุด" value={rev7} prefix="฿" iconClass="text-yellow" />
+                    <StatCard icon={Receipt} label="บิลวันนี้" value={billsToday} unit="บิล" iconClass="text-info-text" />
+                  </div>
+                  <div className="mb-6 overflow-hidden rounded-2xl border border-border-default bg-white">
+                    <div className="flex items-center justify-between border-b border-border-default p-4">
+                      <h2 className="flex items-center gap-2 font-display text-xl"><TrendingUp className="text-yellow" size={20} /> ยอดขาย 14 วันล่าสุด</h2>
+                      <button onClick={() => setActiveMenu("บิล & สต็อก (Logs)")} className="btn-ghost">ดูบิลทั้งหมด →</button>
+                    </div>
+                    <div className="p-4 pt-6">
+                      <SalesChart data={sales14} />
+                    </div>
                   </div>
 
                   <div className="overflow-hidden rounded-2xl border border-border-default bg-white">

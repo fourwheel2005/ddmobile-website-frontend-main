@@ -8,6 +8,7 @@ import {
   MessageCircle, ChevronRight, Sparkles, RotateCcw
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import Reveal from "@/components/Reveal";
 import HeroPhone from "@/components/HeroPhone";
 import PromoCarousel from "@/components/PromoCarousel";
@@ -186,7 +187,7 @@ function ProductCard({ product, inst }: { product: CatalogItem; inst?: InstInfo 
           {isNew ? <Sparkles size={11} /> : <RotateCcw size={11} />} {product.conditionLabel}
         </span>
         {product.imageUrl ? (
-          <img src={product.imageUrl} alt={product.productName} loading="lazy" className="h-full w-full object-contain transition-transform duration-300 group-hover:scale-105" />
+          <Image src={product.imageUrl} alt={product.productName} fill sizes="(max-width: 1024px) 50vw, 25vw" className="object-contain transition-transform duration-300 group-hover:scale-105" />
         ) : (
           <Smartphone size={48} className="text-text-disabled" />
         )}

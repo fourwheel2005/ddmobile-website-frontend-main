@@ -6,7 +6,8 @@ import { getApiError } from "@/lib/errorMessage";
 import { useCart } from "@/context/CartContext";
 import toast from "react-hot-toast";
 import Link from "next/link";
-import { Banknote, Smartphone, ArrowRight, ShoppingCart, MessageCircle, TicketPercent } from "lucide-react";
+import { Banknote, Smartphone, ArrowRight, ShoppingCart, MessageCircle, TicketPercent, ShieldCheck, Lock, BadgeCheck } from "lucide-react";
+import Reveal from "@/components/Reveal";
 
 import { baht as money } from "@/lib/money";
 import { LINE_URL } from "@/lib/contact";
@@ -95,7 +96,7 @@ export default function CheckoutPage() {
 
         <form onSubmit={submit} className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* ฟอร์ม */}
-          <div className="space-y-6 lg:col-span-2">
+          <Reveal className="reveal-stagger space-y-6 lg:col-span-2">
             {/* ผู้รับ */}
             <div className="card-dd">
               <h2 className="mb-4 font-bold text-text-heading">ข้อมูลผู้รับ</h2>
@@ -166,7 +167,7 @@ export default function CheckoutPage() {
                 </div>
               )}
             </div>
-          </div>
+          </Reveal>
 
           {/* สรุป */}
           <div className="lg:col-span-1">
@@ -199,7 +200,20 @@ export default function CheckoutPage() {
               <button type="submit" disabled={submitting} className="btn-primary mt-5 w-full py-3.5 text-base">
                 {submitting ? "กำลังสร้างคำสั่งซื้อ..." : <>ยืนยันคำสั่งซื้อ <ArrowRight size={18} /></>}
               </button>
-              <p className="mt-2 text-center text-xs text-text-muted">ระบบจะจองสินค้าให้ก่อน รอแอดมินยืนยัน</p>
+              <p className="mt-2 text-center text-xs text-text-muted">จองสินค้าให้ทันที · แนบสลิปแล้วระบบตรวจ-ยืนยันให้อัตโนมัติ</p>
+              {/* trust block — ความมั่นใจก่อนกดจ่าย */}
+              <div className="mt-4 grid grid-cols-3 gap-2 border-t border-border-default pt-4">
+                {[
+                  { icon: ShieldCheck, t: "ตรวจสลิปอัตโนมัติ" },
+                  { icon: Lock, t: "ข้อมูลปลอดภัย" },
+                  { icon: BadgeCheck, t: "เครื่องแท้ 100%" },
+                ].map(({ icon: I, t }) => (
+                  <div key={t} className="flex flex-col items-center gap-1 text-center">
+                    <I size={18} className="text-success-text" />
+                    <span className="text-[11px] font-medium text-text-muted">{t}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </form>

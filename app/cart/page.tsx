@@ -1,6 +1,7 @@
 "use client";
 import { useCart } from "@/context/CartContext";
 import Link from "next/link";
+import Reveal from "@/components/Reveal";
 import { useRouter } from "next/navigation";
 import { ShoppingCart, Trash2, Minus, Plus, Smartphone, ArrowRight, Sparkles, RotateCcw } from "lucide-react";
 
@@ -39,7 +40,7 @@ export default function CartPage() {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* รายการ */}
-          <div className="space-y-3 lg:col-span-2">
+          <Reveal className="reveal-stagger space-y-3 lg:col-span-2">
             {items.map((it) => (
               <div key={it.catalogId} className="card-dd flex gap-4 !p-3">
                 <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-bg-subtle">
@@ -75,7 +76,7 @@ export default function CartPage() {
                 </div>
               </div>
             ))}
-          </div>
+          </Reveal>
 
           {/* สรุป */}
           <div className="lg:col-span-1">

@@ -1,6 +1,7 @@
 "use client";
 import { motion, useMotionValue, useSpring, useTransform, useReducedMotion } from "framer-motion";
 import { Sparkles, Truck, ShieldCheck } from "lucide-react";
+import Image from "next/image";
 import type { ReactNode } from "react";
 
 /**
@@ -54,17 +55,17 @@ export default function HeroPhone() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <motion.img
-          src="/images/iphone-17-promax-orange.png"
-          alt="iPhone 17 Pro Max"
-          width={420}
-          height={520}
-          className="w-full object-contain drop-shadow-2xl"
-          style={{ translateZ: 50 }}
-          animate={reduce ? undefined : { y: [0, -14, 0] }}
-          transition={loop}
-        />
+        <motion.div style={{ translateZ: 50 }} animate={reduce ? undefined : { y: [0, -14, 0] }} transition={loop}>
+          <Image
+            src="/images/iphone-17-promax-orange.png"
+            alt="iPhone 17 Pro Max"
+            width={420}
+            height={520}
+            priority
+            sizes="(max-width: 768px) 68vw, 40vw"
+            className="w-full object-contain drop-shadow-2xl"
+          />
+        </motion.div>
       </motion.div>
 
       <motion.div

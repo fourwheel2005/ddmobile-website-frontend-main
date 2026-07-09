@@ -4,6 +4,7 @@ import api from "@/lib/api";
 import { baht } from "@/lib/money";
 import { Search, Smartphone, CheckCircle2, ArrowUpDown, X, BatteryMedium, Sparkles, RotateCcw, ShoppingCart, CreditCard, Cable } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import { ProductGridSkeleton } from "@/components/Skeletons";
@@ -289,7 +290,7 @@ export default function ProductsPage() {
                         {it.condition === "NEW" ? <Sparkles size={11} /> : <RotateCcw size={11} />} {it.conditionLabel}
                       </span>
                       {it.imageUrl ? (
-                        <img src={it.imageUrl} alt={it.productName} loading="lazy" className={`h-full w-full object-contain transition-transform duration-300 group-hover:scale-105 ${it.sold ? "opacity-40 grayscale" : ""}`} />
+                        <Image src={it.imageUrl} alt={it.productName} fill sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw" className={`object-contain transition-transform duration-300 group-hover:scale-105 ${it.sold ? "opacity-40 grayscale" : ""}`} />
                       ) : (
                         <Smartphone size={52} className={`text-text-disabled ${it.sold ? "opacity-40" : ""}`} />
                       )}

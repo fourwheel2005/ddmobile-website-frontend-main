@@ -5,11 +5,12 @@ import type { LucideIcon } from "lucide-react";
  * การ์ดสถิติมาตรฐานแอดมิน (แบบเดียวทั้งระบบ — เดิมมี 3 เวอร์ชัน)
  * ตัวเลขนับขึ้นด้วย CountUp เสมอ · หน่วยแสดงข้างตัวเลข (เลิก badge ปลอมที่หน้าตาเหมือน trend)
  */
-export default function StatCard({ icon: Icon, label, value, unit, iconClass = "text-yellow" }: {
+export default function StatCard({ icon: Icon, label, value, unit, prefix, iconClass = "text-yellow" }: {
   icon: LucideIcon;
   label: string;
   value: number;
   unit?: string;
+  prefix?: string;
   iconClass?: string;
 }) {
   return (
@@ -19,7 +20,7 @@ export default function StatCard({ icon: Icon, label, value, unit, iconClass = "
       </div>
       <p className="mt-4 text-xs text-text-muted">{label}</p>
       <p className="flex items-baseline gap-1.5">
-        <CountUp value={value} className="font-display text-4xl tabular-nums text-text-heading" />
+        <CountUp value={value} prefix={prefix} className="font-display text-4xl tabular-nums text-text-heading" />
         {unit && <span className="text-sm text-text-muted">{unit}</span>}
       </p>
     </div>
