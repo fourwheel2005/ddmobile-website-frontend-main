@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import api from "@/lib/api";
 import { baht } from "@/lib/money";
+import { promoForItem, type PublicPromotion } from "@/lib/promo";
 import { LINE_URL } from "@/lib/contact";
 import {
   Smartphone, ShieldCheck, CheckCircle2, XCircle,
@@ -63,6 +64,11 @@ export default function ProductDetailPage() {
   const [selColor, setSelColor] = useState<string | null>(null);
   const [selStorage, setSelStorage] = useState<string | null>(null);
   const [installment, setInstallment] = useState<InstallmentInfo | null>(null);
+  const [promos, setPromos] = useState<PublicPromotion[]>([]);
+
+  useEffect(() => {
+    api.get("/promotions/active").then((r) => setPromos(Array.isArray(r.data) ? r.data : [])).catch(() => { /* ไม่มีโปร */ });
+  }, []);
 
   // มือ 1 (MODEL): ตั้งค่าตัวเลือกเริ่มต้น = option แรก
   useEffect(() => {
@@ -207,6 +213,8 @@ export default function ProductDetailPage() {
     else toast(r.reason || "เพิ่มไม่ได้", { icon: "🛒" });
   };
   const priceText = baht(effPrice, "สอบถามราคา");
+  // โปร flash sale ของตัวที่เลือกอยู่ (แสดงผลเท่านั้น — server คิดจริงตอนสร้างออเดอร์)
+  const flash = item.sold ? null : promoForItem(promos, { id: item.id, variantId: effVariantId, category: item.category }, effPrice);
   const warranty = item.warrantyExpire
     ? `ประกันถึง ${new Date(item.warrantyExpire).toLocaleDateString("th-TH")}`
     : isNew ? "ประกันศูนย์ 1 ปี" : "ตรวจเช็คคุณภาพแล้ว";
@@ -302,6 +310,11 @@ export default function ProductDetailPage() {
               <div className="flex items-baseline gap-2">
                 {effPrice == null ? (
                   <span className="text-2xl font-bold text-price md:text-3xl">สอบถามราคา</span>
+                ) : flash ? (
+                  <>
+                    <span className="mr-1 text-lg font-medium text-text-muted line-through">฿{effPrice.toLocaleString()}</span>
+                    <CountUp value={flash.priceAfter} prefix="฿" className="text-3xl font-bold text-price md:text-4xl" />
+                  </>
                 ) : (
                   <>
                     <CountUp value={effPrice} prefix="฿" className="text-3xl font-bold text-price md:text-4xl" />
@@ -309,6 +322,14 @@ export default function ProductDetailPage() {
                       <span className="text-lg text-text-muted">- ฿{Number(item.maxPrice).toLocaleString()}</span>
                     )}
                   </>
+                )}
+                {flash && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl bg-price/5 px-3 py-2 ring-1 ring-price/20">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-price px-2.5 py-0.5 text-xs font-bold text-white"><Zap size={11} className="fill-white" /> {flash.label}</span>
+                    <span className="text-sm font-semibold text-text-heading">{flash.name}</span>
+                    <FlashCountdown endAt={flash.endAt} />
+                    <span className="w-full text-[11px] text-text-muted">ส่วนลดคำนวณให้อัตโนมัติตอนชำระเงิน</span>
+                  </div>
                 )}
               </div>
             </div>
@@ -469,5 +490,30 @@ export default function ProductDetailPage() {
         </button>
       </div>
     </div>
+  );
+}
+
+/** นับถอยหลังโปร (โชว์เมื่อเหลือ < 72 ชม. — ไกลกว่านั้นโชว์วันสิ้นสุด) */
+function FlashCountdown({ endAt }: { endAt: string | null }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!endAt) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [endAt]);
+  if (!endAt) return null;
+  const end = new Date(endAt).getTime();
+  if (isNaN(end)) return null;
+  const left = end - now;
+  if (left <= 0) return null;
+  if (left > 72 * 3600_000) {
+    return <span className="text-xs font-medium text-price">ถึง {new Date(endAt).toLocaleDateString("th-TH", { day: "numeric", month: "short" })}</span>;
+  }
+  const h = Math.floor(left / 3600_000), m = Math.floor((left % 3600_000) / 60_000), sec = Math.floor((left % 60_000) / 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    <span className="inline-flex items-center gap-1 font-mono text-sm font-bold tabular-nums text-price">
+      เหลือ {pad(h)}:{pad(m)}:{pad(sec)}
+    </span>
   );
 }

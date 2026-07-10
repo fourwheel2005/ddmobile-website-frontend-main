@@ -29,6 +29,27 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [couponCode, setCouponCode] = useState("");
+  const [promoCode, setPromoCode] = useState("");                       // โค้ดโปรโมชั่น (แยกจากคูปองวงล้อ)
+  const [promoPreview, setPromoPreview] = useState<{ promos: { name: string; amount: number }[]; totalDiscount: number } | null>(null);
+  const [checkingPromo, setCheckingPromo] = useState(false);
+
+  // พรีวิวโปรจาก server (แสดงผลเท่านั้น — ตอนสร้างออเดอร์คิดใหม่) · โปรอัตโนมัติขึ้นเองไม่ต้องกรอกโค้ด
+  const previewPromo = async (code: string) => {
+    if (items.length === 0) { setPromoPreview(null); return; }
+    setCheckingPromo(true);
+    try {
+      const res = await api.post("/promotions/preview", {
+        items: items.map((i) => ({ catalogId: i.catalogId, quantity: i.quantity })),
+        promoCode: code.trim() || null,
+      });
+      setPromoPreview(res.data);
+      if (code.trim()) {
+        const hit = (res.data?.promos ?? []).length > 0 && res.data.totalDiscount > 0;
+        if (hit) toast.success("ใช้โค้ดโปรโมชั่นแล้ว"); else toast.error("โค้ดใช้ไม่ได้ หรือไม่เข้าเงื่อนไข");
+      }
+    } catch { setPromoPreview(null); }
+    finally { setCheckingPromo(false); }
+  };
 
   useEffect(() => {
     const u = localStorage.getItem("user");
@@ -40,12 +61,15 @@ export default function CheckoutPage() {
       setCoupons(list);
       if (list.length) setCouponCode(list.reduce((a, b) => (b.percent > a.percent ? b : a)).code);
     }).catch(() => { /* ไม่มีคูปอง/ผิดพลาด → เงียบ */ });
+    previewPromo("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   // ส่วนลด (แสดงผลเท่านั้น — server คิดใหม่ตอนสร้างออเดอร์)
   const selectedCoupon = coupons.find((c) => c.code === couponCode) || null;
   const discount = selectedCoupon ? Math.round((total * selectedCoupon.percent) / 100) : 0;
-  const payable = Math.max(0, total - discount);
+  const promoTotal = promoPreview?.totalDiscount ?? 0;
+  const payable = Math.max(0, total - discount - promoTotal);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,6 +88,7 @@ export default function CheckoutPage() {
         note: note.trim() || null,
         installmentMonths: null,
         couponCode: couponCode || null,
+        promoCode: promoCode.trim() || null,
       });
       clear();
       toast.success("สร้างคำสั่งซื้อสำเร็จ!");
@@ -142,6 +167,24 @@ export default function CheckoutPage() {
                 <input value={note} onChange={(e) => setNote(e.target.value)} className="input-dd" placeholder="เช่น สีที่ต้องการ / เวลาจัดส่ง" />
               </div>
 
+              {/* โค้ดโปรโมชั่น / Flash Sale */}
+              <div className="mt-4 rounded-xl border border-border-default bg-bg-subtle p-4">
+                <p className="mb-2 text-sm font-bold text-text-heading">โค้ดโปรโมชั่น</p>
+                <div className="flex gap-2">
+                  <input value={promoCode} onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                         className="input-dd flex-1 font-mono" placeholder="เช่น SAVE50 (ถ้ามี)" />
+                  <button type="button" onClick={() => previewPromo(promoCode)} disabled={checkingPromo}
+                          className="btn-secondary flex-shrink-0">{checkingPromo ? "..." : "ใช้โค้ด"}</button>
+                </div>
+                {promoPreview && promoPreview.promos.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {promoPreview.promos.map((p) => (
+                      <p key={p.name} className="text-xs font-medium text-success-text">✓ {p.name} −{money(p.amount)}</p>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* คูปองส่วนลด (จากวงล้อ ฯลฯ) */}
               {coupons.length > 0 && (
                 <div className="mt-4 rounded-xl border border-yellow/40 bg-yellow/5 p-4">
@@ -192,6 +235,9 @@ export default function CheckoutPage() {
                 {discount > 0 && (
                   <div className="flex justify-between text-success-text"><span>ส่วนลดคูปอง ({selectedCoupon?.percent}%)</span><span className="font-semibold">−{money(discount)}</span></div>
                 )}
+                {promoTotal > 0 && promoPreview?.promos.map((p) => (
+                  <div key={p.name} className="flex justify-between text-success-text"><span>โปรโมชั่น: {p.name}</span><span className="font-semibold">−{money(p.amount)}</span></div>
+                ))}
                 <div className="flex items-center justify-between border-t border-border-default pt-2">
                   <span className="font-bold text-text-heading">รวมทั้งสิ้น</span>
                   <span className="text-xl font-bold text-price">{money(payable)}</span>

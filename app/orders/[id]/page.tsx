@@ -23,6 +23,7 @@ interface Order {
   id: number; status: string; paymentMethod: string; customerName: string; customerTel: string;
   shippingAddress: string | null; note: string | null; subtotal: number; total: number;
   couponCode: string | null; discountPercent: number | null; discountAmount: number | null;
+  promoNames: string | null; promoDiscount: number | null;
   items: OItem[]; slipFileId: string | null; slipVerified: boolean | null; createdAt: string;
   installmentMonths: number | null; downPayment: number | null; monthlyPayment: number | null;
   shippingPartner: string | null; trackingNumber: string | null;
@@ -146,11 +147,14 @@ export default function OrderDetailPage() {
                 ))}
               </div>
               <div className="mt-4 space-y-1.5 border-t border-border-default pt-3">
+                {((order.discountAmount != null && order.discountAmount > 0) || (order.promoDiscount != null && order.promoDiscount > 0)) && (
+                  <div className="flex justify-between text-sm"><span className="text-text-muted">ราคาสินค้า</span><span className="font-medium text-text-heading">{money(order.subtotal ?? order.total)}</span></div>
+                )}
                 {order.discountAmount != null && order.discountAmount > 0 && (
-                  <>
-                    <div className="flex justify-between text-sm"><span className="text-text-muted">ราคาสินค้า</span><span className="font-medium text-text-heading">{money(order.subtotal ?? order.total)}</span></div>
-                    <div className="flex justify-between text-sm text-success-text"><span>ส่วนลดคูปอง{order.couponCode ? ` (${order.couponCode})` : ""}</span><span className="font-semibold">−{money(order.discountAmount)}</span></div>
-                  </>
+                  <div className="flex justify-between text-sm text-success-text"><span>ส่วนลดคูปอง{order.couponCode ? ` (${order.couponCode})` : ""}</span><span className="font-semibold">−{money(order.discountAmount)}</span></div>
+                )}
+                {order.promoDiscount != null && order.promoDiscount > 0 && (
+                  <div className="flex justify-between text-sm text-success-text"><span>โปรโมชั่น{order.promoNames ? ` (${order.promoNames})` : ""}</span><span className="font-semibold">−{money(order.promoDiscount)}</span></div>
                 )}
                 <div className="flex items-center justify-between border-t border-border-default pt-2">
                   <span className="font-bold text-text-heading">รวมทั้งสิ้น</span>

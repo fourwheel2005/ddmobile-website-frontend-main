@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import api from "@/lib/api";
 import { baht } from "@/lib/money";
-import { Search, Smartphone, CheckCircle2, ArrowUpDown, X, BatteryMedium, Sparkles, RotateCcw, ShoppingCart, CreditCard, Cable } from "lucide-react";
+import { Search, Smartphone, CheckCircle2, ArrowUpDown, X, BatteryMedium, Sparkles, RotateCcw, ShoppingCart, CreditCard, Cable, Zap } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
@@ -10,6 +10,7 @@ import toast from "react-hot-toast";
 import { ProductGridSkeleton } from "@/components/Skeletons";
 import { useCart } from "@/context/CartContext";
 import { buildInstLookup, type InstallmentPlan, type InstallmentSerial } from "@/lib/installment";
+import { promoForItem, type PublicPromotion } from "@/lib/promo";
 
 interface VariantOption {
   variantId: string;
@@ -85,6 +86,7 @@ export default function ProductsPage() {
   const [showSuggest, setShowSuggest] = useState(false);
   const [plans, setPlans] = useState<InstallmentPlan[]>([]);
   const [serials, setSerials] = useState<InstallmentSerial[]>([]);
+  const [promos, setPromos] = useState<PublicPromotion[]>([]);   // โปรอัตโนมัติ — โชว์ป้าย/ราคาขีดฆ่า (server คิดจริงตอนสั่งซื้อ)
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -92,14 +94,16 @@ export default function ProductsPage() {
       setIsLoading(true);
       setError(false);
       try {
-        const [cat, plan, ser] = await Promise.all([
+        const [cat, plan, ser, pr] = await Promise.all([
           api.get("/catalog"),
           api.get("/installment/plans").catch(() => ({ data: [] })),
           api.get("/installment/serials").catch(() => ({ data: [] })),
+          api.get("/promotions/active").catch(() => ({ data: [] })),
         ]);
         setItems(Array.isArray(cat.data) ? cat.data : []);
         setPlans(Array.isArray(plan.data) ? plan.data : []);
         setSerials(Array.isArray(ser.data) ? ser.data : []);
+        setPromos(Array.isArray(pr.data) ? pr.data : []);
       } catch (e) {
         console.error("Catalog error:", e);
         setError(true);
@@ -282,6 +286,7 @@ export default function ProductsPage() {
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
                   {list.map((it) => {
                     const inst = instFor(it);
+                    const flash = it.sold ? null : promoForItem(promos, it, it.minPrice);
                     return (
                     <motion.div key={it.id} layout initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.25 }}>
                       <Link href={`/products/${encodeURIComponent(it.id)}`} className="card-dd group flex h-full flex-col overflow-hidden !p-0">
@@ -289,6 +294,11 @@ export default function ProductsPage() {
                       <span className={`badge-dd absolute left-3 top-3 z-10 ${it.condition === "NEW" ? "badge-success" : "badge-info"}`}>
                         {it.condition === "NEW" ? <Sparkles size={11} /> : <RotateCcw size={11} />} {it.conditionLabel}
                       </span>
+                      {flash && (
+                        <span className="absolute right-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-price px-2.5 py-1 text-[11px] font-bold text-white shadow-md">
+                          <Zap size={11} className="fill-white" /> {flash.label}
+                        </span>
+                      )}
                       {it.imageUrl ? (
                         <Image src={it.imageUrl} alt={it.productName} fill sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw" className={`object-contain transition-transform duration-300 group-hover:scale-105 ${it.sold ? "opacity-40 grayscale" : ""}`} />
                       ) : (
@@ -321,7 +331,11 @@ export default function ProductsPage() {
                         <p className="text-xs text-text-muted">ราคา</p>
                         <div className="mb-2 flex items-center justify-between gap-2">
                           <p className={`font-bold text-price ${it.minPrice == null ? "text-sm" : "text-lg"}`}>
-                            {priceText(it.minPrice)}{(it.type === "GROUP" || it.type === "MODEL") && it.maxPrice != null && it.maxPrice !== it.minPrice ? ` - ${Number(it.maxPrice).toLocaleString()}` : ""}
+                            {flash ? (
+                              <><span className="mr-1.5 align-middle text-xs font-medium text-text-muted line-through">{priceText(it.minPrice)}</span>{baht(flash.priceAfter)}</>
+                            ) : (
+                              <>{priceText(it.minPrice)}{(it.type === "GROUP" || it.type === "MODEL") && it.maxPrice != null && it.maxPrice !== it.minPrice ? ` - ${Number(it.maxPrice).toLocaleString()}` : ""}</>
+                            )}
                           </p>
                           {it.sold ? null : it.type === "MODEL" ? (
                             <span className="flex h-8 flex-shrink-0 items-center rounded-full bg-bg-tinted px-3 text-[11px] font-semibold text-text-body">เลือกแบบ →</span>
