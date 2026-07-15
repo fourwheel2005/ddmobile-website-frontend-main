@@ -133,12 +133,12 @@ export default function CheckoutPage() {
               <h2 className="mb-4 font-bold text-text-heading">ข้อมูลผู้รับ</h2>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="label-dd">ชื่อ-นามสกุล *</label>
-                  <input value={name} onChange={(e) => setName(e.target.value)} required className="input-dd" placeholder="ชื่อผู้รับสินค้า" />
+                  <label htmlFor="co-name" className="label-dd">ชื่อ-นามสกุล *</label>
+                  <input id="co-name" value={name} onChange={(e) => setName(e.target.value)} required autoComplete="name" className="input-dd" placeholder="ชื่อผู้รับสินค้า" />
                 </div>
                 <div>
-                  <label className="label-dd">เบอร์โทร *</label>
-                  <input value={tel} onChange={(e) => setTel(e.target.value)} required inputMode="tel" className="input-dd" placeholder="08x-xxx-xxxx" />
+                  <label htmlFor="co-tel" className="label-dd">เบอร์โทร *</label>
+                  <input id="co-tel" type="tel" value={tel} onChange={(e) => setTel(e.target.value)} required inputMode="tel" autoComplete="tel" className="input-dd" placeholder="08x-xxx-xxxx" />
                 </div>
               </div>
             </div>
@@ -165,12 +165,12 @@ export default function CheckoutPage() {
               </a>
 
               <div className="mt-4">
-                <label className="label-dd">ที่อยู่จัดส่ง *</label>
-                <textarea value={address} onChange={(e) => setAddress(e.target.value)} rows={3} required className="input-dd resize-none" placeholder="บ้านเลขที่ / ถนน / ตำบล / อำเภอ / จังหวัด / รหัสไปรษณีย์" />
+                <label htmlFor="co-address" className="label-dd">ที่อยู่จัดส่ง *</label>
+                <textarea id="co-address" value={address} onChange={(e) => setAddress(e.target.value)} rows={3} required autoComplete="street-address" className="input-dd resize-none" placeholder="บ้านเลขที่ / ถนน / ตำบล / อำเภอ / จังหวัด / รหัสไปรษณีย์" />
               </div>
               <div className="mt-4">
-                <label className="label-dd">หมายเหตุ (ถ้ามี)</label>
-                <input value={note} onChange={(e) => setNote(e.target.value)} className="input-dd" placeholder="เช่น สีที่ต้องการ / เวลาจัดส่ง" />
+                <label htmlFor="co-note" className="label-dd">หมายเหตุ (ถ้ามี)</label>
+                <input id="co-note" value={note} onChange={(e) => setNote(e.target.value)} className="input-dd" placeholder="เช่น สีที่ต้องการ / เวลาจัดส่ง" />
               </div>
 
               {/* โค้ดโปรโมชั่น / Flash Sale */}
@@ -178,7 +178,7 @@ export default function CheckoutPage() {
                 <p className="mb-2 text-sm font-bold text-text-heading">โค้ดโปรโมชั่น</p>
                 <div className="flex gap-2">
                   <input value={promoCode} onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-                         className="input-dd flex-1 font-mono" placeholder="เช่น SAVE50 (ถ้ามี)" />
+                         aria-label="โค้ดโปรโมชั่น" className="input-dd flex-1 font-mono" placeholder="เช่น SAVE50 (ถ้ามี)" />
                   <button type="button" onClick={() => previewPromo(promoCode)} disabled={checkingPromo}
                           className="btn-secondary flex-shrink-0">{checkingPromo ? "..." : "ใช้โค้ด"}</button>
                 </div>

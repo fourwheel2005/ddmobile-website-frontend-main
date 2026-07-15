@@ -7,6 +7,7 @@ import { getApiError } from "@/lib/errorMessage";
 import { baht } from "@/lib/money";
 import { confirmDialog } from "@/components/ui/confirmDialog";
 import { TableSkeleton } from "@/components/Skeletons";
+import { useEscapeKey } from "@/lib/useEscapeKey";
 
 interface Promotion {
   id: number; name: string; discountType: "PERCENT" | "AMOUNT"; value: number;
@@ -107,6 +108,7 @@ export default function PromotionManager() {
 
   const discountText = (p: Promotion) => p.discountType === "PERCENT" ? `-${p.value}%` : `-${baht(p.value)}`;
   const set = (patch: Partial<ReturnType<typeof emptyForm>>) => setForm((f) => ({ ...f, ...patch }));
+  useEscapeKey(modal, () => setModal(false));   // ปิดโมดัลด้วย Esc
 
   if (loading) return <div className="overflow-hidden rounded-2xl border border-border-default bg-white"><TableSkeleton rows={5} cols={7} /></div>;
 

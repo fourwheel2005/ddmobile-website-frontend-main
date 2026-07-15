@@ -22,6 +22,7 @@ import StatCard from "@/components/ui/StatCard";
 import SalesChart, { type DailySales } from "@/components/ui/SalesChart";
 import { confirmDialog } from "@/components/ui/confirmDialog";
 import { TableSkeleton, StatCardSkeleton } from "@/components/Skeletons";
+import { useEscapeKey } from "@/lib/useEscapeKey";
 
 interface InstallmentApp {
   id: number;
@@ -274,6 +275,10 @@ export default function AdminDashboard() {
   const revToday = sales14[13]?.total ?? 0;
   const rev7 = sales14.slice(7).reduce((a, d) => a + d.total, 0);
   const billsToday = sales14[13]?.bills ?? 0;
+
+  // ปิดโมดัลด้วย Esc (ต้องเรียก hook ก่อน early return เสมอ — Rules of Hooks)
+  useEscapeKey(!!slipModal, closeSlipModal);
+  useEscapeKey(!!shipModal, () => setShipModal(null));
 
   if (!isAuthorized) {
     return (

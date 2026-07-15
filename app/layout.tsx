@@ -3,6 +3,7 @@ import { Anuphan, IBM_Plex_Sans_Thai } from "next/font/google";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import FloatingActions from "@/components/FloatingActions";
+import MotionProvider from "@/components/MotionProvider";
 import { Toaster } from "react-hot-toast"; // ✅ 1. นำเข้า Toaster ที่นี่
 import { CartProvider } from "@/context/CartContext";
 import "./globals.css";
@@ -38,10 +39,12 @@ export default function RootLayout({
       {/* พื้นหลัง/ฟอนต์หลักกำหนดใน globals.css (@layer base body) */}
       <body className="antialiased">
         <CartProvider>
-          <Navbar />
-          <main className="pb-[calc(64px+env(safe-area-inset-bottom))] md:pb-0">{children}</main>
-          <Footer />
-          <FloatingActions />
+          <MotionProvider>
+            <Navbar />
+            <main className="pb-[calc(64px+env(safe-area-inset-bottom))] md:pb-0">{children}</main>
+            <Footer />
+            <FloatingActions />
+          </MotionProvider>
         </CartProvider>
 
         {/* Toaster — โทนขาวสะอาดเข้ากับธีมใหม่ */}

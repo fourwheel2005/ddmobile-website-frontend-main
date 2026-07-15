@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import api from "@/lib/api";
 import { getApiError } from "@/lib/errorMessage";
+import { useEscapeKey } from "@/lib/useEscapeKey";
 import toast from "react-hot-toast";
 import { Gift, Copy, X, Sparkles } from "lucide-react";
 
@@ -29,6 +30,7 @@ export default function SpinWheel({ segments, alreadyWon, onClose }: {
   const [spinning, setSpinning] = useState(false);
   const [result, setResult] = useState<Result | null>(alreadyWon ?? null);
   useEffect(() => setMounted(true), []);
+  useEscapeKey(!spinning, onClose);   // ปิดด้วย Esc (ยกเว้นระหว่างหมุน กันปิดกลางคัน)
 
   const slicePath = (i: number) => {
     const [x1, y1] = pt(i * seg, 100);

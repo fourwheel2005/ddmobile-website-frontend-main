@@ -10,6 +10,7 @@ import toast from "react-hot-toast";
 import StatCard from "@/components/ui/StatCard";
 import { TableSkeleton, StatCardSkeleton } from "@/components/Skeletons";
 import { compressImage } from "@/lib/imageCompress";
+import { useEscapeKey } from "@/lib/useEscapeKey";
 
 /* ---------- ชนิดข้อมูลตาม API จริงของระบบ stock ---------- */
 interface StockSummary {
@@ -428,6 +429,7 @@ function EditVariantModal({ cfg, onClose, onSaved }: { cfg: VariantConfig; onClo
   const [images, setImages] = useState<string[]>(initialImages);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  useEscapeKey(true, onClose);   // โมดัลนี้ render เฉพาะตอนเปิด → Esc ปิดได้เสมอ
 
   const MAX = 10;
 
