@@ -63,10 +63,10 @@ export default function CartPage() {
                   </div>
                   <div className="mt-2 flex items-center justify-between">
                     {it.type === "GROUP" ? (
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => setQty(it.catalogId, it.quantity - 1)} aria-label="ลด" className="flex h-7 w-7 items-center justify-center rounded-full border border-border-default text-text-body hover:border-yellow disabled:opacity-30" disabled={it.quantity <= 1}><Minus size={13} /></button>
-                        <span className="w-7 text-center text-sm font-semibold">{it.quantity}</span>
-                        <button onClick={() => setQty(it.catalogId, it.quantity + 1)} aria-label="เพิ่ม" className="flex h-7 w-7 items-center justify-center rounded-full border border-border-default text-text-body hover:border-yellow disabled:opacity-30" disabled={it.quantity >= it.maxStock}><Plus size={13} /></button>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setQty(it.catalogId, it.quantity - 1)} aria-label="ลดจำนวน" className="flex h-9 w-9 items-center justify-center rounded-full border border-border-default text-text-body transition-colors hover:border-yellow hover:bg-bg-tinted disabled:opacity-30" disabled={it.quantity <= 1}><Minus size={14} /></button>
+                        <span className="w-9 text-center text-sm font-semibold tabular-nums">{it.quantity}</span>
+                        <button onClick={() => setQty(it.catalogId, it.quantity + 1)} aria-label="เพิ่มจำนวน" className="flex h-9 w-9 items-center justify-center rounded-full border border-border-default text-text-body transition-colors hover:border-yellow hover:bg-bg-tinted disabled:opacity-30" disabled={it.quantity >= it.maxStock}><Plus size={14} /></button>
                       </div>
                     ) : (
                       <span className="text-xs text-text-muted">1 เครื่อง</span>

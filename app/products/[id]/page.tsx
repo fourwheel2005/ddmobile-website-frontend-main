@@ -205,12 +205,12 @@ export default function ProductDetailPage() {
   const addToCart = () => {
     const r = add(toCartItem());
     if (r.ok) toast.success("เพิ่มลงตะกร้าแล้ว");
-    else toast(r.reason || "เพิ่มไม่ได้", { icon: "🛒" });
+    else toast(r.reason || "เพิ่มไม่ได้", { icon: <ShoppingCart size={18} className="text-yellow-hover" /> });
   };
   const buyNow = () => {
     const r = add(toCartItem());
     if (r.ok || r.reason === "เครื่องนี้อยู่ในตะกร้าแล้ว") router.push("/checkout");
-    else toast(r.reason || "เพิ่มไม่ได้", { icon: "🛒" });
+    else toast(r.reason || "เพิ่มไม่ได้", { icon: <ShoppingCart size={18} className="text-yellow-hover" /> });
   };
   const priceText = baht(effPrice, "สอบถามราคา");
   // โปร flash sale ของตัวที่เลือกอยู่ (แสดงผลเท่านั้น — server คิดจริงตอนสร้างออเดอร์)

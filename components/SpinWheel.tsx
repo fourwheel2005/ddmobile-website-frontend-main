@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import api from "@/lib/api";
 import { getApiError } from "@/lib/errorMessage";
 import toast from "react-hot-toast";
@@ -23,6 +23,7 @@ export default function SpinWheel({ segments, alreadyWon, onClose }: {
 }) {
   const N = Math.max(1, segments.length);
   const seg = 360 / N;
+  const reduce = useReducedMotion();
   const [mounted, setMounted] = useState(false);
   const [rotation, setRotation] = useState(0);
   const [spinning, setSpinning] = useState(false);
@@ -45,8 +46,9 @@ export default function SpinWheel({ segments, alreadyWon, onClose }: {
       const idx = Math.max(0, segments.indexOf(res.percent));
       const center = idx * seg + seg / 2;                 // มุมกลางช่อง (ตามเข็ม จากบนสุด)
       const offset = (Math.random() - 0.5) * seg * 0.6;   // สุ่มในช่องเดิม ให้ดูสมจริง
-      setRotation(360 * 6 - center + offset);             // หมุน 6 รอบ แล้วหยุดที่ช่องที่ชนะ
-      setTimeout(() => { setResult(res); setSpinning(false); }, 4200);
+      // reduce motion: หยุดที่ช่องเลย ไม่หมุน 6 รอบ (กัน vestibular trigger)
+      setRotation(reduce ? -center : 360 * 6 - center + offset);
+      setTimeout(() => { setResult(res); setSpinning(false); }, reduce ? 200 : 4200);
     } catch (e) {
       setSpinning(false);
       toast.error(getApiError(e, "หมุนไม่สำเร็จ กรุณาลองใหม่"));
@@ -71,7 +73,7 @@ export default function SpinWheel({ segments, alreadyWon, onClose }: {
           <div className="absolute left-1/2 top-[-4px] z-20 -translate-x-1/2"
             style={{ width: 0, height: 0, borderLeft: "11px solid transparent", borderRight: "11px solid transparent", borderTop: "20px solid #E24B4A" }} />
           <motion.svg viewBox="0 0 200 200" className="h-full w-full"
-            animate={{ rotate: rotation }} transition={{ duration: 4, ease: [0.17, 0.67, 0.2, 1] }}>
+            animate={{ rotate: rotation }} transition={{ duration: reduce ? 0.2 : 4, ease: [0.17, 0.67, 0.2, 1] }}>
             {segments.map((p, i) => {
               const [lx, ly] = pt(i * seg + seg / 2, 62);
               const dark = i % COLORS.length === 1 || i % COLORS.length === 3;

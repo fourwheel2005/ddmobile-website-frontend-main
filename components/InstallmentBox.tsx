@@ -55,7 +55,7 @@ export default function InstallmentBox({ info, product }: { info: InstallmentInf
       await navigator.clipboard.writeText(msg);
       toast.success("คัดลอกข้อมูลแล้ว — วางในแชท LINE ได้เลย", { duration: 4000 });
     } catch {
-      toast("เปิด LINE แล้วพิมพ์สอบถามแอดมินได้เลย", { icon: "💬" });
+      toast("เปิด LINE แล้วพิมพ์สอบถามแอดมินได้เลย", { icon: <MessageCircle size={18} className="text-line" /> });
     }
     window.open(LINE_URL, "_blank", "noopener,noreferrer");
   };

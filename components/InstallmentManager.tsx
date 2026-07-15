@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, Save, Loader2, CreditCard, Smartphone, X, Download } from "lucide-react";
 import toast from "react-hot-toast";
 import { confirmDialog } from "@/components/ui/confirmDialog";
+import { TableSkeleton } from "@/components/Skeletons";
 import api from "@/lib/api";
 
 interface Term { months: number | string; monthly: number | string; }
@@ -106,7 +107,7 @@ export default function InstallmentManager() {
   const models = useMemo(() => catalog.filter((c) => c.type === "MODEL"), [catalog]);
   const units = useMemo(() => catalog.filter((c) => c.type === "UNIT"), [catalog]);
 
-  if (loading) return <div className="flex justify-center py-20 text-yellow-hover"><Loader2 className="animate-spin" /></div>;
+  if (loading) return <div className="overflow-hidden rounded-2xl border border-border-default bg-white"><TableSkeleton rows={6} cols={5} /></div>;
 
   return (
     <div>
@@ -285,7 +286,7 @@ function ModelTab({ plans, models, reload }: { plans: Plan[]; models: CatalogIte
                 <input type="number" value={t.months} onChange={(e) => setTerms(terms.map((x, j) => j === i ? { ...x, months: e.target.value } : x))} className="input-dd w-24 min-w-0 text-sm" placeholder="งวด" />
                 <span className="text-sm text-text-muted">เดือน ×</span>
                 <input type="number" value={t.monthly} onChange={(e) => setTerms(terms.map((x, j) => j === i ? { ...x, monthly: e.target.value } : x))} className="input-dd w-32 min-w-0 text-sm" placeholder="บาท/เดือน" />
-                <button onClick={() => setTerms(terms.filter((_, j) => j !== i))} className="rounded-lg p-2 text-error-text hover:bg-error-bg"><X size={16} /></button>
+                <button onClick={() => setTerms(terms.filter((_, j) => j !== i))} aria-label="ลบงวดนี้" className="rounded-lg p-2 text-error-text transition-colors hover:bg-error-bg"><X size={16} /></button>
               </div>
             ))}
           </div>
@@ -315,7 +316,7 @@ function ModelTab({ plans, models, reload }: { plans: Plan[]; models: CatalogIte
                 <td className="text-xs">{p.note || "-"}</td>
                 <td className="whitespace-nowrap text-right">
                   <button onClick={() => editPlan(p)} className="mr-1 rounded-lg px-2 py-1 text-xs font-semibold text-info-text hover:bg-info-bg">แก้</button>
-                  <button onClick={() => del(p.id)} className="rounded-lg p-1.5 text-error-text hover:bg-error-bg"><Trash2 size={15} /></button>
+                  <button onClick={() => del(p.id)} aria-label="ลบตารางผ่อน" className="rounded-lg p-2 text-error-text transition-colors hover:bg-error-bg"><Trash2 size={15} /></button>
                 </td>
               </tr>
             ))}
@@ -459,7 +460,7 @@ function SerialTab({ serials, units, reload }: { serials: SerialPlan[]; units: C
                 <input type="number" value={t.months} onChange={(e) => setTerms(terms.map((x, j) => j === i ? { ...x, months: e.target.value } : x))} className="input-dd w-24 min-w-0 text-sm" placeholder="งวด" />
                 <span className="text-sm text-text-muted">เดือน ×</span>
                 <input type="number" value={t.monthly} onChange={(e) => setTerms(terms.map((x, j) => j === i ? { ...x, monthly: e.target.value } : x))} className="input-dd w-32 min-w-0 text-sm" placeholder="บาท/เดือน" />
-                <button onClick={() => setTerms(terms.filter((_, j) => j !== i))} className="rounded-lg p-2 text-error-text hover:bg-error-bg"><X size={16} /></button>
+                <button onClick={() => setTerms(terms.filter((_, j) => j !== i))} aria-label="ลบงวดนี้" className="rounded-lg p-2 text-error-text transition-colors hover:bg-error-bg"><X size={16} /></button>
               </div>
             ))}
           </div>
@@ -487,7 +488,7 @@ function SerialTab({ serials, units, reload }: { serials: SerialPlan[]; units: C
                 <td className="text-xs">{s.note || "-"}</td>
                 <td className="whitespace-nowrap text-right">
                   <button onClick={() => editSerial(s)} className="mr-1 rounded-lg px-2 py-1 text-xs font-semibold text-info-text hover:bg-info-bg">แก้</button>
-                  <button onClick={() => del(s.id)} className="rounded-lg p-1.5 text-error-text hover:bg-error-bg"><Trash2 size={15} /></button>
+                  <button onClick={() => del(s.id)} aria-label="ลบราคาผ่อน" className="rounded-lg p-2 text-error-text transition-colors hover:bg-error-bg"><Trash2 size={15} /></button>
                 </td>
               </tr>
             ))}

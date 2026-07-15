@@ -1,12 +1,32 @@
 "use client";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { Eye, EyeOff } from "lucide-react";
 import api from "@/lib/api";
 import { getApiError } from "@/lib/errorMessage";
 
+/** ปลายทางหลัง login: ใช้ ?redirect= เฉพาะ path ภายในเว็บ (กัน open-redirect ออกโดเมนอื่น) */
+function safeRedirect(raw: string | null): string | null {
+  if (!raw) return null;
+  // ต้องเป็น path ที่ขึ้นต้น "/" ตัวเดียว (ไม่ใช่ "//evil.com" หรือ "/\evil") — กัน redirect ออกนอกเว็บ
+  if (!/^\/(?!\/|\\)/.test(raw)) return null;
+  return raw;
+}
+
+/** ครอบ Suspense — useSearchParams ต้องมี boundary ตอน prerender (Next 16) */
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-[100dvh] items-center justify-center bg-bg-subtle" />}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
+  const searchParams = useSearchParams();
+  const redirectTo = safeRedirect(searchParams.get("redirect"));
   const [isLogin, setIsLogin] = useState(true);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -24,7 +44,9 @@ export default function LoginPage() {
         localStorage.setItem("token", token);
         localStorage.setItem("user", JSON.stringify({ name: name || "", email, role }));
         toast.success("เข้าสู่ระบบสำเร็จ!");
-        if (role === "ROLE_ADMIN") window.location.href = "/admin";
+        // ปลายทาง: ?redirect= (ถ้าปลอดภัย) → ไม่งั้นแอดมินไปหลังบ้าน, ลูกค้าไปหน้าแรก
+        if (redirectTo) window.location.href = redirectTo;
+        else if (role === "ROLE_ADMIN") window.location.href = "/admin";
         else window.location.href = "/";
       } else {
         if (!name || !email || !password) {

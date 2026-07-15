@@ -97,7 +97,16 @@ export default function AdminDashboard() {
         return false;
       }
 
-      const user = JSON.parse(userStr);
+      let user: { role?: string };
+      try {
+        user = JSON.parse(userStr);
+      } catch {
+        // ข้อมูล user เพี้ยน → เคลียร์แล้วให้ล็อกอินใหม่ (กัน parse error ทำหน้าแอดมินขาว)
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        window.location.href = "/login";
+        return false;
+      }
       if (user.role !== "ROLE_ADMIN") {
         toast.error("คุณไม่มีสิทธิ์เข้าถึงหน้าผู้ดูแลระบบ!");
         window.location.href = "/";
@@ -199,10 +208,16 @@ export default function AdminDashboard() {
   const viewSlip = async (id: number) => {
     try {
       const res = await api.get(`/admin/orders/${id}/slip`, { responseType: "blob" });
-      setSlipModal({ url: URL.createObjectURL(res.data) });
+      setSlipModal((prev) => {
+        if (prev) URL.revokeObjectURL(prev.url);   // คืน blob เดิมก่อนสร้างใหม่ (กัน memory leak)
+        return { url: URL.createObjectURL(res.data) };
+      });
     } catch {
       toast.error("ไม่พบสลิปของออเดอร์นี้");
     }
+  };
+  const closeSlipModal = () => {
+    setSlipModal((prev) => { if (prev) URL.revokeObjectURL(prev.url); return null; });
   };
 
   // คิวงาน: เรียง "ต้องดำเนินการ + เกินกำหนด" ขึ้นก่อน + นับสรุป
@@ -262,7 +277,7 @@ export default function AdminDashboard() {
 
   if (!isAuthorized) {
     return (
-      <div className="flex h-screen items-center justify-center bg-bg-base text-yellow">
+      <div className="flex h-[100dvh] items-center justify-center bg-bg-base text-yellow-hover">
         <Loader2 size={48} className="animate-spin" />
       </div>
     );
@@ -279,7 +294,7 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <div className="relative flex h-screen overflow-hidden bg-bg-base text-text-body">
+    <div className="relative flex h-[100dvh] overflow-hidden bg-bg-base text-text-body">
 
       {/* --- SIDEBAR (drawer บนมือถือ) --- */}
       {sidebarOpen && (
@@ -330,7 +345,7 @@ export default function AdminDashboard() {
             </button>
             <div className="min-w-0">
               <h1 className="truncate font-display text-lg md:text-2xl">{activeMenu}</h1>
-              <p className="hidden text-xs text-text-muted sm:block">ระบบหลังบ้านเชื่อมต่อ API เรียบร้อยแล้ว</p>
+              <p className="hidden text-xs text-text-muted sm:block">DD Mobile · ระบบจัดการหลังร้าน</p>
             </div>
           </div>
 
@@ -387,7 +402,7 @@ export default function AdminDashboard() {
                         </thead>
                         <tbody>
                           {stockLow.length === 0 ? (
-                            <tr><td colSpan={4} className="p-8 text-center font-display uppercase tracking-widest text-text-muted"><CheckCircle2 size={15} className="mr-1.5 inline -translate-y-px text-success-text" />สินค้าทุกรุ่นมีสต็อกเพียงพอ</td></tr>
+                            <tr><td colSpan={4} className="p-8 text-center font-display text-sm text-text-muted"><CheckCircle2 size={15} className="mr-1.5 inline -translate-y-px text-success-text" />สินค้าทุกรุ่นมีสต็อกเพียงพอ</td></tr>
                           ) : (
                             stockLow.map((it) => (
                               <tr key={it.id}>
@@ -420,7 +435,7 @@ export default function AdminDashboard() {
                       </thead>
                       <tbody>
                         {applications.length === 0 ? (
-                          <tr><td colSpan={4} className="p-8 text-center font-display uppercase tracking-widest text-text-muted">ยังไม่มีข้อมูลคำขอผ่อนสินค้าผ่านระบบเว็บ</td></tr>
+                          <tr><td colSpan={4} className="p-8 text-center font-display text-sm text-text-muted">ยังไม่มีข้อมูลคำขอผ่อนสินค้าผ่านระบบเว็บ</td></tr>
                         ) : (
                           applications.map((app) => (
                             <tr key={app.id}>
@@ -468,7 +483,7 @@ export default function AdminDashboard() {
                               <td className="text-text-muted">CUST-{customer.id.toString().padStart(4, "0")}</td>
                               <td>
                                 <div className="flex items-center gap-3">
-                                  <div className="flex h-10 w-10 items-center justify-center bg-bg-tinted font-display uppercase text-yellow">{customer.email.charAt(0)}</div>
+                                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-bg-tinted font-display text-base font-bold uppercase text-yellow-text">{customer.email.charAt(0)}</div>
                                   <p className="font-semibold text-text-heading">{customer.email}</p>
                                 </div>
                               </td>
@@ -527,7 +542,7 @@ export default function AdminDashboard() {
                                 </td>
                                 <td><p className="font-semibold text-text-heading">{o.customerName}</p><p className="text-xs text-text-muted">{o.customerTel}</p></td>
                                 <td className="max-w-[220px]"><p className="truncate text-sm text-text-body">{o.items.map((i) => `${i.productName} x${i.quantity}`).join(", ")}</p>{o.shippingAddress && <p className="truncate text-xs text-text-muted">{o.shippingAddress}</p>}</td>
-                                <td className="text-right font-display tabular-nums text-yellow">฿{o.total?.toLocaleString()}</td>
+                                <td className="text-right font-display tabular-nums font-bold text-text-heading">฿{o.total?.toLocaleString()}</td>
                                 <td className="text-center">
                                   <span className="badge-dd badge-info">
                                     {o.paymentMethod === "TRANSFER" ? <><Truck size={12} /> โอน+ส่ง</>
@@ -555,12 +570,12 @@ export default function AdminDashboard() {
                                 <td>
                                   <div className="flex items-center justify-end gap-1.5">
                                     {o.slipFileId && (
-                                      <button onClick={() => viewSlip(o.id)} aria-label="ดูสลิป" className="border border-info-border bg-info-bg p-1.5 text-info-text transition-colors hover:bg-info-text hover:text-black"><Eye size={15} /></button>
+                                      <button onClick={() => viewSlip(o.id)} aria-label="ดูสลิป" className="rounded-lg border border-info-border bg-info-bg p-2 text-info-text transition-colors hover:bg-info-text hover:text-white"><Eye size={15} /></button>
                                     )}
                                     {active && (
                                       <>
-                                        <button onClick={() => confirmWebOrder(o.id)} disabled={busyOrderId === o.id} aria-label="ยืนยัน" className="border border-success-border bg-success-bg p-1.5 text-success-text transition-colors hover:bg-success-text hover:text-black disabled:opacity-30">{busyOrderId === o.id ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}</button>
-                                        <button onClick={() => rejectWebOrder(o.id)} disabled={busyOrderId === o.id} aria-label="ปฏิเสธ" className="border border-error-border bg-error-bg p-1.5 text-error-text transition-colors hover:bg-error-text hover:text-black disabled:opacity-30"><X size={15} /></button>
+                                        <button onClick={() => confirmWebOrder(o.id)} disabled={busyOrderId === o.id} aria-label="ยืนยัน" className="rounded-lg border border-success-border bg-success-bg p-2 text-success-text transition-colors hover:bg-success-text hover:text-white disabled:opacity-30">{busyOrderId === o.id ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />}</button>
+                                        <button onClick={() => rejectWebOrder(o.id)} disabled={busyOrderId === o.id} aria-label="ปฏิเสธ" className="rounded-lg border border-error-border bg-error-bg p-2 text-error-text transition-colors hover:bg-error-text hover:text-white disabled:opacity-30"><X size={15} /></button>
                                       </>
                                     )}
                                     {(() => {
@@ -569,7 +584,7 @@ export default function AdminDashboard() {
                                         <button
                                           onClick={() => na.needTracking ? setShipModal({ id: o.id }) : fulfill(o.id, na.status)}
                                           disabled={busyOrderId === o.id}
-                                          className="whitespace-nowrap border border-info-border bg-info-bg px-2 py-1.5 text-xs font-semibold text-info-text transition-colors hover:bg-info-text hover:text-white disabled:opacity-30"
+                                          className="whitespace-nowrap rounded-lg border border-info-border bg-info-bg px-2.5 py-2 text-xs font-semibold text-info-text transition-colors hover:bg-info-text hover:text-white disabled:opacity-30"
                                         >
                                           {busyOrderId === o.id ? <Loader2 size={13} className="animate-spin" /> : na.label} →
                                         </button>
@@ -619,9 +634,9 @@ export default function AdminDashboard() {
       {/* MODAL: ดูสลิปการโอน */}
       <AnimatePresence>
         {slipModal && (
-          <div className="modal-backdrop" onClick={() => setSlipModal(null)}>
+          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="สลิปการโอนเงิน" onClick={closeSlipModal}>
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }} className="modal-dd max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-              <button onClick={() => setSlipModal(null)} className="modal-close"><X size={20} /></button>
+              <button onClick={closeSlipModal} className="modal-close"><X size={20} /></button>
               <h2 className="card-title flex items-center gap-2"><Eye size={20} className="text-info-text" /> สลิปการโอนเงิน</h2>
               <img src={slipModal.url} alt="สลิปการโอน" className="mt-4 w-full rounded-lg border border-border-default" />
             </motion.div>
@@ -632,7 +647,7 @@ export default function AdminDashboard() {
       {/* MODAL: จัดส่ง — กรอกขนส่ง + เลขพัสดุ */}
       <AnimatePresence>
         {shipModal && (
-          <div className="modal-backdrop" onClick={() => setShipModal(null)}>
+          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="จัดส่งออเดอร์" onClick={() => setShipModal(null)}>
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }} className="modal-dd" onClick={(e) => e.stopPropagation()}>
               <button onClick={() => setShipModal(null)} className="modal-close"><X size={20} /></button>
               <h2 className="card-title flex items-center gap-2"><Truck size={20} className="text-info-text" /> จัดส่งออเดอร์ #{shipModal.id}</h2>

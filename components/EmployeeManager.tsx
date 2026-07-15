@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Loader2, Save, Trash2, UserPlus, ShieldCheck, IdCard } from "lucide-react";
 import toast from "react-hot-toast";
 import { confirmDialog } from "@/components/ui/confirmDialog";
+import { TableSkeleton } from "@/components/Skeletons";
 import api from "@/lib/api";
 import { getApiError } from "@/lib/errorMessage";
 
@@ -109,7 +110,7 @@ export default function EmployeeManager() {
       {/* รายชื่อ */}
       <div className="overflow-x-auto rounded-2xl border border-border-default bg-white">
         {loading ? (
-          <div className="flex justify-center py-16 text-yellow-hover"><Loader2 className="animate-spin" /></div>
+          <TableSkeleton rows={5} cols={5} />
         ) : (
           <table className="table-dd">
             <thead><tr><th>ชื่อ</th><th>รหัสพนักงาน</th><th>ตำแหน่ง</th><th>อีเมล</th><th>สิทธิ์</th><th></th></tr></thead>
@@ -128,7 +129,7 @@ export default function EmployeeManager() {
                     </span>
                   </td>
                   <td className="text-right">
-                    <button onClick={() => del(e)} className="rounded-lg p-1.5 text-error-text hover:bg-error-bg"><Trash2 size={15} /></button>
+                    <button onClick={() => del(e)} aria-label={`ลบบัญชี ${e.name}`} className="rounded-lg p-2 text-error-text transition-colors hover:bg-error-bg"><Trash2 size={15} /></button>
                   </td>
                 </tr>
               ))}

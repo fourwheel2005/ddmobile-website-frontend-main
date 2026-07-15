@@ -20,6 +20,10 @@
   --color-yellow: #ffd400;
   --color-yellow-hover: #ffc800;
   --color-yellow-muted: #fff3c4;
+  /* เหลืองสำหรับ "ตัวอักษร" บนพื้นขาว — เข้มพอผ่าน WCAG (เหลืองสด #ffd400 = 1.4:1 อ่านไม่ออก) */
+  --color-yellow-text: #8a6500;
+  /* สีตัวอักษร/ไอคอนบนพื้นเหลือง — token เดียว (เดิมเขียน #1a1a1a / text-black / text-text-heading ปนกัน) */
+  --color-on-yellow: #1a1a1a;
 
   /* --- Text --- */
   --color-white: #ffffff;
@@ -63,10 +67,12 @@
   --text-display: clamp(2rem, 5vw, 3.25rem);
   --text-hero: clamp(2.5rem, 7vw, 4.5rem);
 
-  /* --- Radius (โค้งมน เป็นมิตร) --- */
+  /* --- Radius (โค้งมน เป็นมิตร) — สเกลไล่ระดับจริง: sm<md<lg<xl<2xl --- */
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
+  --radius-xl: 18px;    /* เดิมตกไปใช้ default 12px < lg → สเกลกลับหัว */
+  --radius-2xl: 22px;   /* การ์ด/โมดัลใหญ่ */
   --radius-full: 9999px;
 }
 
@@ -470,7 +476,7 @@
     font-family: var(--font-body);
     font-size: var(--text-sm);
     font-weight: 600;
-    color: var(--color-yellow-hover);
+    color: var(--color-yellow-text);   /* เดิม #ffc800 = 1.55:1 อ่านแทบไม่ออก */
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);
@@ -533,7 +539,7 @@
   .reveal {
     opacity: 0;
     transform: translateY(20px);
-    transition: opacity 620ms cubic-bezier(0.22, 1, 0.36, 1), transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+    transition: opacity 460ms cubic-bezier(0.22, 1, 0.36, 1), transform 460ms cubic-bezier(0.22, 1, 0.36, 1);
     will-change: opacity, transform;
   }
   .reveal-in { opacity: 1; transform: none; }
@@ -582,11 +588,11 @@
     position: absolute; inset: 0;
     background: linear-gradient(110deg, transparent 35%, rgba(255,255,255,0.5) 50%, transparent 65%);
     transform: translateX(-130%);
-    animation: line-shine 3.4s ease-in-out infinite;
+    animation: line-shine 7s ease-in-out infinite;   /* เว้นจังหวะยาวขึ้น — ดึงดูดแต่ไม่กวน (motion scarcity) */
     pointer-events: none;
   }
   @keyframes line-shine {
-    0%, 55% { transform: translateX(-130%); }
+    0%, 80% { transform: translateX(-130%); }
     100% { transform: translateX(130%); }
   }
 

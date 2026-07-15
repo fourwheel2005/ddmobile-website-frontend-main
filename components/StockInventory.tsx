@@ -225,9 +225,9 @@ export default function StockInventory() {
   return (
     <div className="space-y-6">
       {/* แถบสถานะ */}
-      <div className="flex flex-col gap-3 border border-border-default bg-bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-2xl border border-border-default bg-bg-surface p-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="bg-yellow p-2 text-black"><Warehouse size={18} /></div>
+          <div className="rounded-xl bg-yellow p-2.5 text-on-yellow"><Warehouse size={18} /></div>
           <div>
             <p className="font-display text-sm uppercase tracking-wider text-text-heading">คลังสินค้า (Stock real-time)</p>
             <p className="text-xs text-text-muted">ดึงสดจากระบบ Stock — อัปเดตอัตโนมัติเมื่อมีการขาย</p>
@@ -265,7 +265,7 @@ export default function StockInventory() {
                 </thead>
                 <tbody>
                   {alerts.length === 0 ? (
-                    <tr><td colSpan={5} className="p-8 text-center font-display uppercase tracking-widest text-text-muted"><CheckCircle2 size={15} className="mr-1.5 inline -translate-y-px text-success-text" />ไม่มีสินค้าใกล้หมด</td></tr>
+                    <tr><td colSpan={5} className="p-8 text-center font-display text-sm text-text-muted"><CheckCircle2 size={15} className="mr-1.5 inline -translate-y-px text-success-text" />ไม่มีสินค้าใกล้หมด</td></tr>
                   ) : (
                     alerts.map((a) => (
                       <tr key={a.id}>
@@ -305,7 +305,7 @@ export default function StockInventory() {
                 </thead>
                 <tbody>
                   {filteredVariants.length === 0 ? (
-                    <tr><td colSpan={8} className="p-8 text-center font-display uppercase tracking-widest text-text-muted">
+                    <tr><td colSpan={8} className="p-8 text-center font-display text-sm text-text-muted">
                       {variants.length === 0 ? "ไม่มีสินค้าพร้อมขาย" : "ไม่พบรุ่นที่ค้นหา"}
                     </td></tr>
                   ) : (
@@ -354,12 +354,12 @@ function FragmentRows({ v, open, onToggle, cfg, onEdit }: { v: VariantGroup; ope
           <span className="badge-dd badge-info">{v.usedCount} มือสอง</span>
         </td>
         <td className="text-center"><span className="badge-dd badge-warning">{v.total}</span></td>
-        <td className="text-right font-display tabular-nums text-yellow">{priceRange(v.minPrice, v.maxPrice)}</td>
+        <td className="text-right font-display tabular-nums font-bold text-text-heading">{priceRange(v.minPrice, v.maxPrice)}</td>
         <td className="text-center">
           {cfg ? (
             <button
               onClick={(e) => { e.stopPropagation(); onEdit(); }}
-              className="inline-flex items-center gap-1 border border-border-default px-2 py-1 text-xs font-semibold text-text-body hover:bg-bg-tinted"
+              className="inline-flex items-center gap-1 rounded-lg border border-border-default px-2.5 py-1.5 text-xs font-semibold text-text-body transition-colors hover:border-yellow hover:bg-bg-tinted"
               aria-label={`แก้ไขราคา/รูป ${v.productName}`}
             >
               <Pencil size={13} /> แก้ราคา/รูป
@@ -395,7 +395,7 @@ function FragmentRows({ v, open, onToggle, cfg, onEdit }: { v: VariantGroup; ope
                           <span className="inline-flex items-center gap-1"><BatteryMedium size={14} /> {u.batteryHealth}%</span>
                         ) : "-"}
                       </td>
-                      <td className="py-2 pr-4 text-right font-display tabular-nums text-yellow">{money(u.sellingPrice)}</td>
+                      <td className="py-2 pr-4 text-right font-display tabular-nums font-bold text-text-heading">{money(u.sellingPrice)}</td>
                       <td className="py-2 text-text-muted">{formatDate(u.receivedAt)}</td>
                     </tr>
                   ))}
@@ -442,7 +442,8 @@ function EditVariantModal({ cfg, onClose, onSaved }: { cfg: VariantConfig; onClo
         const compressed = await compressImage(f);   // บีบก่อนอัป (กัน Stock bytea บวม)
         const fd = new FormData();
         fd.append("file", compressed);
-        const up = await api.post("/admin/stock/files", fd, { headers: { "Content-Type": "multipart/form-data" } });
+        // ไม่ตั้ง Content-Type เอง — ปล่อย axios ใส่ multipart/form-data + boundary ให้ (ตาม SEC-08)
+        const up = await api.post("/admin/stock/files", fd);
         const url = extractUrl(up.data);
         if (url) setImages((prev) => [...prev, url]);
         else toast.error("อัปโหลดรูปแล้วแต่อ่าน URL ไม่ได้");

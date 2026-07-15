@@ -8,6 +8,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import { ProductGridSkeleton } from "@/components/Skeletons";
+import Tilt from "@/components/Tilt";
 import { useCart } from "@/context/CartContext";
 import { buildInstLookup, type InstallmentPlan, type InstallmentSerial } from "@/lib/installment";
 import { promoForItem, type PublicPromotion } from "@/lib/promo";
@@ -178,7 +179,7 @@ export default function ProductsPage() {
       unitPrice: it.minPrice ?? 0, maxStock: it.type === "UNIT" ? 1 : it.quantity,
     });
     if (r.ok) toast.success("เพิ่มลงตะกร้าแล้ว");
-    else toast(r.reason || "เพิ่มไม่ได้", { icon: "🛒" });
+    else toast(r.reason || "เพิ่มไม่ได้", { icon: <ShoppingCart size={18} className="text-yellow-hover" /> });
   };
 
   return (
@@ -289,6 +290,7 @@ export default function ProductsPage() {
                     const flash = it.sold ? null : promoForItem(promos, it, it.minPrice);
                     return (
                     <motion.div key={it.id} layout initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.25 }}>
+                      <Tilt className="h-full" max={5} scale={1.02} radius={18}>
                       <Link href={`/products/${encodeURIComponent(it.id)}`} className="card-dd group flex h-full flex-col overflow-hidden !p-0">
                     <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-bg-subtle p-4">
                       <span className={`badge-dd absolute left-3 top-3 z-10 ${it.condition === "NEW" ? "badge-success" : "badge-info"}`}>
@@ -369,6 +371,7 @@ export default function ProductsPage() {
                       </div>
                     </div>
                       </Link>
+                      </Tilt>
                     </motion.div>
                     );
                   })}

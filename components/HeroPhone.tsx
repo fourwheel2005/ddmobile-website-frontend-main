@@ -1,5 +1,5 @@
 "use client";
-import { motion, useMotionValue, useSpring, useTransform, useReducedMotion } from "framer-motion";
+import { motion, useMotionValue, useSpring, useTransform, useMotionTemplate, useReducedMotion } from "framer-motion";
 import { Sparkles, Truck, ShieldCheck } from "lucide-react";
 import Image from "next/image";
 import type { ReactNode } from "react";
@@ -11,13 +11,17 @@ import type { ReactNode } from "react";
 export default function HeroPhone() {
   const reduce = useReducedMotion();
 
-  // ตำแหน่งเมาส์ (-0.5..0.5) → เอียง 3D (spring ให้นุ่ม)
+  // ตำแหน่งเมาส์ (-0.5..0.5) → เอียง 3D (spring ให้นุ่ม) — ±10° หรูกว่า ±13°
   const mx = useMotionValue(0);
   const my = useMotionValue(0);
   const sx = useSpring(mx, { stiffness: 120, damping: 18 });
   const sy = useSpring(my, { stiffness: 120, damping: 18 });
-  const rotateY = useTransform(sx, [-0.5, 0.5], [13, -13]);
-  const rotateX = useTransform(sy, [-0.5, 0.5], [-13, 13]);
+  const rotateY = useTransform(sx, [-0.5, 0.5], [10, -10]);
+  const rotateX = useTransform(sy, [-0.5, 0.5], [-10, 10]);
+  // แสงสะท้อน (specular) วิ่งตามการเอียง — ให้รู้สึกเป็นวัตถุจริงมีผิวมัน
+  const glareX = useTransform(sx, [-0.5, 0.5], [30, 70]);
+  const glareY = useTransform(sy, [-0.5, 0.5], [30, 70]);
+  const glareBg = useMotionTemplate`radial-gradient(circle at ${glareX}% ${glareY}%, rgba(255,255,255,0.45), transparent 55%)`;
 
   const handleMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (reduce) return;
@@ -55,7 +59,7 @@ export default function HeroPhone() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
       >
-        <motion.div style={{ translateZ: 50 }} animate={reduce ? undefined : { y: [0, -14, 0] }} transition={loop}>
+        <motion.div className="relative" style={{ translateZ: 50 }} animate={reduce ? undefined : { y: [0, -14, 0] }} transition={loop}>
           <Image
             src="/images/iphone-17-promax-orange.png"
             alt="iPhone 17 Pro Max"
@@ -65,6 +69,10 @@ export default function HeroPhone() {
             sizes="(max-width: 768px) 68vw, 40vw"
             className="w-full object-contain drop-shadow-2xl"
           />
+          {/* specular glare — เลเยอร์แสงบาง ๆ วิ่งตามการเอียง (เดสก์ท็อป) */}
+          {!reduce && (
+            <motion.span aria-hidden="true" className="pointer-events-none absolute inset-0 hidden md:block" style={{ background: glareBg, mixBlendMode: "screen" }} />
+          )}
         </motion.div>
       </motion.div>
 
@@ -84,13 +92,9 @@ function Chip({ className, children, delay, reduce }: { className: string; child
     <motion.div
       aria-hidden="true"
       className={`absolute z-20 hidden items-center gap-1.5 rounded-xl border border-border-default bg-white px-3 py-1.5 text-xs font-semibold text-text-heading shadow-lg sm:flex ${className}`}
-      initial={reduce ? false : { opacity: 0, scale: 0.8 }}
-      animate={reduce ? { opacity: 1 } : { opacity: 1, scale: 1, y: [0, -10, 0] }}
-      transition={{
-        opacity: { duration: 0.5, delay: 0.3 + delay },
-        scale: { duration: 0.5, delay: 0.3 + delay },
-        y: { duration: 5 + delay, repeat: Infinity, ease: "easeInOut", delay },
-      }}
+      initial={reduce ? false : { opacity: 0, scale: 0.8, y: 8 }}
+      animate={reduce ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
+      transition={{ duration: 0.5, delay: 0.3 + delay, ease: [0.22, 1, 0.36, 1] }}
     >
       {children}
     </motion.div>

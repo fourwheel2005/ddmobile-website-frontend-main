@@ -31,15 +31,34 @@ interface CartCtx {
 const STORAGE_KEY = "dd_cart";
 const Ctx = createContext<CartCtx | null>(null);
 
+/**
+ * ทำความสะอาด cart ที่โหลดจาก localStorage — กันค่าที่ถูกแก้มือ (quantity ติดลบ/ทศนิยม/ยักษ์, ราคาเพี้ยน)
+ * ราคาจริงคิดที่ server อยู่แล้ว แต่ quantity ถูกส่งไป /orders → ต้อง clamp เป็นจำนวนเต็มบวก ≤ maxStock
+ */
+function sanitizeCart(raw: unknown): CartItem[] {
+  if (!Array.isArray(raw)) return [];
+  const out: CartItem[] = [];
+  for (const it of raw) {
+    if (!it || typeof it !== "object") continue;
+    const c = it as Record<string, unknown>;
+    if (typeof c.catalogId !== "string" || typeof c.productName !== "string") continue;
+    const maxStock = Number.isFinite(Number(c.maxStock)) ? Math.max(1, Math.floor(Number(c.maxStock))) : 1;
+    const qty = Math.max(1, Math.min(Math.floor(Number(c.quantity) || 1), maxStock));
+    const unitPrice = Number.isFinite(Number(c.unitPrice)) ? Math.max(0, Number(c.unitPrice)) : 0;
+    out.push({ ...(it as CartItem), quantity: qty, maxStock, unitPrice });
+  }
+  return out;
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [ready, setReady] = useState(false);
 
-  // โหลดจาก localStorage ครั้งแรก
+  // โหลดจาก localStorage ครั้งแรก (ผ่าน sanitize เสมอ)
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setItems(JSON.parse(raw));
+      if (raw) setItems(sanitizeCart(JSON.parse(raw)));
     } catch { /* ignore */ }
     setReady(true);
   }, []);

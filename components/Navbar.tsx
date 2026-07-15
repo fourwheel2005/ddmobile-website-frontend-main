@@ -29,9 +29,12 @@ export default function Navbar() {
   useEffect(() => {
     const checkAuthStatus = () => {
       const storedUser = localStorage.getItem('user');
-      if (storedUser) {
+      if (!storedUser) { setUserData(null); return; }
+      try {
         setUserData(JSON.parse(storedUser));
-      } else {
+      } catch {
+        // ข้อมูลใน localStorage เพี้ยน → ล้างทิ้ง กันทั้ง Navbar (และทุกหน้า) พังจาก parse error
+        localStorage.removeItem('user');
         setUserData(null);
       }
     };
@@ -107,6 +110,8 @@ export default function Navbar() {
                 <button
                   onClick={() => setIsProfileOpen(!isProfileOpen)}
                   aria-label="เมนูบัญชีผู้ใช้"
+                  aria-haspopup="menu"
+                  aria-expanded={isProfileOpen}
                   className="flex items-center gap-2 rounded-full border border-border-default py-1.5 pl-1.5 pr-3 text-sm text-text-body transition-colors hover:border-yellow"
                 >
                   <span className="flex h-7 w-7 items-center justify-center rounded-full bg-yellow text-xs font-bold uppercase text-[#1a1a1a]">

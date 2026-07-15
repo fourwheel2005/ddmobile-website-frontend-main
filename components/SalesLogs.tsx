@@ -140,7 +140,7 @@ export default function SalesLogs() {
               </thead>
               <tbody>
                 {filteredSales.length === 0 ? (
-                  <tr><td colSpan={6} className="p-8 text-center font-display uppercase tracking-widest text-text-muted">ยังไม่มีบิลการขาย</td></tr>
+                  <tr><td colSpan={6} className="p-8 text-center font-display text-sm text-text-muted">ยังไม่มีบิลการขาย</td></tr>
                 ) : (
                   filteredSales.slice(0, limit).map((s) => {
                     const ch = channel(s.orderChannel);
@@ -150,7 +150,7 @@ export default function SalesLogs() {
                         <td><p className="font-semibold text-text-heading">{s.customerName || "ลูกค้าทั่วไป"}</p>{s.customerPhone && <p className="text-xs text-text-muted">{s.customerPhone}</p>}</td>
                         <td className="text-center"><span className={`badge-dd ${ch.cls}`}><ch.icon size={11} /> {ch.label}</span></td>
                         <td className="text-center text-sm text-text-body">{payLabel(s.paymentMethod)}{s.installmentMonths ? ` ${s.installmentMonths}ด.` : ""}</td>
-                        <td className="text-right font-display tabular-nums text-yellow">{money(s.grandTotal)}</td>
+                        <td className="text-right font-display tabular-nums font-bold text-text-heading">{money(s.grandTotal)}</td>
                         <td>{(() => { const b = billStatus(s.status); return <span className={`badge-dd ${b.c}`}>{b.t}</span>; })()}</td>
                       </tr>
                     );
@@ -175,7 +175,7 @@ export default function SalesLogs() {
               </thead>
               <tbody>
                 {filteredMoves.length === 0 ? (
-                  <tr><td colSpan={6} className="p-8 text-center font-display uppercase tracking-widest text-text-muted">ยังไม่มีความเคลื่อนไหวสต็อก</td></tr>
+                  <tr><td colSpan={6} className="p-8 text-center font-display text-sm text-text-muted">ยังไม่มีความเคลื่อนไหวสต็อก</td></tr>
                 ) : (
                   filteredMoves.slice(0, limit).map((m) => {
                     const k = txnKind(m.type);

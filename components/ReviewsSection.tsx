@@ -50,7 +50,7 @@ export default function ReviewsSection() {
             <div key={r.id} className="card-dd">
               <div className="flex items-center justify-between">
                 <Stars n={r.rating} />
-                <Quote size={18} className="text-yellow-muted" />
+                <Quote size={20} className="fill-yellow/20 text-yellow-hover" />
               </div>
               <p className="mt-3 line-clamp-3 text-sm text-text-body">
                 {r.comment || `ให้คะแนน ${r.rating} ดาว`}

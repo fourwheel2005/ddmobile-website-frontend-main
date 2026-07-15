@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 import Image from "next/image";
 import Reveal from "@/components/Reveal";
+import Tilt from "@/components/Tilt";
 import HeroPhone from "@/components/HeroPhone";
 import PromoCarousel from "@/components/PromoCarousel";
 import ReviewsSection from "@/components/ReviewsSection";
@@ -185,7 +186,8 @@ export default function Home() {
 function ProductCard({ product, inst }: { product: CatalogItem; inst?: InstInfo | null }) {
   const isNew = product.condition === "NEW";
   return (
-    <Link href={`/products/${encodeURIComponent(product.id)}`} className="card-dd group flex flex-col overflow-hidden !p-0">
+    <Tilt className="h-full" max={5} scale={1.02} radius={18}>
+    <Link href={`/products/${encodeURIComponent(product.id)}`} className="card-dd group flex h-full flex-col overflow-hidden !p-0">
       <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-bg-subtle p-4">
         <span className={`badge-dd absolute left-3 top-3 z-10 ${isNew ? "badge-success" : "badge-info"}`}>
           {isNew ? <Sparkles size={11} /> : <RotateCcw size={11} />} {product.conditionLabel}
@@ -219,6 +221,7 @@ function ProductCard({ product, inst }: { product: CatalogItem; inst?: InstInfo 
         </div>
       </div>
     </Link>
+    </Tilt>
   );
 }
 

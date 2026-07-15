@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { getApiError } from "@/lib/errorMessage";
@@ -27,6 +27,7 @@ export default function CheckoutPage() {
   const [address, setAddress] = useState("");
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const submitLock = useRef(false);   // กันกดซ้ำแบบ synchronous (ก่อน React re-render disable ปุ่มทัน)
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [couponCode, setCouponCode] = useState("");
   const [promoCode, setPromoCode] = useState("");                       // โค้ดโปรโมชั่น (แยกจากคูปองวงล้อ)
@@ -73,10 +74,14 @@ export default function CheckoutPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitLock.current) return;   // กันดับเบิลคลิก/กด Enter รัว ๆ ยิง POST /orders ซ้ำ → ออเดอร์ซ้ำ
     if (items.length === 0) { toast.error("ตะกร้าว่างเปล่า"); return; }
     if (!name.trim() || !tel.trim()) { toast.error("กรอกชื่อและเบอร์โทรผู้รับ"); return; }
+    // เบอร์ไทย: 9-10 หลัก (รับเว้นวรรค/ขีดได้) — กันกรอกมั่ว เช่น "abc"
+    if (!/^0\d{1,2}[-\s]?\d{3}[-\s]?\d{3,4}$/.test(tel.trim())) { toast.error("กรุณากรอกเบอร์โทรให้ถูกต้อง (เช่น 081-234-5678)"); return; }
     if (!address.trim()) { toast.error("กรอกที่อยู่จัดส่ง"); return; }
 
+    submitLock.current = true;
     setSubmitting(true);
     try {
       const res = await api.post("/orders", {
@@ -98,6 +103,7 @@ export default function CheckoutPage() {
       if (status === 401 || status === 403) { router.replace("/login?redirect=/checkout"); return; }
       toast.error(getApiError(err, "สร้างคำสั่งซื้อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"));
     } finally {
+      submitLock.current = false;   // ปลดล็อกให้ลองใหม่ได้ (สำเร็จแล้ว navigate ออกไปแล้ว)
       setSubmitting(false);
     }
   };
@@ -179,7 +185,7 @@ export default function CheckoutPage() {
                 {promoPreview && promoPreview.promos.length > 0 && (
                   <div className="mt-2 space-y-1">
                     {promoPreview.promos.map((p) => (
-                      <p key={p.name} className="text-xs font-medium text-success-text">✓ {p.name} −{money(p.amount)}</p>
+                      <p key={p.name} className="flex items-center gap-1 text-xs font-medium text-success-text"><BadgeCheck size={13} className="flex-shrink-0" /> {p.name} −{money(p.amount)}</p>
                     ))}
                   </div>
                 )}

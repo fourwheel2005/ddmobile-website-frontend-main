@@ -88,7 +88,7 @@ export default function NotificationBell() {
 
   return (
     <div className="relative" ref={ref}>
-      <button onClick={toggle} aria-label="การแจ้งเตือน" className="relative rounded-full p-2 text-text-muted transition-colors hover:bg-bg-subtle hover:text-text-heading">
+      <button onClick={toggle} aria-label={unread > 0 ? `การแจ้งเตือน (${unread} รายการใหม่)` : "การแจ้งเตือน"} aria-haspopup="menu" aria-expanded={open} className="relative rounded-full p-2 text-text-muted transition-colors hover:bg-bg-subtle hover:text-text-heading">
         <Bell size={20} />
         {unread > 0 && (
           <span key={unread} className="dd-pop absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-yellow px-1 text-[11px] font-bold text-[#1a1a1a]">

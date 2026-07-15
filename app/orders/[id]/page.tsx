@@ -54,7 +54,7 @@ export default function OrderDetailPage() {
       if (res.data.slipFileId) {
         try {
           const blob = await api.get(`/orders/${id}/slip`, { responseType: "blob" });
-          setSlipPreview(URL.createObjectURL(blob.data));
+          setSlipPreview((prev) => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(blob.data); });
         } catch { /* slip โหลดไม่ได้ ไม่เป็นไร */ }
       }
       // ดึง PromptPay payload (โอน/ผ่อน + ยังไม่ปิดออเดอร์ + ร้านตั้ง PromptPay ID ไว้)
@@ -77,6 +77,9 @@ export default function OrderDetailPage() {
     load();
   }, [id, load, router]);
 
+  // คืน blob URL ของสลิปตอนออกจากหน้า (กัน memory leak)
+  useEffect(() => () => { if (slipPreview) URL.revokeObjectURL(slipPreview); }, [slipPreview]);
+
   const uploadSlip = async (file: File) => {
     setUploading(true);
     try {
@@ -85,7 +88,7 @@ export default function OrderDetailPage() {
       fd.append("file", compressed);
       const res = await api.post(`/orders/${id}/slip`, fd);
       setOrder(res.data);
-      setSlipPreview(URL.createObjectURL(compressed));
+      setSlipPreview((prev) => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(compressed); });
       // ตรวจสลิปผ่าน → ระบบยืนยันออเดอร์ให้อัตโนมัติทันที
       toast.success(res.data?.status === "CONFIRMED"
         ? "ตรวจสลิปผ่าน! ยืนยันคำสั่งซื้อเรียบร้อย"
