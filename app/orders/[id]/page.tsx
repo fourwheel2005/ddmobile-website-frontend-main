@@ -24,7 +24,7 @@ interface Order {
   shippingAddress: string | null; note: string | null; subtotal: number; total: number;
   couponCode: string | null; discountPercent: number | null; discountAmount: number | null;
   promoNames: string | null; promoDiscount: number | null;
-  items: OItem[]; slipFileId: string | null; slipVerified: boolean | null; createdAt: string;
+  items: OItem[]; slipFileId: string | null; slipVerified: boolean | null; slipAmount: number | null; createdAt: string;
   installmentMonths: number | null; downPayment: number | null; monthlyPayment: number | null;
   shippingPartner: string | null; trackingNumber: string | null;
   confirmedAt: string | null; preparingAt: string | null; shippedAt: string | null;
@@ -89,9 +89,9 @@ export default function OrderDetailPage() {
       const res = await api.post(`/orders/${id}/slip`, fd);
       setOrder(res.data);
       setSlipPreview((prev) => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(compressed); });
-      // ตรวจสลิปผ่าน → ระบบยืนยันออเดอร์ให้อัตโนมัติทันที
-      toast.success(res.data?.status === "CONFIRMED"
-        ? "ตรวจสลิปผ่าน! ยืนยันคำสั่งซื้อเรียบร้อย"
+      // ตรวจสลิปอัตโนมัติผ่าน → เข้าคิวแอดมิน (สลิปผิดถูก 400 ตั้งแต่ upload — ไม่ถึงตรงนี้)
+      toast.success(res.data?.slipVerified
+        ? "ตรวจสลิปผ่าน ยอดตรง! รอแอดมินอนุมัติ"
         : "แนบสลิปสำเร็จ รอแอดมินตรวจสอบ");
     } catch (err: any) {
       toast.error(getApiError(err, "แนบสลิปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"));
@@ -241,7 +241,7 @@ export default function OrderDetailPage() {
                   )}
                   {order.slipFileId && (
                     order.slipVerified === true ? (
-                      <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-success-text"><CheckCircle2 size={14} /> ตรวจสลิปอัตโนมัติผ่าน (ยอดตรง) · รอแอดมินยืนยัน</p>
+                      <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-success-text"><CheckCircle2 size={14} /> ตรวจสลิปแล้ว{order.slipAmount != null ? ` ยอดโอน ฿${order.slipAmount.toLocaleString()}` : ""} ถูกต้อง · รอแอดมินอนุมัติ</p>
                     ) : order.slipVerified === false ? (
                       <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-error-text"><AlertTriangle size={14} /> สลิปยอดไม่ตรง/อาจซ้ำ — แอดมินจะตรวจสอบอีกครั้ง</p>
                     ) : (

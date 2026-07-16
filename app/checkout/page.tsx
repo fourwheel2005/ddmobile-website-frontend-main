@@ -252,7 +252,7 @@ export default function CheckoutPage() {
               <button type="submit" disabled={submitting} className="btn-primary mt-5 w-full py-3.5 text-base">
                 {submitting ? "กำลังสร้างคำสั่งซื้อ..." : <>ยืนยันคำสั่งซื้อ <ArrowRight size={18} /></>}
               </button>
-              <p className="mt-2 text-center text-xs text-text-muted">จองสินค้าให้ทันที · แนบสลิปแล้วระบบตรวจ-ยืนยันให้อัตโนมัติ</p>
+              <p className="mt-2 text-center text-xs text-text-muted">จองสินค้าให้ทันที · ระบบตรวจสลิปอัตโนมัติ · ยอดตรงแอดมินอนุมัติทันที</p>
               {/* trust block — ความมั่นใจก่อนกดจ่าย */}
               <div className="mt-4 grid grid-cols-3 gap-2 border-t border-border-default pt-4">
                 {[

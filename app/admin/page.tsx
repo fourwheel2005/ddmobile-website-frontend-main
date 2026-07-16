@@ -50,7 +50,7 @@ interface WebOrderItem { productName: string; condition: string; quantity: numbe
 interface WebOrder {
   id: number; status: string; paymentMethod: string; customerName: string; customerTel: string;
   shippingAddress: string | null; note: string | null; total: number; createdAt: string;
-  items: WebOrderItem[]; slipFileId: string | null; slipVerified: boolean | null;
+  items: WebOrderItem[]; slipFileId: string | null; slipVerified: boolean | null; slipAmount: number | null;
   installmentMonths: number | null; downPayment: number | null; monthlyPayment: number | null;
   stockOrderId: string | null;
   shippingPartner: string | null; trackingNumber: string | null;
@@ -560,10 +560,20 @@ export default function AdminDashboard() {
                                 </td>
                                 <td>
                                   <span className={`badge-dd ${st.c}`}>{st.t}</span>
-                                  {o.slipFileId && o.slipVerified != null && (
-                                    <span className={`mt-1 block text-[11px] font-medium ${o.slipVerified ? "text-success-text" : "text-error-text"}`}>
-                                      {o.slipVerified ? <><CheckCircle2 size={11} className="mr-0.5 inline -translate-y-px" /> สลิปยอดตรง</> : <><AlertTriangle size={11} className="mr-0.5 inline -translate-y-px" /> ยอดไม่ตรง/ซ้ำ</>}
-                                    </span>
+                                  {o.slipFileId && (
+                                    o.slipVerified === true ? (
+                                      <span className="mt-1 block text-[11px] font-semibold text-success-text">
+                                        <CheckCircle2 size={11} className="mr-0.5 inline -translate-y-px" /> โอนแล้ว {o.slipAmount != null ? `฿${o.slipAmount.toLocaleString()}` : "ยอดตรง"} · พร้อม Approve
+                                      </span>
+                                    ) : o.slipVerified === false ? (
+                                      <span className="mt-1 block text-[11px] font-medium text-error-text">
+                                        <AlertTriangle size={11} className="mr-0.5 inline -translate-y-px" /> ยอดไม่ตรง/ซ้ำ — ตรวจก่อนกด
+                                      </span>
+                                    ) : (
+                                      <span className="mt-1 block text-[11px] font-medium text-yellow-hover">
+                                        <Clock size={11} className="mr-0.5 inline -translate-y-px" /> ระบบตรวจไม่ได้ — เปิดสลิปตรวจเอง
+                                      </span>
+                                    )
                                   )}
                                   {sla && (
                                     <span className={`mt-1 flex items-center gap-1 text-[11px] font-semibold ${sla.level === "red" ? "text-error-text" : sla.level === "yellow" ? "text-yellow-hover" : "text-success-text"}`}>
