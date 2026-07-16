@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import api from "@/lib/api";
-import { Package, ChevronRight } from "lucide-react";
+import { Package, ChevronRight, Star } from "lucide-react";
 import { statusOf } from "@/lib/orderStatus";
 
 interface OrderItem { productName: string; conditionLabel: string; quantity: number; }
@@ -17,11 +17,13 @@ import { baht as money } from "@/lib/money";
 export default function OrdersPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [reviewed, setReviewed] = useState<Set<number>>(new Set());   // ออเดอร์ที่รีวิวแล้ว (ซ่อนปุ่มชวน)
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const u = localStorage.getItem("user");
     if (!u) { router.replace("/login?redirect=/orders"); return; }
+    api.get("/reviews/mine").then((r) => setReviewed(new Set<number>(Array.isArray(r.data) ? r.data : []))).catch(() => { /* ไม่กระทบรายการ */ });
     api.get("/orders")
       .then((res) => setOrders(res.data))
       .catch((err) => { if ([401, 403].includes(err?.response?.status)) router.replace("/login?redirect=/orders"); })
@@ -77,6 +79,11 @@ export default function OrdersPage() {
                     <p className="text-xs text-text-disabled">{new Date(o.createdAt).toLocaleString("th-TH")}</p>
                   </div>
                   <div className="flex flex-shrink-0 items-center gap-2">
+                    {["DELIVERED", "PICKED_UP", "COMPLETED"].includes(o.status) && !reviewed.has(o.id) && (
+                      <span className="hidden items-center gap-1 rounded-full bg-yellow/15 px-2.5 py-1 text-[11px] font-bold text-text-heading sm:inline-flex">
+                        <Star size={11} className="fill-yellow text-yellow" /> ให้คะแนน
+                      </span>
+                    )}
                     <span className="font-bold text-price">{money(o.total)}</span>
                     <ChevronRight size={18} className="text-text-muted" />
                   </div>

@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Smartphone, ClipboardList, Users,
   LogOut, Clock, CheckCircle2, XCircle, Loader2,
   X, AlertTriangle, Warehouse, Menu, Search,
-  ShoppingBag, Check, Eye, Truck, Store, CreditCard, Receipt, UserCog, TicketPercent, Banknote, TrendingUp, Zap
+  ShoppingBag, Check, Eye, Truck, Store, CreditCard, Receipt, UserCog, TicketPercent, Banknote, TrendingUp, Zap, Star
 } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
@@ -18,6 +18,7 @@ import InstallmentManager from "@/components/InstallmentManager";
 import EmployeeManager from "@/components/EmployeeManager";
 import CouponAdmin from "@/components/CouponAdmin";
 import PromotionManager from "@/components/PromotionManager";
+import ReviewAdmin from "@/components/ReviewAdmin";
 import StatCard from "@/components/ui/StatCard";
 import SalesChart, { type DailySales } from "@/components/ui/SalesChart";
 import { confirmDialog } from "@/components/ui/confirmDialog";
@@ -641,6 +642,9 @@ export default function AdminDashboard() {
 
               {/* โปรโมชั่น / Flash Sale */}
               {activeMenu === "โปรโมชั่น / Flash Sale" && <PromotionManager />}
+
+              {/* รีวิวลูกค้า (ตอบกลับ/ลบ) */}
+              {activeMenu === "รีวิวลูกค้า" && <ReviewAdmin />}
             </>
           )}
         </div>
@@ -703,6 +707,7 @@ const menuItems = [
   { name: "ตารางผ่อน", icon: CreditCard },
   { name: "คูปองส่วนลด", icon: TicketPercent },
   { name: "โปรโมชั่น / Flash Sale", icon: Zap },
+  { name: "รีวิวลูกค้า", icon: Star },
   { name: "คำขอผ่อนสินค้า", icon: ClipboardList },
   { name: "จัดการลูกค้า", icon: Users },
   { name: "จัดการพนักงาน", icon: UserCog },

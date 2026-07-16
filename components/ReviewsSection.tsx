@@ -4,7 +4,7 @@ import { Star, Quote } from "lucide-react";
 import api from "@/lib/api";
 import Reveal from "@/components/Reveal";
 
-interface Review { id: number; displayName: string; rating: number; comment: string | null; productName: string | null; createdAt: string | null; }
+interface Review { id: number; displayName: string; rating: number; comment: string | null; productName: string | null; images?: string[]; createdAt: string | null; }
 interface Summary { average: number; count: number; reviews: Review[]; }
 
 const Stars = ({ n, size = 15 }: { n: number; size?: number }) => (
@@ -55,6 +55,14 @@ export default function ReviewsSection() {
               <p className="mt-3 line-clamp-3 text-sm text-text-body">
                 {r.comment || `ให้คะแนน ${r.rating} ดาว`}
               </p>
+              {(r.images?.length ?? 0) > 0 && (
+                <div className="mt-2 flex gap-1.5">
+                  {r.images!.slice(0, 3).map((src) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img key={src} src={src} alt="รูปรีวิวจากลูกค้า" loading="lazy" className="h-14 w-14 rounded-lg border border-border-subtle object-cover" />
+                  ))}
+                </div>
+              )}
               <div className="mt-4 border-t border-border-subtle pt-3 text-xs text-text-muted">
                 <p className="font-semibold text-text-heading">{r.displayName}</p>
                 <p className="mt-0.5 line-clamp-1">

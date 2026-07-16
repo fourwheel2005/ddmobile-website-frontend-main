@@ -16,6 +16,7 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import CountUp from "@/components/CountUp";
 import { useCart } from "@/context/CartContext";
 import InstallmentBox, { InstallmentInfo } from "@/components/InstallmentBox";
+import ProductReviews from "@/components/ProductReviews";
 
 interface VariantOption {
   variantId: string;
@@ -474,6 +475,9 @@ export default function ProductDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* รีวิวจากผู้ซื้อจริง (histogram + filter + relevance sort แบบ Shopee) */}
+        <ProductReviews productName={item.productName} />
       </div>
 
       {/* Sticky CTA (มือถือ) */}

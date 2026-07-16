@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import api from "@/lib/api";
 import { baht } from "@/lib/money";
-import { Search, Smartphone, CheckCircle2, ArrowUpDown, X, BatteryMedium, Sparkles, RotateCcw, ShoppingCart, CreditCard, Cable, Zap } from "lucide-react";
+import { Search, Smartphone, CheckCircle2, ArrowUpDown, X, BatteryMedium, Sparkles, RotateCcw, ShoppingCart, CreditCard, Cable, Zap, Star } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
@@ -88,6 +88,7 @@ export default function ProductsPage() {
   const [plans, setPlans] = useState<InstallmentPlan[]>([]);
   const [serials, setSerials] = useState<InstallmentSerial[]>([]);
   const [promos, setPromos] = useState<PublicPromotion[]>([]);   // โปรอัตโนมัติ — โชว์ป้าย/ราคาขีดฆ่า (server คิดจริงตอนสั่งซื้อ)
+  const [ratings, setRatings] = useState<Map<string, { average: number; count: number }>>(new Map());   // ★ ต่อสินค้า (จากรีวิวผู้ซื้อจริง)
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -95,16 +96,20 @@ export default function ProductsPage() {
       setIsLoading(true);
       setError(false);
       try {
-        const [cat, plan, ser, pr] = await Promise.all([
+        const [cat, plan, ser, pr, rt] = await Promise.all([
           api.get("/catalog"),
           api.get("/installment/plans").catch(() => ({ data: [] })),
           api.get("/installment/serials").catch(() => ({ data: [] })),
           api.get("/promotions/active").catch(() => ({ data: [] })),
+          api.get("/reviews/ratings").catch(() => ({ data: [] })),
         ]);
         setItems(Array.isArray(cat.data) ? cat.data : []);
         setPlans(Array.isArray(plan.data) ? plan.data : []);
         setSerials(Array.isArray(ser.data) ? ser.data : []);
         setPromos(Array.isArray(pr.data) ? pr.data : []);
+        const rm = new Map<string, { average: number; count: number }>();
+        (Array.isArray(rt.data) ? rt.data : []).forEach((r: { productName: string; average: number; count: number }) => rm.set(r.productName, r));
+        setRatings(rm);
       } catch (e) {
         console.error("Catalog error:", e);
         setError(true);
@@ -323,6 +328,12 @@ export default function ProductsPage() {
                     </div>
                     <div className="flex flex-1 flex-col p-4">
                       <h3 className="line-clamp-2 text-sm font-semibold text-text-heading group-hover:text-yellow-hover">{it.productName}</h3>
+                      {(() => { const rt = ratings.get(it.productName); return rt ? (
+                        <p className="mt-0.5 flex items-center gap-1 text-[11px] text-text-muted">
+                          <Star size={11} className="fill-yellow text-yellow" />
+                          <span className="font-semibold text-text-heading">{rt.average.toFixed(1)}</span> ({rt.count.toLocaleString()} รีวิว)
+                        </p>
+                      ) : null; })()}
                       <p className="mt-1 line-clamp-1 text-xs text-text-muted">
                         {it.type === "MODEL"
                           ? `${it.options?.length ?? 0} ตัวเลือก (สี/ความจุ)`
