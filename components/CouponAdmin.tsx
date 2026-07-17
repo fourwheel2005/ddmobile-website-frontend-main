@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { TicketPercent, CheckCircle2, Clock, Search } from "lucide-react";
+import { TicketPercent, CheckCircle2, Clock, Search, Gift, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
 import StatCard from "@/components/ui/StatCard";
@@ -24,13 +24,33 @@ export default function CouponAdmin() {
   const [list, setList] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
+  const [wheelOn, setWheelOn] = useState<boolean | null>(null);   // null = กำลังโหลด
+  const [savingWheel, setSavingWheel] = useState(false);
 
   useEffect(() => {
     api.get("/admin/coupons")
       .then((r) => setList(Array.isArray(r.data) ? r.data : []))
       .catch(() => toast.error("โหลดคูปองไม่สำเร็จ"))
       .finally(() => setLoading(false));
+    api.get("/admin/settings/wheel")
+      .then((r) => setWheelOn(!!r.data?.enabled))
+      .catch(() => setWheelOn(true));   // โหลดพลาด → เดาว่าเปิด (ค่า default)
   }, []);
+
+  const toggleWheel = async () => {
+    if (wheelOn === null || savingWheel) return;
+    const next = !wheelOn;
+    setSavingWheel(true);
+    try {
+      const r = await api.put("/admin/settings/wheel", { enabled: next });
+      setWheelOn(!!r.data?.enabled);
+      toast.success(next ? "เปิดวงล้อต้อนรับแล้ว" : "ปิดวงล้อต้อนรับแล้ว");
+    } catch {
+      toast.error("บันทึกไม่สำเร็จ");
+    } finally {
+      setSavingWheel(false);
+    }
+  };
 
   const stats = useMemo(() => ({
     total: list.length,
@@ -46,6 +66,34 @@ export default function CouponAdmin() {
 
   return (
     <div className="space-y-5">
+      {/* เปิด/ปิดวงล้อต้อนรับสมาชิกใหม่ (ป๊อปอัพหน้าเว็บ) */}
+      <div className="flex items-center justify-between gap-4 rounded-2xl border border-border-default bg-white p-4">
+        <div className="flex items-start gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-yellow/15 text-yellow-hover"><Gift size={20} /></span>
+          <div>
+            <p className="font-semibold text-text-heading">วงล้อต้อนรับสมาชิกใหม่</p>
+            <p className="text-xs text-text-muted">
+              {wheelOn === null ? "กำลังโหลด..."
+                : wheelOn ? "เปิดอยู่ — ลูกค้าที่ล็อกอินและยังไม่เคยหมุน จะเห็นป๊อปอัพวงล้อ"
+                : "ปิดอยู่ — ป๊อปอัพวงล้อจะไม่แสดงหน้าเว็บ"}
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={!!wheelOn}
+          aria-label="เปิด/ปิดวงล้อต้อนรับ"
+          disabled={wheelOn === null || savingWheel}
+          onClick={toggleWheel}
+          className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${wheelOn ? "bg-yellow" : "bg-border-default"}`}
+        >
+          {savingWheel
+            ? <Loader2 size={12} className="mx-auto animate-spin text-white" />
+            : <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${wheelOn ? "translate-x-6" : "translate-x-1"}`} />}
+        </button>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {[
           { label: "คูปองทั้งหมด", value: stats.total, icon: TicketPercent, color: "text-text-heading" },
