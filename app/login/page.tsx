@@ -59,7 +59,7 @@ function LoginForm() {
         setIsLogin(true);
         setPassword("");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Auth Error:", error);
       toast.error(
         getApiError(error, isLogin ? "เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" : "สมัครสมาชิกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง")

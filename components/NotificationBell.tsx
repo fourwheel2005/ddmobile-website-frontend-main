@@ -49,11 +49,12 @@ export default function NotificationBell() {
 
   // poll จำนวนยังไม่อ่าน + เช็คตอนกลับมาโฟกัสหน้าต่าง
   useEffect(() => {
-    fetchCount();
+    // schedule หลัง paint เพื่อไม่ให้ effect รอบแรก cascade render
+    const initial = window.setTimeout(fetchCount, 0);
     const iv = setInterval(fetchCount, 45000);
     const onFocus = () => fetchCount();
     window.addEventListener("focus", onFocus);
-    return () => { clearInterval(iv); window.removeEventListener("focus", onFocus); };
+    return () => { window.clearTimeout(initial); clearInterval(iv); window.removeEventListener("focus", onFocus); };
   }, [fetchCount]);
 
   // ปิดเมื่อคลิกนอกกล่อง

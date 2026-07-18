@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
 import api from "@/lib/api";
+import { getCatalog } from "@/lib/catalog";
 import { LINE_URL } from "@/lib/contact";
 import { buildInstLookup, type InstallmentPlan, type InstallmentSerial, type InstInfo } from "@/lib/installment";
 import {
@@ -40,12 +41,12 @@ export default function Home() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const [cat, plan, ser] = await Promise.all([
-          api.get("/catalog"),
+        const [catalog, plan, ser] = await Promise.all([
+          getCatalog<CatalogItem>(),
           api.get("/installment/plans").catch(() => ({ data: [] })),
           api.get("/installment/serials").catch(() => ({ data: [] })),
         ]);
-        setProducts((Array.isArray(cat.data) ? cat.data : []).slice(0, 4));
+        setProducts(catalog.slice(0, 4));
         setPlans(Array.isArray(plan.data) ? plan.data : []);
         setSerials(Array.isArray(ser.data) ? ser.data : []);
       } catch (error) {
@@ -67,12 +68,12 @@ export default function Home() {
       <section className="bg-bg-subtle">
         <div className="container-dd grid grid-cols-1 items-center gap-8 py-10 md:grid-cols-2 md:py-16">
           <div>
-            <p className="section-label">iPhone 17 Pro Max</p>
+            <p className="section-label">DDMOBILE · ผ่อนง่ายในแบบคุณ</p>
             <h1 className="text-[clamp(2rem,5vw,3.25rem)] font-bold leading-tight text-text-heading">
-              สีส้มไทเทเนียมใหม่ <span className="rounded-lg bg-yellow px-2 text-text-heading">ผ่อนง่ายไม่ต้องรอ</span>
+              เลือกเครื่องที่ใช่ <span className="rounded-lg bg-yellow px-2 text-text-heading">ผ่อนง่ายในแบบคุณ</span>
             </h1>
             <p className="mt-5 max-w-lg text-base text-text-muted md:text-lg">
-              อนุมัติไวใน 1 วัน · ไม่ต้องใช้บัตรเครดิต · เครื่องแท้ศูนย์ไทย 100%
+              ดูราคา สต็อก และแผนผ่อนตามรุ่นที่พร้อมขาย แล้วให้แอดมินช่วยยืนยันสิทธิ์ของคุณ
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               <Link href="/products" className="btn-primary px-7 py-3 text-base">เริ่มผ่อนเลย</Link>

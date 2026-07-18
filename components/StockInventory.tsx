@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import api from "@/lib/api";
+import { getApiError, getApiStatus } from "@/lib/errorMessage";
+import { invalidateCatalog } from "@/lib/catalog";
 import {
   Warehouse, Loader2, AlertTriangle, RefreshCw,
   PackageCheck, Sparkles, RotateCcw, Search, ChevronRight, BatteryMedium, CheckCircle2,
@@ -140,9 +142,9 @@ export default function StockInventory() {
         for (const v of toArray<VariantConfig>(varRes.data)) map[v.id] = v;
         setCfgMap(map);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Stock fetch error:", error);
-      toast.error(error?.response?.status === 503
+      toast.error(getApiStatus(error) === 503
         ? "เชื่อมต่อระบบ Stock ไม่ได้ในขณะนี้"
         : "ดึงข้อมูล Stock ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
     } finally {
@@ -155,6 +157,7 @@ export default function StockInventory() {
   // รีเฟรช + ล้างแคช catalog หน้าเว็บ (60 วิ) ทันที — ใช้หลังแก้/ลบรูปหรือสินค้าใน Stock
   const refreshAll = useCallback(async () => {
     await api.post("/admin/stock/refresh-catalog").catch(() => { /* ล้มก็ยัง fetchAll ต่อ */ });
+    invalidateCatalog();
     await fetchAll();
     toast.success("รีเฟรชแล้ว — หน้าเว็บดึงสินค้า/รูปใหม่จาก Stock ทันที");
   }, [fetchAll]);
@@ -450,8 +453,8 @@ function EditVariantModal({ cfg, onClose, onSaved }: { cfg: VariantConfig; onClo
         if (url) setImages((prev) => [...prev, url]);
         else toast.error("อัปโหลดรูปแล้วแต่อ่าน URL ไม่ได้");
       }
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || "อัปโหลดรูปไม่สำเร็จ");
+    } catch (error: unknown) {
+      toast.error(getApiError(error, "อัปโหลดรูปไม่สำเร็จ"));
     } finally {
       setUploading(false);
     }
@@ -483,10 +486,11 @@ function EditVariantModal({ cfg, onClose, onSaved }: { cfg: VariantConfig; onClo
         storage: cfg.storage,
       };
       await api.put(`/admin/stock/variants/${cfg.productId}/${cfg.id}`, body);
+      invalidateCatalog();
       toast.success("บันทึกไปยังคลังแล้ว — หน้าเว็บจะอัปเดตทันที");
       onSaved();
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || "บันทึกไม่สำเร็จ (บัญชี stock อาจไม่มีสิทธิ์แก้ไข)");
+    } catch (error: unknown) {
+      toast.error(getApiError(error, "บันทึกไม่สำเร็จ (บัญชี stock อาจไม่มีสิทธิ์แก้ไข)"));
     } finally {
       setSaving(false);
     }

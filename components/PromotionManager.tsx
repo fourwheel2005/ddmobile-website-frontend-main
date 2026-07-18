@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Zap, Plus, Pencil, Trash2, Loader2, X, Search } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
+import { getCatalog } from "@/lib/catalog";
 import { getApiError } from "@/lib/errorMessage";
 import { baht } from "@/lib/money";
 import { confirmDialog } from "@/components/ui/confirmDialog";
@@ -49,7 +50,7 @@ export default function PromotionManager() {
   };
   useEffect(() => {
     load();
-    api.get("/catalog").then((r) => setCatalog(Array.isArray(r.data) ? r.data : [])).catch(() => { /* picker เปล่า */ });
+    getCatalog<CatalogLite>().then(setCatalog).catch(() => { /* picker เปล่า */ });
   }, []);
 
   const categories = useMemo(() => Array.from(new Set(catalog.map((c) => c.category).filter(Boolean))).sort(), [catalog]);
@@ -129,7 +130,7 @@ export default function PromotionManager() {
             <thead><tr><th>ชื่อโปร</th><th>ส่วนลด</th><th>ใช้กับ</th><th>ช่วงเวลา</th><th>โค้ด</th><th className="text-center">ใช้ไป</th><th>สถานะ</th><th className="text-right">จัดการ</th></tr></thead>
             <tbody>
               {list.length === 0 ? (
-                <tr><td colSpan={8} className="p-8 text-center text-text-muted">ยังไม่มีโปรโมชั่น — กด "เพิ่มโปรโมชั่น" เพื่อเริ่ม flash sale แรก</td></tr>
+                <tr><td colSpan={8} className="p-8 text-center text-text-muted">ยังไม่มีโปรโมชั่น — กด &ldquo;เพิ่มโปรโมชั่น&rdquo; เพื่อเริ่ม flash sale แรก</td></tr>
               ) : list.map((p) => {
                 const st = STATUS_TH[p.status];
                 return (

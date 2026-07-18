@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { confirmDialog } from "@/components/ui/confirmDialog";
 import { TableSkeleton } from "@/components/Skeletons";
 import api from "@/lib/api";
+import { getCatalog } from "@/lib/catalog";
 
 interface Term { months: number | string; monthly: number | string; }
 interface Plan { id: number; productId: string; modelName: string | null; storage: string; downPayment: number | null; terms: { months: number; monthly: number }[]; note: string | null; active: boolean; }
@@ -88,14 +89,14 @@ export default function InstallmentManager() {
   const load = async () => {
     setLoading(true);
     try {
-      const [p, s, c] = await Promise.all([
+      const [p, s, catalogItems] = await Promise.all([
         api.get("/admin/installment/plans"),
         api.get("/admin/installment/serials"),
-        api.get("/catalog"),
+        getCatalog<CatalogItem>(),
       ]);
       setPlans(Array.isArray(p.data) ? p.data : []);
       setSerials(Array.isArray(s.data) ? s.data : []);
-      setCatalog(Array.isArray(c.data) ? c.data : []);
+      setCatalog(catalogItems);
     } catch {
       toast.error("โหลดข้อมูลไม่สำเร็จ");
     } finally {

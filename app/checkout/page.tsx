@@ -2,10 +2,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
-import { getApiError } from "@/lib/errorMessage";
+import { getApiError, getApiStatus } from "@/lib/errorMessage";
 import { useCart } from "@/context/CartContext";
 import toast from "react-hot-toast";
 import Link from "next/link";
+import Image from "next/image";
 import { Banknote, Smartphone, ArrowRight, ShoppingCart, MessageCircle, TicketPercent, ShieldCheck, Lock, BadgeCheck } from "lucide-react";
 import Reveal from "@/components/Reveal";
 
@@ -98,8 +99,8 @@ export default function CheckoutPage() {
       clear();
       toast.success("สร้างคำสั่งซื้อสำเร็จ!");
       router.push(`/orders/${res.data.id}`);
-    } catch (err: any) {
-      const status = err?.response?.status;
+    } catch (err: unknown) {
+      const status = getApiStatus(err);
       if (status === 401 || status === 403) { router.replace("/login?redirect=/checkout"); return; }
       toast.error(getApiError(err, "สร้างคำสั่งซื้อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"));
     } finally {
@@ -226,7 +227,7 @@ export default function CheckoutPage() {
                 {items.map((it) => (
                   <div key={it.catalogId} className="flex items-center gap-3">
                     <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-bg-subtle">
-                      {it.imageUrl ? <img src={it.imageUrl} alt={it.productName} className="h-full w-full object-contain p-1" /> : <Smartphone size={18} className="text-text-disabled" />}
+                      {it.imageUrl ? <Image src={it.imageUrl} alt={it.productName} width={48} height={48} sizes="48px" className="h-full w-full object-contain p-1" /> : <Smartphone size={18} className="text-text-disabled" />}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-text-heading">{it.productName}</p>

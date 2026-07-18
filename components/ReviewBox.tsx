@@ -50,7 +50,7 @@ export default function ReviewBox({ orderId, status }: { orderId: number; status
             <Star key={i} size={22} className={i <= review.rating ? "fill-yellow text-yellow" : "text-border-default"} />
           ))}
         </div>
-        {review.comment && <p className="mt-2 text-sm text-text-body">"{review.comment}"</p>}
+        {review.comment && <p className="mt-2 text-sm text-text-body">&ldquo;{review.comment}&rdquo;</p>}
         {review.images?.length > 0 && (
           <div className="mt-2 flex gap-2">
             {review.images.map((src) => (

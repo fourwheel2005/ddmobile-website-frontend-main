@@ -23,8 +23,8 @@ export default function Reveal({
 
     // เคารพการตั้งค่าลดการเคลื่อนไหว
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setShown(true);
-      return;
+      const frame = requestAnimationFrame(() => setShown(true));
+      return () => cancelAnimationFrame(frame);
     }
 
     const io = new IntersectionObserver(

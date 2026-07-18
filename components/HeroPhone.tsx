@@ -41,6 +41,8 @@ export default function HeroPhone() {
       onMouseLeave={handleLeave}
     >
       <div className="absolute h-64 w-64 rounded-full bg-yellow/25 blur-3xl md:h-80 md:w-80" aria-hidden="true" />
+      <div className="absolute inset-[8%] rounded-[2.5rem] border border-white/70 bg-white/20 shadow-[var(--glow-premium)] backdrop-blur-[1px]" aria-hidden="true" />
+      <div className="absolute inset-x-[12%] top-[12%] h-px bg-gradient-to-r from-transparent via-yellow/80 to-transparent" aria-hidden="true" />
 
       <Chip className="left-[0%] top-[14%]" delay={0} reduce={!!reduce}>
         <Sparkles size={13} className="text-success-text" /> มือ 1 ของแท้

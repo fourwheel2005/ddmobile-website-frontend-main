@@ -56,11 +56,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   // โหลดจาก localStorage ครั้งแรก (ผ่าน sanitize เสมอ)
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setItems(sanitizeCart(JSON.parse(raw)));
-    } catch { /* ignore */ }
-    setReady(true);
+    // รอหลัง first paint เพื่อไม่ให้ hydration effect สร้าง cascading render
+    const hydrate = window.setTimeout(() => {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) setItems(sanitizeCart(JSON.parse(raw)));
+      } catch { /* ignore */ }
+      setReady(true);
+    }, 0);
+    return () => window.clearTimeout(hydrate);
   }, []);
 
   // บันทึกทุกครั้งที่เปลี่ยน (หลังโหลดเสร็จ)

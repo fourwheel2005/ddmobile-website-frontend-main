@@ -5,7 +5,7 @@ import Link from "next/link";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
 import { statusOf } from "@/lib/orderStatus";
-import { getApiError } from "@/lib/errorMessage";
+import { getApiError, getApiStatus } from "@/lib/errorMessage";
 import { compressImage } from "@/lib/imageCompress";
 import DeliveryTracker from "@/components/DeliveryTracker";
 import ReviewBox from "@/components/ReviewBox";
@@ -64,8 +64,8 @@ export default function OrderDetailPage() {
           if (pp.status === 200 && pp.data?.payload) setPpPayload(pp.data.payload);
         } catch { /* ไม่มี QR ก็ใช้แนบสลิปปกติ */ }
       }
-    } catch (err: any) {
-      if ([401, 403].includes(err?.response?.status)) { router.replace("/login?redirect=/orders"); return; }
+    } catch (err: unknown) {
+      if ([401, 403].includes(getApiStatus(err) ?? 0)) { router.replace("/login?redirect=/orders"); return; }
       toast.error("ไม่พบคำสั่งซื้อนี้");
     } finally {
       setLoading(false);
@@ -93,7 +93,7 @@ export default function OrderDetailPage() {
       toast.success(res.data?.slipVerified
         ? "ตรวจสลิปผ่าน ยอดตรง! รอแอดมินอนุมัติ"
         : "แนบสลิปสำเร็จ รอแอดมินตรวจสอบ");
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(getApiError(err, "แนบสลิปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"));
     } finally {
       setUploading(false);
@@ -236,6 +236,8 @@ export default function OrderDetailPage() {
                   {slipPreview && (
                     <div className="mt-3">
                       <p className="mb-1 text-xs text-text-muted">สลิปที่แนบ</p>
+                      {/* blob: URL เป็นไฟล์ชั่วคราวใน browser จึงไม่ผ่าน Next image optimizer */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={slipPreview} alt="สลิปการโอน" className="w-full rounded-xl border border-border-default" />
                     </div>
                   )}

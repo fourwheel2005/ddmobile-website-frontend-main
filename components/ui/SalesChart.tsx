@@ -35,8 +35,6 @@ export default function SalesChart({ data }: { data: DailySales[] }) {
 
   const x = (i: number) => PAD_X + slot * i + (slot - barW) / 2;
   const y = (v: number) => PAD_T + plotH * (1 - v / max);
-  const h = (v: number) => Math.max(v > 0 ? 3 : 0, plotH * (v / max));
-
   return (
     <div className="relative">
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="กราฟยอดขายรายวัน">

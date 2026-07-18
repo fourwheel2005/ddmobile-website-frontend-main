@@ -29,7 +29,10 @@ export default function SpinWheel({ segments, alreadyWon, onClose }: {
   const [rotation, setRotation] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const [result, setResult] = useState<Result | null>(alreadyWon ?? null);
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
   useEscapeKey(!spinning, onClose);   // ปิดด้วย Esc (ยกเว้นระหว่างหมุน กันปิดกลางคัน)
 
   const slicePath = (i: number) => {

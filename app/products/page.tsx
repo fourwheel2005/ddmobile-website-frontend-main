@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo, useRef } from "react";
 import api from "@/lib/api";
+import { getCatalog } from "@/lib/catalog";
 import { baht } from "@/lib/money";
 import { Search, Smartphone, CheckCircle2, ArrowUpDown, X, BatteryMedium, Sparkles, RotateCcw, ShoppingCart, CreditCard, Cable, Zap, Star } from "lucide-react";
 import Link from "next/link";
@@ -96,14 +97,14 @@ export default function ProductsPage() {
       setIsLoading(true);
       setError(false);
       try {
-        const [cat, plan, ser, pr, rt] = await Promise.all([
-          api.get("/catalog"),
+        const [catalog, plan, ser, pr, rt] = await Promise.all([
+          getCatalog<CatalogItem>(),
           api.get("/installment/plans").catch(() => ({ data: [] })),
           api.get("/installment/serials").catch(() => ({ data: [] })),
           api.get("/promotions/active").catch(() => ({ data: [] })),
           api.get("/reviews/ratings").catch(() => ({ data: [] })),
         ]);
-        setItems(Array.isArray(cat.data) ? cat.data : []);
+        setItems(catalog);
         setPlans(Array.isArray(plan.data) ? plan.data : []);
         setSerials(Array.isArray(ser.data) ? ser.data : []);
         setPromos(Array.isArray(pr.data) ? pr.data : []);
@@ -133,7 +134,7 @@ export default function ProductsPage() {
   const displayed = useMemo(() => {
     const q = search.trim().toLowerCase();
     const max = maxPrice ? Number(maxPrice) : null;
-    let arr = items.filter((it) => {
+    const arr = items.filter((it) => {
       if (kindOf(it) !== cond) return false;
       if (max != null && it.minPrice != null && it.minPrice > max) return false;
       if (q) {
@@ -219,7 +220,7 @@ export default function ProductsPage() {
                 {suggestions.map((s) => (
                   <Link key={s.id} href={`/products/${encodeURIComponent(s.id)}`} className="flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-bg-subtle">
                     <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-bg-subtle">
-                      {s.imageUrl ? <img src={s.imageUrl} alt={s.productName} className="h-full w-full object-contain p-1" /> : <Smartphone size={18} className="text-text-disabled" />}
+                      {s.imageUrl ? <Image src={s.imageUrl} alt={s.productName} width={40} height={40} sizes="40px" className="h-full w-full object-contain p-1" /> : <Smartphone size={18} className="text-text-disabled" />}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-text-heading"><Highlight text={s.productName} query={search} /></p>

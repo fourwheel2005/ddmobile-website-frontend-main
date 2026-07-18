@@ -9,11 +9,22 @@
 
 type ApiErrorBody = { message?: unknown; error?: unknown };
 
+type HttpErrorLike = {
+  code?: string;
+  response?: { status?: number; data?: ApiErrorBody };
+};
+
+function asHttpError(err: unknown): HttpErrorLike | undefined {
+  return err && typeof err === "object" ? err as HttpErrorLike : undefined;
+}
+
+/** HTTP status ที่ backend ตอบกลับมา โดยไม่บังคับให้ผู้เรียก cast `any` */
+export function getApiStatus(err: unknown): number | undefined {
+  return asHttpError(err)?.response?.status;
+}
+
 export function getApiError(err: unknown, fallback: string): string {
-  const ax = err as {
-    code?: string;
-    response?: { status?: number; data?: ApiErrorBody };
-  } | undefined;
+  const ax = asHttpError(err);
 
   // 1) ติดต่อเซิร์ฟเวอร์ไม่ได้เลย
   if (!ax?.response || ax.code === "ERR_NETWORK") {

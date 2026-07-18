@@ -30,10 +30,10 @@ export default function FloatingActions() {
   // ไม่แสดงในหน้า admin (มี layout ของตัวเอง)
   if (pathname.startsWith("/admin")) return null;
 
-  // หน้ารายละเอียดสินค้า (มือถือ) มีแถบ sticky CTA "ซื้อเลย" อยู่ล่างจอ (สูง ~56px เหนือ bottom-nav)
+  // หน้ารายละเอียดสินค้า (มือถือ) มี decision bar ซื้อสด/ผ่อน 2 แถวอยู่ล่างจอ
   // → ยกปุ่มลอยขึ้นเหนือแถบนั้น กันปุ่ม LINE ทับปุ่มซื้อ (เดสก์ท็อปไม่มีแถบนี้ ใช้ตำแหน่งปกติ)
   const onProductDetail = pathname.startsWith("/products/") && pathname !== "/products";
-  const mobileBottom = onProductDetail ? "bottom-[136px]" : "bottom-[76px]";
+  const mobileBottom = onProductDetail ? "bottom-[184px]" : "bottom-[76px]";
 
   return (
     <div className={`fixed ${mobileBottom} right-4 z-[90] flex flex-col items-end gap-3 md:bottom-6 md:right-6`}>

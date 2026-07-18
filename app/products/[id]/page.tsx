@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import api from "@/lib/api";
+import { getCatalogItem } from "@/lib/catalog";
 import { baht } from "@/lib/money";
 import { promoForItem, type PublicPromotion } from "@/lib/promo";
 import { LINE_URL } from "@/lib/contact";
@@ -85,8 +86,7 @@ export default function ProductDetailPage() {
       try {
         const raw = Array.isArray(params.id) ? params.id[0] : params.id;
         const id = decodeURIComponent(raw || "");
-        const res = await api.get("/catalog");
-        const found = (res.data as CatalogItem[]).find((c) => c.id === id) || null;
+        const found = await getCatalogItem<CatalogItem>(id);
         setItem(found);
         if (!found) toast.error("ไม่พบสินค้านี้");
       } catch (error) {
@@ -214,6 +214,10 @@ export default function ProductDetailPage() {
     else toast(r.reason || "เพิ่มไม่ได้", { icon: <ShoppingCart size={18} className="text-yellow-hover" /> });
   };
   const priceText = baht(effPrice, "สอบถามราคา");
+  const bestInstallmentTerm = installment?.terms?.reduce<InstallmentInfo["terms"][number] | null>(
+    (best, term) => !best || term.monthly < best.monthly ? term : best,
+    null,
+  ) ?? null;
   // โปร flash sale ของตัวที่เลือกอยู่ (แสดงผลเท่านั้น — server คิดจริงตอนสร้างออเดอร์)
   const flash = item.sold ? null : promoForItem(promos, { id: item.id, variantId: effVariantId, category: item.category }, effPrice);
   const warranty = item.warrantyExpire
@@ -240,7 +244,7 @@ export default function ProductDetailPage() {
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
           {/* image + แกลเลอรี */}
           <div>
-            <div className="relative flex aspect-square items-center justify-center rounded-2xl border border-border-default bg-white p-8">
+            <div className="product-stage-premium relative flex h-[min(52vh,420px)] items-center justify-center rounded-2xl border border-border-default p-6 lg:aspect-square lg:h-auto lg:p-8">
               <span className={`badge-dd absolute left-5 top-5 z-10 ${isNew ? "badge-success" : "badge-info"}`}>
                 {isNew ? <Sparkles size={12} /> : <RotateCcw size={12} />} {item.conditionLabel}
               </span>
@@ -254,7 +258,6 @@ export default function ProductDetailPage() {
               )}
               <AnimatePresence mode="wait" initial={false}>
                 {mainImg ? (
-                  // eslint-disable-next-line @next/next/no-img-element
                   <motion.div
                     key={mainImg}
                     className="relative h-full w-full max-w-sm"
@@ -272,18 +275,24 @@ export default function ProductDetailPage() {
               </AnimatePresence>
             </div>
             {images.length > 1 && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {images.map((src, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setActiveImg(i)}
-                    className={`h-16 w-16 overflow-hidden rounded-lg border bg-white p-1 transition ${i === activeImg ? "border-yellow ring-2 ring-yellow" : "border-border-default hover:border-text-muted"}`}
-                    aria-label={`ดูรูปที่ ${i + 1}`}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={src} alt={`${item.productName} รูปที่ ${i + 1}`} className="h-full w-full object-contain" />
-                  </button>
-                ))}
+              <div className="mt-4 rounded-2xl border border-border-default bg-white/80 p-3 backdrop-blur-sm">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-xs font-semibold text-text-heading">ภาพสินค้าหลายมุม</p>
+                  <p className="text-[11px] text-text-muted">{images.length} ภาพ · เลือกดูรายละเอียดได้</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {images.map((src, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setActiveImg(i)}
+                      className={`h-16 w-16 overflow-hidden rounded-lg border bg-white p-1 transition ${i === activeImg ? "border-yellow ring-2 ring-yellow" : "border-border-default hover:border-text-muted"}`}
+                      aria-label={`ดูรูปที่ ${i + 1}`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={src} alt={`${item.productName} รูปที่ ${i + 1}`} className="h-full w-full object-contain" />
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -306,32 +315,47 @@ export default function ProductDetailPage() {
               )}
             </div>
 
-            <div className="rounded-2xl border border-border-default bg-bg-subtle p-5">
-              <p className="text-sm text-text-muted">ราคา{isNew ? "เครื่องใหม่" : "เครื่องมือสอง"}</p>
+            <div className="overflow-hidden rounded-2xl border border-text-heading bg-text-heading p-5 text-white shadow-[0_16px_38px_rgba(17,24,39,0.18)]">
+              <p className="text-sm font-medium text-white/65">ราคา{isNew ? "เครื่องใหม่" : "เครื่องมือสอง"}</p>
               <div className="flex items-baseline gap-2">
                 {effPrice == null ? (
-                  <span className="text-2xl font-bold text-price md:text-3xl">สอบถามราคา</span>
+                  <span className="text-2xl font-bold text-white md:text-3xl">สอบถามราคา</span>
                 ) : flash ? (
                   <>
-                    <span className="mr-1 text-lg font-medium text-text-muted line-through">฿{effPrice.toLocaleString()}</span>
-                    <CountUp value={flash.priceAfter} prefix="฿" className="text-3xl font-bold text-price md:text-4xl" />
+                    <span className="mr-1 text-lg font-medium text-white/50 line-through">฿{effPrice.toLocaleString()}</span>
+                    <CountUp value={flash.priceAfter} prefix="฿" className="text-3xl font-bold text-yellow md:text-4xl" />
                   </>
                 ) : (
                   <>
-                    <CountUp value={effPrice} prefix="฿" className="text-3xl font-bold text-price md:text-4xl" />
+                    <CountUp value={effPrice} prefix="฿" className="text-3xl font-bold text-white md:text-4xl" />
                     {item.type === "GROUP" && item.maxPrice != null && item.maxPrice !== item.minPrice && (
-                      <span className="text-lg text-text-muted">- ฿{Number(item.maxPrice).toLocaleString()}</span>
+                      <span className="text-lg text-white/65">- ฿{Number(item.maxPrice).toLocaleString()}</span>
                     )}
                   </>
                 )}
                 {flash && (
-                  <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl bg-price/5 px-3 py-2 ring-1 ring-price/20">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-price px-2.5 py-0.5 text-xs font-bold text-white"><Zap size={11} className="fill-white" /> {flash.label}</span>
-                    <span className="text-sm font-semibold text-text-heading">{flash.name}</span>
+                  <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl bg-white/10 px-3 py-2 ring-1 ring-white/15">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-yellow px-2.5 py-0.5 text-xs font-bold text-text-heading"><Zap size={11} className="fill-text-heading" /> {flash.label}</span>
+                    <span className="text-sm font-semibold text-white">{flash.name}</span>
                     <FlashCountdown endAt={flash.endAt} />
-                    <span className="w-full text-[11px] text-text-muted">ส่วนลดคำนวณให้อัตโนมัติตอนชำระเงิน</span>
+                    <span className="w-full text-[11px] text-white/60">ส่วนลดคำนวณให้อัตโนมัติตอนชำระเงิน</span>
                   </div>
                 )}
+              </div>
+              {bestInstallmentTerm && (
+                <div className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-white/15 bg-white/15">
+                  <div className="bg-white/5 px-3 py-2.5">
+                    <p className="text-[11px] text-white/60">ดาวน์เริ่มต้น</p>
+                    <p className="mt-0.5 text-base font-bold text-yellow">{baht(installment?.downPayment)}</p>
+                  </div>
+                  <div className="bg-white/5 px-3 py-2.5">
+                    <p className="text-[11px] text-white/60">ผ่อนเริ่มต้น</p>
+                    <p className="mt-0.5 text-base font-bold text-white">{baht(bestInstallmentTerm.monthly)}<span className="ml-1 text-xs font-medium text-white/60">/เดือน</span></p>
+                  </div>
+                </div>
+              )}
+              <div className="mt-4 flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-medium text-white/65">
+                <span>ประกันตามเงื่อนไขสินค้า</span><span aria-hidden="true">•</span><span>สต็อกอัปเดตเรียลไทม์</span><span aria-hidden="true">•</span><span>จัดส่งทั่วไทย</span>
               </div>
             </div>
 
@@ -480,18 +504,32 @@ export default function ProductDetailPage() {
         <ProductReviews productName={item.productName} />
       </div>
 
-      {/* Sticky CTA (มือถือ) */}
-      <div className="fixed inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom))] z-[80] flex items-center gap-3 border-t border-border-default bg-white/95 px-4 py-3 backdrop-blur md:hidden">
-        <div className="flex-shrink-0">
-          <p className="text-[11px] text-text-muted">ราคา</p>
-          <p className="text-lg font-bold leading-none text-price">{priceText}</p>
+      {/* Sticky decision bar (มือถือ): ให้เทียบซื้อสดกับผ่อนได้ในจุดตัดสินใจเดียว */}
+      <div className="fixed inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom))] z-[80] border-t border-border-default bg-white/95 px-4 py-3 shadow-[0_-10px_30px_rgba(17,24,39,0.10)] backdrop-blur md:hidden">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] text-text-muted">{bestInstallmentTerm ? "ซื้อสด หรือเลือกผ่อน" : "ราคาซื้อสด"}</p>
+            <p className="text-lg font-bold leading-none text-price">{priceText}</p>
+          </div>
+          {bestInstallmentTerm && (
+            <p className="text-right text-xs font-semibold text-text-heading">
+              ผ่อนเริ่ม <span className="text-success-text">{baht(bestInstallmentTerm.monthly)}/ด.</span>
+            </p>
+          )}
+          <button disabled={!canBuy} onClick={addToCart} aria-label="เพิ่มลงตะกร้า" className="btn-secondary ml-auto px-3 py-2.5 disabled:opacity-40">
+            <ShoppingCart size={18} />
+          </button>
         </div>
-        <button disabled={!canBuy} onClick={addToCart} aria-label="เพิ่มลงตะกร้า" className="btn-secondary px-4 py-3 disabled:opacity-40">
-          <ShoppingCart size={18} />
-        </button>
-        <button disabled={!canBuy} onClick={buyNow} className="btn-primary flex-1 py-3 disabled:opacity-40">
-          <Zap size={18} /> {item.sold ? "ขายแล้ว" : item.quantity > 0 ? (item.minPrice == null ? "สอบถามราคา" : "ซื้อเลย") : "สินค้าหมด"}
-        </button>
+        <div className={`grid gap-2 ${bestInstallmentTerm ? "grid-cols-2" : "grid-cols-1"}`}>
+          <button disabled={!canBuy} onClick={buyNow} className="btn-secondary border-text-heading bg-white py-3 text-sm font-bold disabled:opacity-40">
+            <Zap size={17} /> {item.sold ? "ขายแล้ว" : item.quantity > 0 ? "ซื้อสด" : "สินค้าหมด"}
+          </button>
+          {bestInstallmentTerm && (
+            <a href={LINE_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-1.5 rounded-full bg-line px-3 py-3 text-sm font-bold text-white shadow-[var(--shadow-line)]">
+              <MessageCircle size={17} /> ผ่อนเริ่ม {baht(bestInstallmentTerm.monthly)}
+            </a>
+          )}
+        </div>
       </div>
     </div>
   );

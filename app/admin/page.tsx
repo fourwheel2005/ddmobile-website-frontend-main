@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
 import api from "@/lib/api";
-import { getApiError } from "@/lib/errorMessage";
+import { getApiError, getApiStatus } from "@/lib/errorMessage";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   LayoutDashboard, Smartphone, ClipboardList, Users,
@@ -34,13 +34,6 @@ interface InstallmentApp {
   status: string;
 }
 
-interface DashboardStats {
-  pendingRequests: number;
-  approvedThisMonth: number;
-  stockCount: number;
-  estimatedRevenue: string;
-}
-
 interface Customer {
   id: number;
   email: string;
@@ -62,13 +55,16 @@ interface WebOrder {
 interface StockSummary { totalAvailable: number; newAvailable: number; secondHandAvailable: number; }
 interface SalesBillLite { grandTotal: number | null; status: string | null; createdAt: string | null; }
 interface StockLowItem { id: string; sku: string; productName: string; currentQty: number; thresholdQty: number; }
-function toArr<T>(d: any): T[] { return Array.isArray(d) ? d : (Array.isArray(d?.content) ? d.content : []); }
+function toArr<T>(d: unknown): T[] {
+  if (Array.isArray(d)) return d as T[];
+  if (d && typeof d === "object" && Array.isArray((d as { content?: unknown }).content)) return (d as { content: T[] }).content;
+  return [];
+}
 
 export default function AdminDashboard() {
   const [activeMenu, setActiveMenu] = useState("ภาพรวมระบบ");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [applications, setApplications] = useState<InstallmentApp[]>([]);
-  const [statsData, setStatsData] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
 
@@ -121,7 +117,7 @@ export default function AdminDashboard() {
 
     const fetchData = async () => {
       try {
-        const [statsRes, appsRes, customersRes, ordersRes, sumRes, lowRes, salesRes] = await Promise.all([
+        const [, appsRes, customersRes, ordersRes, sumRes, lowRes, salesRes] = await Promise.all([
           api.get("/admin/stats"),
           api.get("/admin/applications"),
           api.get("/admin/customers"),
@@ -131,16 +127,15 @@ export default function AdminDashboard() {
           api.get("/admin/stock/sales").catch(() => null),
         ]);
 
-        setStatsData(statsRes.data);
         setApplications(appsRes.data);
         setCustomers(customersRes.data);
         setWebOrders(ordersRes.data);
         setStockSummary(sumRes?.data ?? null);
         setStockLow(toArr<StockLowItem>(lowRes?.data));
         setSalesBills(toArr<SalesBillLite>(salesRes?.data));
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Fetch Data Error:", error);
-        if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+        if ([401, 403].includes(getApiStatus(error) ?? 0)) {
           toast.error("เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่");
           localStorage.removeItem("token");
           localStorage.removeItem("user");
@@ -171,7 +166,7 @@ export default function AdminDashboard() {
       const res = await api.post(`/admin/orders/${id}/confirm`);
       setWebOrders(prev => prev.map(o => o.id === id ? res.data : o));
       toast.success("ยืนยันออเดอร์ + ตัดสต็อกสำเร็จ!");
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error(getApiError(error, "ยืนยันไม่สำเร็จ (อาจมีสินค้าถูกขายไปแล้ว)"));
     } finally {
       setBusyOrderId(null);
@@ -185,7 +180,7 @@ export default function AdminDashboard() {
       const res = await api.post(`/admin/orders/${id}/reject`);
       setWebOrders(prev => prev.map(o => o.id === id ? res.data : o));
       toast.success("ปฏิเสธคำสั่งซื้อแล้ว");
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error(getApiError(error, "ทำรายการไม่สำเร็จ"));
     } finally {
       setBusyOrderId(null);
@@ -200,7 +195,7 @@ export default function AdminDashboard() {
       setWebOrders(prev => prev.map(o => o.id === id ? res.data : o));
       toast.success("อัปเดตสถานะแล้ว");
       setShipModal(null); setShipPartner(""); setShipTracking("");
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error(getApiError(error, "อัปเดตสถานะไม่สำเร็จ"));
     } finally {
       setBusyOrderId(null);
@@ -657,6 +652,8 @@ export default function AdminDashboard() {
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }} className="modal-dd max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
               <button onClick={closeSlipModal} className="modal-close"><X size={20} /></button>
               <h2 className="card-title flex items-center gap-2"><Eye size={20} className="text-info-text" /> สลิปการโอนเงิน</h2>
+              {/* blob: URL เป็นไฟล์ชั่วคราวใน browser จึงไม่ผ่าน Next image optimizer */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={slipModal.url} alt="สลิปการโอน" className="mt-4 w-full rounded-lg border border-border-default" />
             </motion.div>
           </div>

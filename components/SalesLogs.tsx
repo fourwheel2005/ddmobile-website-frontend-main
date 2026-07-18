@@ -1,8 +1,9 @@
 "use client";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import api from "@/lib/api";
+import { getApiStatus } from "@/lib/errorMessage";
 import {
-  Receipt, ArrowDownUp, RefreshCw, Loader2, Search,
+  Receipt, ArrowDownUp, RefreshCw, Search,
   Globe, Store, ArrowDownToLine, ArrowUpFromLine, Settings2
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -25,8 +26,10 @@ interface StockTxn {
   performedAt: string | null;
 }
 
-function toArr<T>(d: any): T[] {
-  return Array.isArray(d) ? d : (Array.isArray(d?.content) ? d.content : []);
+function toArr<T>(d: unknown): T[] {
+  if (Array.isArray(d)) return d as T[];
+  if (d && typeof d === "object" && Array.isArray((d as { content?: unknown }).content)) return (d as { content: T[] }).content;
+  return [];
 }
 import { baht as money } from "@/lib/money";
 const dt = (v: string | null) => {
@@ -80,8 +83,8 @@ export default function SalesLogs() {
       ]);
       setSales(toArr<SalesBill>(salesRes.data));
       setMoves(toArr<StockTxn>(movesRes.data));
-    } catch (error: any) {
-      toast.error(error?.response?.status === 503
+    } catch (error: unknown) {
+      toast.error(getApiStatus(error) === 503
         ? "เชื่อมต่อระบบ Stock ไม่ได้ในขณะนี้"
         : "ดึงบันทึกการขาย/สต็อกไม่สำเร็จ");
     } finally {

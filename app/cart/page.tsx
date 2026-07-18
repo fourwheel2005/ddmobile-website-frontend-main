@@ -1,6 +1,7 @@
 "use client";
 import { useCart } from "@/context/CartContext";
 import Link from "next/link";
+import Image from "next/image";
 import Reveal from "@/components/Reveal";
 import { useRouter } from "next/navigation";
 import { ShoppingCart, Trash2, Minus, Plus, Smartphone, ArrowRight, Sparkles, RotateCcw } from "lucide-react";
@@ -44,7 +45,7 @@ export default function CartPage() {
             {items.map((it) => (
               <div key={it.catalogId} className="card-dd flex gap-4 !p-3">
                 <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-bg-subtle">
-                  {it.imageUrl ? <img src={it.imageUrl} alt={it.productName} className="h-full w-full object-contain p-1" /> : <Smartphone size={28} className="text-text-disabled" />}
+                  {it.imageUrl ? <Image src={it.imageUrl} alt={it.productName} width={80} height={80} sizes="80px" className="h-full w-full object-contain p-1" /> : <Smartphone size={28} className="text-text-disabled" />}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">

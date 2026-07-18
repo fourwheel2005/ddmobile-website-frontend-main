@@ -1,7 +1,7 @@
 "use client";
 import {
   CheckCircle2, MessageCircle, Phone,
-  Target, Users, RefreshCw, Lightbulb, Heart, Clock, TrendingUp, Smartphone, Banknote
+  Target, Users, RefreshCw, Lightbulb, Heart, Clock, TrendingUp, Banknote
 } from "lucide-react";
 
 export default function ContactPage() {
@@ -15,14 +15,14 @@ export default function ContactPage() {
           <h1 className="text-3xl font-bold text-text-heading md:text-5xl">
             จุดเริ่มต้นของ <span className="text-yellow-hover">ดีดี โมบาย</span>
           </h1>
-          <p className="mt-4 text-lg font-medium text-text-muted">"เพื่อนที่คอยช่วยเหลือคุณ ให้มีชีวิตที่ดีขึ้น"</p>
+          <p className="mt-4 text-lg font-medium text-text-muted">&ldquo;เพื่อนที่คอยช่วยเหลือคุณ ให้มีชีวิตที่ดีขึ้น&rdquo;</p>
 
           <div className="card-dd mt-8">
             <p className="leading-loose text-text-body">
               ใครหลายๆ คนอยากมีไอโฟนสักเครื่อง เป็นเหมือนมือถือในฝัน ที่จะมาคอยจัดการเรื่องต่างๆ ให้ง่ายขึ้น ใช้ชีวิตง่ายขึ้น มีคุณภาพชีวิตที่ดีขึ้น แต่เวลาที่เราอยากได้ไอโฟน การซื้อด้วยเงินสดนั้นไม่ง่ายเลย การผ่อนเองก็เป็นเรื่องยุ่งยากหากเราไม่มีบัตรเครดิต ทำให้คนที่ไม่มีบัตรหรือติดบูโรไม่สามารถผ่อนไอโฟนได้ง่าย เราเข้าใจเรื่องนี้ดี
             </p>
             <h3 className="mt-5 text-xl font-bold leading-snug text-yellow-hover md:text-2xl">
-              "เพราะเราเห็นโอกาสว่า เราสามารถช่วยให้คนทุกคนจับต้องสิ่งที่ฝันได้"
+              &ldquo;เพราะเราเห็นโอกาสว่า เราสามารถช่วยให้คนทุกคนจับต้องสิ่งที่ฝันได้&rdquo;
             </h3>
           </div>
         </div>
@@ -61,7 +61,7 @@ export default function ContactPage() {
       <section className="bg-bg-subtle py-12 md:py-16">
         <div className="container-dd">
           <p className="section-label">ค่านิยมองค์กร (U-FRIEND)</p>
-          <h2 className="text-xl font-bold text-text-muted md:text-2xl">"มุ่งมั่นที่จะพัฒนาคุณภาพชีวิตของผู้คนให้ได้มากที่สุด"</h2>
+          <h2 className="text-xl font-bold text-text-muted md:text-2xl">&ldquo;มุ่งมั่นที่จะพัฒนาคุณภาพชีวิตของผู้คนให้ได้มากที่สุด&rdquo;</h2>
           <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {coreValues.map((value, idx) => (
               <div key={idx} className="card-dd">

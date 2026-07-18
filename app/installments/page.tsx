@@ -1,10 +1,42 @@
 "use client";
+import { useEffect, useState } from "react";
 import {
   CheckCircle2, MessageCircle, FileSignature, ShoppingBag, UserCheck, FileText
 } from "lucide-react";
 import Link from "next/link";
+import api from "@/lib/api";
+import type { InstallmentPlan, InstallmentSerial } from "@/lib/installment";
 
 export default function InstallmentsPage() {
+  const [minMonthly, setMinMonthly] = useState<number | null>(null);
+  const [rateReady, setRateReady] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadLowestInstallment = async () => {
+      try {
+        const [plansRes, serialsRes] = await Promise.all([
+          api.get("/installment/plans"),
+          api.get("/installment/serials"),
+        ]);
+        const plans = Array.isArray(plansRes.data) ? plansRes.data as InstallmentPlan[] : [];
+        const serials = Array.isArray(serialsRes.data) ? serialsRes.data as InstallmentSerial[] : [];
+        const monthlyValues = [
+          ...plans.flatMap((plan) => plan.terms ?? []).map((term) => term.monthly),
+          ...serials.flatMap((serial) => serial.terms ?? []).map((term) => term.monthly),
+          ...serials.map((serial) => serial.monthly),
+        ].filter((value): value is number => typeof value === "number" && Number.isFinite(value) && value > 0);
+        if (!cancelled) setMinMonthly(monthlyValues.length > 0 ? Math.min(...monthlyValues) : null);
+      } catch {
+        // ไม่เดาราคาเมื่อข้อมูลตารางผ่อนไม่พร้อม
+      } finally {
+        if (!cancelled) setRateReady(true);
+      }
+    };
+    loadLowestInstallment();
+    return () => { cancelled = true; };
+  }, []);
+
   return (
     <div className="page-wrapper min-h-screen bg-bg-base">
 
@@ -13,15 +45,15 @@ export default function InstallmentsPage() {
         <div className="container-dd py-12 md:py-16">
           <span className="badge-dd badge-warning">อาชีพไหนก็ผ่อนได้</span>
           <h1 className="mt-4 text-3xl font-bold text-text-heading md:text-5xl">
-            อยากได้ไอโฟน แต่ไม่มีบัตรเครดิต <span className="text-yellow-hover">ทำไงดี?</span>
+            อยากได้มือถือ แต่ไม่มีบัตรเครดิต <span className="text-yellow-hover">ทำไงดี?</span>
           </h1>
           <p className="mt-4 max-w-2xl text-text-muted">
-            ที่ ดีดี โมบาย เราเปิดโอกาสให้ทุกคนเป็นเจ้าของ iPhone ได้ง่ายๆ ดาวน์ถูก ผ่อนสบาย อนุมัติไว ไม่ต้องมีคนค้ำประกัน
+            ที่ ดีดี โมบาย เราช่วยให้คุณเลือกแผนผ่อนตามรุ่นและคุณสมบัติของคุณได้ง่ายขึ้น โดยแอดมินจะยืนยันเงื่อนไขก่อนดำเนินการทุกครั้ง
           </p>
           <div className="mt-6 inline-flex items-baseline gap-3 rounded-2xl border border-border-default bg-white px-6 py-4 shadow-card">
-            <span className="text-sm text-text-muted">ผ่อนเริ่มต้นเพียง</span>
-            <span className="text-3xl font-bold text-price">฿1,570</span>
-            <span className="text-sm text-text-muted">/เดือน</span>
+            <span className="text-sm text-text-muted">{rateReady && minMonthly == null ? "ดูแผนผ่อนของแต่ละรุ่น" : "ผ่อนเริ่มต้นเพียง"}</span>
+            {minMonthly != null && <><span className="text-3xl font-bold text-price">฿{minMonthly.toLocaleString()}</span><span className="text-sm text-text-muted">/เดือน</span></>}
+            {!rateReady && <span className="text-sm font-medium text-text-muted">กำลังตรวจแผนผ่อน…</span>}
           </div>
         </div>
       </section>

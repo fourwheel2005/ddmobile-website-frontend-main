@@ -2,8 +2,8 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * นับเลขขึ้นแบบ ease-out (requestAnimationFrame)
- * เริ่มนับเมื่อ element เข้าจอ (Intersection Observer) + เคารพ prefers-reduced-motion
+ * นับเลขขึ้นแบบ ease-out เมื่อค่ามีการเปลี่ยน เช่น ผู้ใช้เลือกสีหรือความจุอื่น
+ * ราคาต้องแสดงค่าจริงตั้งแต่ first paint เพื่อไม่ให้เกิดการเห็น "฿0" ชั่วคราว
  */
 export default function CountUp({
   value,
@@ -19,56 +19,28 @@ export default function CountUp({
   className?: string;
 }) {
   const ref = useRef<HTMLSpanElement>(null);
-  const [display, setDisplay] = useState(0);
-  const started = useRef(false);   // เริ่มนับแล้วหรือยัง (ครั้งแรกตอนเข้าจอ)
-  const from = useRef(0);          // ค่าเริ่มของรอบนับปัจจุบัน (เพื่อ tween จากเลขเดิม → เลขใหม่)
+  const [display, setDisplay] = useState(value);
+  const previousValue = useRef(value);
+  const mounted = useRef(false);
 
-  // value เปลี่ยนหลังเริ่มนับแล้ว (เช่นสลับสี/ความจุในหน้าสินค้า) → นับใหม่จากเลขที่โชว์อยู่ ไม่ค้างเลขเดิม
+  // ไม่ animate ตอน mount; animate เฉพาะเมื่อ value เปลี่ยนหลังผู้ใช้เลือก option ใหม่
   useEffect(() => {
-    if (!started.current) return;
+    if (!mounted.current) {
+      mounted.current = true;
+      previousValue.current = value;
+      return;
+    }
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) { setDisplay(value); return; }
-    from.current = display;
+    const from = previousValue.current;
+    previousValue.current = value;
     const start = performance.now();
     const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
     let raf = requestAnimationFrame(function tick(now) {
       const p = Math.min((now - start) / duration, 1);
-      setDisplay(Math.round(from.current + (value - from.current) * easeOutCubic(p)));
+      setDisplay(Math.round(from + (value - from) * easeOutCubic(p)));
       if (p < 1) raf = requestAnimationFrame(tick);
     });
     return () => cancelAnimationFrame(raf);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setDisplay(value);
-      return;
-    }
-
-    const run = () => {
-      if (started.current) return;
-      started.current = true;
-      const start = performance.now();
-      const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
-      let raf = 0;
-      const tick = (now: number) => {
-        const p = Math.min((now - start) / duration, 1);
-        setDisplay(Math.round(easeOutCubic(p) * value));
-        if (p < 1) raf = requestAnimationFrame(tick);
-      };
-      raf = requestAnimationFrame(tick);
-      return () => cancelAnimationFrame(raf);
-    };
-
-    const io = new IntersectionObserver(
-      (entries) => entries.forEach((e) => { if (e.isIntersecting) { run(); io.unobserve(e.target); } }),
-      { threshold: 0.3 }
-    );
-    io.observe(el);
-    return () => io.disconnect();
   }, [value, duration]);
 
   return (
