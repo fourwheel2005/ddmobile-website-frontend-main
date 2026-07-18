@@ -1,6 +1,6 @@
 "use client";
-import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { Suspense, useState, useEffect } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import api from "@/lib/api";
@@ -55,9 +55,23 @@ interface CatalogItem {
   soldAt?: string | null;
 }
 
+function safeProductsReturn(raw: string | null) {
+  return raw && /^\/products(?:\?|$)/.test(raw) ? raw : "/products";
+}
+
 export default function ProductDetailPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-bg-base" />}>
+      <ProductDetailContent />
+    </Suspense>
+  );
+}
+
+function ProductDetailContent() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnTo = safeProductsReturn(searchParams.get("returnTo"));
   const { add } = useCart();
   const reduceMotion = useReducedMotion();
   const [item, setItem] = useState<CatalogItem | null>(null);
@@ -232,12 +246,12 @@ export default function ProductDetailPage() {
         <nav aria-label="breadcrumb" className="mb-4 flex flex-wrap items-center gap-1.5 text-sm text-text-muted">
           <Link href="/" className="hover:text-text-heading">หน้าหลัก</Link>
           <ChevronRight size={14} />
-          <Link href="/products" className="hover:text-text-heading">สินค้าทั้งหมด</Link>
+          <Link href={returnTo} className="hover:text-text-heading">สินค้าทั้งหมด</Link>
           <ChevronRight size={14} />
           <span className="line-clamp-1 font-medium text-text-heading">{item.productName}</span>
         </nav>
 
-        <button onClick={() => router.back()} className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-text-muted hover:text-text-heading">
+        <button onClick={() => router.push(returnTo)} className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-text-muted hover:text-text-heading">
           <ArrowLeft size={18} /> ย้อนกลับ
         </button>
 
@@ -260,14 +274,14 @@ export default function ProductDetailPage() {
                 {mainImg ? (
                   <motion.div
                     key={mainImg}
-                    className="relative h-full w-full max-w-sm"
+                    className="relative h-full w-full max-w-[78%]"
                     initial={reduceMotion ? false : { opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 1.03 }}
                     transition={{ duration: reduceMotion ? 0 : 0.28, ease: "easeOut" }}
                   >
-                    <Image src={mainImg} alt={item.productName} fill priority sizes="(max-width: 1024px) 90vw, 45vw"
-                           className={`object-contain ${item.sold ? "opacity-40 grayscale" : ""}`} />
+                    <Image src={mainImg} alt={item.productName} fill priority sizes="(max-width: 1024px) 78vw, 40vw"
+                           className={`${isUnit ? "object-contain scale-110" : "object-contain"} transition-transform duration-300 ${item.sold ? "opacity-40 grayscale" : ""}`} />
                   </motion.div>
                 ) : (
                   <Smartphone size={120} className="text-text-disabled" />

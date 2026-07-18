@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect, useMemo, useRef } from "react";
+import { Suspense, useState, useEffect, useMemo, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import api from "@/lib/api";
 import { getCatalog } from "@/lib/catalog";
 import { baht } from "@/lib/money";
@@ -53,6 +54,9 @@ interface CatalogItem {
 type SortKey = "recommended" | "price-asc" | "price-desc" | "newest" | "name";
 type Cond = "NEW" | "SECOND_HAND" | "ACCESSORY";
 
+const conditionFromParam = (value: string | null): Cond =>
+  value === "SECOND_HAND" || value === "ACCESSORY" ? value : "NEW";
+
 // จัดหมวดหลักของสินค้า: อุปกรณ์เสริม (GROUP) แยกออกจากมือถือ · มือถือแบ่งมือ1/มือ2
 const kindOf = (it: { type: string; condition: string }): Cond =>
   it.type === "GROUP" ? "ACCESSORY" : (it.condition === "SECOND_HAND" ? "SECOND_HAND" : "NEW");
@@ -76,6 +80,16 @@ function Highlight({ text, query }: { text: string; query: string }) {
 }
 
 export default function ProductsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-bg-base" />}>
+      <ProductsContent />
+    </Suspense>
+  );
+}
+
+function ProductsContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { add } = useCart();
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -83,7 +97,7 @@ export default function ProductsPage() {
 
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("recommended");
-  const [cond, setCond] = useState<Cond>("NEW");
+  const [cond, setCond] = useState<Cond>(() => conditionFromParam(searchParams.get("condition")));
   const [maxPrice, setMaxPrice] = useState<string>("");
   const [showSuggest, setShowSuggest] = useState(false);
   const [plans, setPlans] = useState<InstallmentPlan[]>([]);
@@ -91,6 +105,13 @@ export default function ProductsPage() {
   const [promos, setPromos] = useState<PublicPromotion[]>([]);   // โปรอัตโนมัติ — โชว์ป้าย/ราคาขีดฆ่า (server คิดจริงตอนสั่งซื้อ)
   const [ratings, setRatings] = useState<Map<string, { average: number; count: number }>>(new Map());   // ★ ต่อสินค้า (จากรีวิวผู้ซื้อจริง)
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const listHref = `/products?condition=${cond}`;
+  const detailHref = (id: string) => `/products/${encodeURIComponent(id)}?returnTo=${encodeURIComponent(listHref)}`;
+
+  const changeCondition = (next: Cond) => {
+    setCond(next);
+    router.replace(`/products?condition=${next}`, { scroll: false });
+  };
 
   useEffect(() => {
     const fetchCatalog = async () => {
@@ -218,7 +239,7 @@ export default function ProductsPage() {
             {showSuggest && suggestions.length > 0 && (
               <div className="absolute z-30 mt-2 w-full overflow-hidden rounded-xl border border-border-default bg-white shadow-[var(--shadow-hover)]" onMouseDown={() => { if (blurTimer.current) clearTimeout(blurTimer.current); }}>
                 {suggestions.map((s) => (
-                  <Link key={s.id} href={`/products/${encodeURIComponent(s.id)}`} className="flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-bg-subtle">
+                  <Link key={s.id} href={detailHref(s.id)} className="flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-bg-subtle">
                     <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-bg-subtle">
                       {s.imageUrl ? <Image src={s.imageUrl} alt={s.productName} width={40} height={40} sizes="40px" className="h-full w-full object-contain p-1" /> : <Smartphone size={18} className="text-text-disabled" />}
                     </div>
@@ -243,7 +264,7 @@ export default function ProductsPage() {
           ] as const).map(([k, label, Icon, activeBg]) => (
             <button
               key={k}
-              onClick={() => setCond(k)}
+              onClick={() => changeCondition(k)}
               className={`inline-flex items-center gap-1.5 rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors ${cond === k ? `${activeBg} text-white` : "text-text-body hover:text-text-heading"}`}
             >
               <Icon size={15} /> {label} <span className="opacity-70">({condCounts[k]})</span>
@@ -297,7 +318,7 @@ export default function ProductsPage() {
                     return (
                     <motion.div key={it.id} layout initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.25 }}>
                       <Tilt className="h-full" max={5} scale={1.02} radius={18}>
-                      <Link href={`/products/${encodeURIComponent(it.id)}`} className="card-dd group flex h-full flex-col overflow-hidden !p-0">
+                      <Link href={detailHref(it.id)} className="card-dd group flex h-full flex-col overflow-hidden !p-0">
                     <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-bg-subtle p-4">
                       <span className={`badge-dd absolute left-3 top-3 z-10 ${it.condition === "NEW" ? "badge-success" : "badge-info"}`}>
                         {it.condition === "NEW" ? <Sparkles size={11} /> : <RotateCcw size={11} />} {it.conditionLabel}

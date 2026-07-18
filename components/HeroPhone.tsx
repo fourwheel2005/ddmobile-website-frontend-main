@@ -40,9 +40,10 @@ export default function HeroPhone() {
       onMouseMove={handleMove}
       onMouseLeave={handleLeave}
     >
-      <div className="absolute h-64 w-64 rounded-full bg-yellow/25 blur-3xl md:h-80 md:w-80" aria-hidden="true" />
-      <div className="absolute inset-[8%] rounded-[2.5rem] border border-white/70 bg-white/20 shadow-[var(--glow-premium)] backdrop-blur-[1px]" aria-hidden="true" />
-      <div className="absolute inset-x-[12%] top-[12%] h-px bg-gradient-to-r from-transparent via-yellow/80 to-transparent" aria-hidden="true" />
+      {/* แสงรองรับสินค้าแบบไร้กรอบ: ไม่ใช้การ์ดสีขาวซ้อนหลังเครื่อง เพราะทำให้ภาพดูเหมือนถูกแปะอยู่ในกล่อง */}
+      <div className="absolute h-64 w-64 rounded-full bg-yellow/30 blur-3xl md:h-80 md:w-80" aria-hidden="true" />
+      <div className="absolute inset-[13%] rounded-[48%] border border-yellow/35 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.42),transparent_68%)]" aria-hidden="true" />
+      <div className="absolute inset-x-[20%] top-[13%] h-px bg-gradient-to-r from-transparent via-yellow/65 to-transparent" aria-hidden="true" />
 
       <Chip className="left-[0%] top-[14%]" delay={0} reduce={!!reduce}>
         <Sparkles size={13} className="text-success-text" /> มือ 1 ของแท้
