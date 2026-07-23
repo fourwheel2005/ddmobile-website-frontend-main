@@ -7,7 +7,7 @@ import api from "@/lib/api";
 import { getCatalogItem } from "@/lib/catalog";
 import { baht } from "@/lib/money";
 import { promoForItem, type PublicPromotion } from "@/lib/promo";
-import { LINE_URL } from "@/lib/contact";
+import { lineChatUrl } from "@/lib/contact";
 import {
   Smartphone, ShieldCheck, CheckCircle2, XCircle,
   MessageCircle, ArrowLeft, ChevronRight, Sparkles, RotateCcw, BatteryMedium, Hash, ShoppingCart, Zap
@@ -500,7 +500,7 @@ function ProductDetailContent() {
               </div>
               {/* ผ่อน → ทักไลน์โดยตรง (เมื่อมีกล่องผ่อน InstallmentBox มีปุ่มผ่อนของตัวเองแล้ว) · ไม่โชว์กับเครื่องขายแล้ว */}
               {!item.sold && !installment && (
-                <a href={LINE_URL} target="_blank" rel="noopener noreferrer"
+                <a href={lineChatUrl(`สนใจผ่อนเครื่องนี้: ${item.productName}`)} target="_blank" rel="noopener noreferrer"
                   className="line-cta group flex w-full items-center gap-3 rounded-full bg-line px-5 py-3.5 text-white shadow-[var(--shadow-line)] transition-transform hover:-translate-y-0.5">
                   <MessageCircle size={24} className="flex-shrink-0" />
                   <span className="flex flex-col text-left leading-tight">
@@ -539,7 +539,7 @@ function ProductDetailContent() {
             <Zap size={17} /> {item.sold ? "ขายแล้ว" : item.quantity > 0 ? "ซื้อสด" : "สินค้าหมด"}
           </button>
           {bestInstallmentTerm && (
-            <a href={LINE_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-1.5 rounded-full bg-line px-3 py-3 text-sm font-bold text-white shadow-[var(--shadow-line)]">
+            <a href={lineChatUrl(`สนใจผ่อนเครื่องนี้: ${item.productName}`)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-1.5 rounded-full bg-line px-3 py-3 text-sm font-bold text-white shadow-[var(--shadow-line)]">
               <MessageCircle size={17} /> ผ่อนเริ่ม {baht(bestInstallmentTerm.monthly)}
             </a>
           )}

@@ -21,13 +21,14 @@ interface ProductInfo {
   price?: number | null;
 }
 
-import { LINE_URL } from "@/lib/contact";
+import { lineChatUrl } from "@/lib/contact";
 import { baht } from "@/lib/money";
 
 /**
  * กล่องผ่อน + ปุ่มดึงเข้า LINE (เหมือนตัวอย่าง ufriend):
- * แสดง เงินดาวน์ + ค่างวดต่อเดือน (เลือกจำนวนงวดได้) แล้วปุ่มจะคัดลอกข้อมูลเครื่อง
- * ให้ลูกค้าวางในแชท LINE OA เพื่อให้แอดมินดำเนินการต่อ
+ * แสดง เงินดาวน์ + ค่างวดต่อเดือน (เลือกจำนวนงวดได้) แล้วปุ่มเปิดแชท LINE OA
+ * พร้อมข้อความข้อมูลเครื่องพิมพ์รอไว้ในช่องแชทให้เลย (ไม่ต้องสแกน QR)
+ * และคัดลอกข้อความสำรองไว้ในคลิปบอร์ด เผื่อกรณีข้อความไม่ติดไปกับ deep link
  */
 export default function InstallmentBox({ info, product }: { info: InstallmentInfo; product: ProductInfo }) {
   const terms = info.terms ?? [];
@@ -49,15 +50,15 @@ export default function InstallmentBox({ info, product }: { info: InstallmentInf
     return lines.join("\n");
   };
 
-  const goLine = async () => {
+  const goLine = () => {
     const msg = buildMessage();
-    try {
-      await navigator.clipboard.writeText(msg);
-      toast.success("คัดลอกข้อมูลแล้ว — วางในแชท LINE ได้เลย", { duration: 4000 });
-    } catch {
-      toast("เปิด LINE แล้วพิมพ์สอบถามแอดมินได้เลย", { icon: <MessageCircle size={18} className="text-line" /> });
-    }
-    window.open(LINE_URL, "_blank", "noopener,noreferrer");
+    // เปิดลิงก์ทันทีใน user gesture เดียวกัน — ถ้าไปเรียกหลัง await clipboard
+    // Safari/iOS จะมองว่าหมด gesture แล้วบล็อก popup ทำให้ LINE ไม่เด้ง
+    window.open(lineChatUrl(msg), "_blank", "noopener,noreferrer");
+    navigator.clipboard?.writeText(msg).then(
+      () => toast.success("เปิดแชท LINE พร้อมข้อมูลเครื่องแล้ว — ถ้าข้อความไม่ขึ้น วางจากที่คัดลอกไว้ได้เลย", { duration: 4000 }),
+      () => toast("เปิดแชท LINE แล้ว ส่งข้อความหาแอดมินได้เลย", { icon: <MessageCircle size={18} className="text-line" /> }),
+    );
   };
 
   return (
@@ -140,7 +141,7 @@ export default function InstallmentBox({ info, product }: { info: InstallmentInf
           <MessageCircle size={20} /> ยืนยันผ่อนเครื่องนี้ · ทักแอดมินทาง LINE
         </button>
         <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-xs text-text-muted">
-          <Copy size={12} /> กดแล้วระบบจะคัดลอกข้อมูลเครื่องให้ — วางส่งแอดมินใน LINE ได้เลย
+          <Copy size={12} /> กดแล้วเข้าแชท LINE ทันที พร้อมข้อมูลเครื่องพิมพ์รอไว้ให้ — กดส่งได้เลย
         </p>
       </div>
     </div>

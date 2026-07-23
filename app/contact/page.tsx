@@ -3,6 +3,7 @@ import {
   CheckCircle2, MessageCircle, Phone,
   Target, Users, RefreshCw, Lightbulb, Heart, Clock, TrendingUp, Banknote
 } from "lucide-react";
+import { LINE_URL, FACEBOOK_URL, TEL, TEL_HREF } from "@/lib/contact";
 
 export default function ContactPage() {
   return (
@@ -84,9 +85,9 @@ export default function ContactPage() {
 
           <div className="mx-auto mt-7 grid max-w-3xl grid-cols-1 gap-3 md:grid-cols-3">
             {[
-              { icon: <MessageCircle className="h-6 w-6" />, label: "LINE Official", sub: "ไอโฟนผ่อนง่าย", href: "https://lin.ee/rewiz9b" },
-              { icon: <Users className="h-6 w-6" />, label: "Facebook Page", sub: "ไอโฟนผ่อนง่ายสำรอง", href: "https://www.facebook.com/iphoneeasyinstallment" },
-              { icon: <Phone className="h-6 w-6" />, label: "เบอร์โทรศัพท์", sub: "088-818-8385", href: "tel:0888188385" },
+              { icon: <MessageCircle className="h-6 w-6" />, label: "LINE Official", sub: "ไอโฟนผ่อนง่าย", href: LINE_URL },
+              { icon: <Users className="h-6 w-6" />, label: "Facebook Page", sub: "ไอโฟนผ่อนง่ายสำรอง", href: FACEBOOK_URL },
+              { icon: <Phone className="h-6 w-6" />, label: "เบอร์โทรศัพท์", sub: TEL, href: TEL_HREF },
             ].map((c, i) => (
               <a key={i} href={c.href} target={c.href.startsWith("http") ? "_blank" : undefined} rel="noopener noreferrer"
                 className="flex flex-col items-center gap-2 rounded-2xl bg-white p-6 text-center transition-transform hover:-translate-y-0.5">
@@ -97,7 +98,7 @@ export default function ContactPage() {
             ))}
           </div>
 
-          <a href="https://lin.ee/rewiz9b" target="_blank" rel="noopener noreferrer"
+          <a href={LINE_URL} target="_blank" rel="noopener noreferrer"
             className="mt-7 inline-flex items-center justify-center gap-2 rounded-full bg-text-heading px-8 py-3.5 font-semibold text-white transition-transform hover:-translate-y-0.5">
             <MessageCircle className="h-5 w-5" /> ทักแชทแอดมินทันที
           </a>
