@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import {
@@ -41,6 +41,9 @@ export default function TradeInPage() {
   const storagesForModel = useMemo(() => prices.filter((p) => p.model === form.model).map((p) => p.storage), [prices, form.model]);
   const basePrice = useMemo(() => prices.find((p) => p.model === form.model && p.storage === form.storage)?.basePrice ?? null, [prices, form.model, form.storage]);
   const estimated = useMemo(() => estimatePrice(basePrice, form), [basePrice, form]);
+  // โชว์ราคาประเมินเฉพาะเมื่อเลือกสภาพครบ (ไม่งั้นจะโชว์ราคาเต็ม = ชวนเข้าใจผิด)
+  const conditionDone = !!(form.battery && form.accessories && form.warranty && form.body && form.screen && form.region && form.problems.length > 0);
+  const shownEstimate = conditionDone ? estimated : null;
 
   const pickModel = (value: string) => {
     if (value === OTHER_MODEL) { setCustomModel(true); set({ model: "", storage: "" }); return; }
@@ -127,18 +130,17 @@ export default function TradeInPage() {
                 </div>
               )}
             </Field>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="ความจุ *">
-                {!customModel && storagesForModel.length > 0 ? (
-                  <RadioCards options={storagesForModel.map((s) => ({ value: s, label: s }))} value={form.storage} onChange={(v) => set({ storage: v })} cols={3} compact />
-                ) : (
-                  <RadioCards options={STORAGES} value={form.storage} onChange={(v) => set({ storage: v })} cols={3} compact />
-                )}
-              </Field>
-              <Field label="สี (ถ้าทราบ)">
-                <input value={form.color} onChange={(e) => set({ color: e.target.value })} className="input-dd" placeholder="เช่น Black Titanium" />
-              </Field>
-            </div>
+            {/* ความจุ — เต็มความกว้าง (กันการ์ดแออัด/label ตัดบรรทัด) */}
+            <Field label="ความจุ *">
+              {!customModel && storagesForModel.length > 0 ? (
+                <RadioCards options={storagesForModel.map((s) => ({ value: s, label: s }))} value={form.storage} onChange={(v) => set({ storage: v })} cols={3} compact />
+              ) : (
+                <RadioCards options={STORAGES} value={form.storage} onChange={(v) => set({ storage: v })} cols={3} compact />
+              )}
+            </Field>
+            <Field label="สี (ถ้าทราบ)">
+              <input value={form.color} onChange={(e) => set({ color: e.target.value })} className="input-dd sm:max-w-sm" placeholder="เช่น Black Titanium" />
+            </Field>
             <Field label="เวอร์ชันเครื่อง *">
               <RadioCards options={REGIONS} value={form.region} onChange={(v) => set({ region: v })} cols={3} />
             </Field>
@@ -186,20 +188,24 @@ export default function TradeInPage() {
             </Field>
           </FormCard>
 
-          {/* ราคาประเมินเบื้องต้น (คำนวณสดจากราคาฐาน − หักตามสภาพ) */}
-          {estimated != null ? (
+          {/* ราคาประเมินเบื้องต้น (คำนวณสดจากราคาฐาน − หักตามสภาพ) — โชว์เมื่อเลือกสภาพครบ */}
+          {shownEstimate != null ? (
             <div className="overflow-hidden rounded-2xl border-2 border-yellow bg-yellow/10">
-              <div className="flex items-center justify-between gap-3 p-5">
-                <div>
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 p-5">
+                <div className="min-w-0">
                   <p className="flex items-center gap-1.5 text-sm font-semibold text-text-heading"><Wallet size={16} className="text-yellow-hover" /> ราคาประเมินเบื้องต้น</p>
-                  <p className="mt-0.5 text-xs text-text-muted">{form.model} {form.storage} · หักตามสภาพที่เลือก</p>
+                  <p className="mt-0.5 truncate text-xs text-text-muted">{form.model} {form.storage} · หักตามสภาพที่เลือก</p>
                 </div>
-                <p className="flex-shrink-0 text-2xl font-bold text-price md:text-3xl">{baht(estimated)}</p>
+                <p className="flex-shrink-0 text-2xl font-bold text-price md:text-3xl">{baht(shownEstimate)}</p>
               </div>
             </div>
-          ) : (form.model && form.storage) ? (
+          ) : (basePrice == null && form.model && form.storage) ? (
             <div className="rounded-2xl border border-info-border bg-info-bg p-4 text-sm text-info-text">
               <p className="flex items-start gap-1.5"><Wallet size={15} className="mt-0.5 flex-shrink-0" /> รุ่นนี้ยังไม่มีราคาประเมินอัตโนมัติ — กรอกข้อมูลแล้วส่งให้ทีมงานตีราคาทาง LINE ได้เลย</p>
+            </div>
+          ) : basePrice != null && !conditionDone ? (
+            <div className="rounded-2xl border border-border-default bg-bg-subtle p-4 text-sm text-text-muted">
+              <p className="flex items-start gap-1.5"><Wallet size={15} className="mt-0.5 flex-shrink-0 text-yellow-hover" /> เลือกสภาพเครื่องให้ครบด้านบน เพื่อดูราคาประเมินเบื้องต้น</p>
             </div>
           ) : null}
 
@@ -252,23 +258,25 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 function RadioCards({ options, value, onChange, cols, compact }: {
   options: Choice[]; value: string; onChange: (v: string) => void; cols: 2 | 3; compact?: boolean;
 }) {
-  const grid = compact ? "grid-cols-2 sm:grid-cols-5" : (cols === 3 ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2");
+  const name = useId();   // radio group จริง (ลูกศรเลือกได้ + a11y)
+  // compact (ความจุ) → flex-wrap: N ตัวเลือกแพ็กชิดซ้าย ไม่เหลือช่องกริดว่าง · label ไม่ตัดบรรทัด
+  const wrap = compact ? "flex flex-wrap" : `grid ${cols === 3 ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2"}`;
   return (
-    <div className={`grid gap-2 ${grid}`}>
+    <div className={`${wrap} gap-2`}>
       {options.map((o) => {
         const active = value === o.value;
         return (
           <label
             key={o.value}
-            className={`flex cursor-pointer items-center gap-2.5 rounded-xl border px-3.5 py-3 text-sm transition-all ${
+            className={`flex cursor-pointer items-center gap-2.5 rounded-xl border px-3.5 py-3 text-sm transition-all has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-yellow ${compact ? "flex-shrink-0" : ""} ${
               active ? "border-yellow bg-yellow/10 font-semibold text-text-heading ring-1 ring-yellow" : "border-border-default text-text-body hover:border-yellow hover:bg-bg-tinted"
             }`}
           >
-            <input type="radio" checked={active} onChange={() => onChange(o.value)} className="sr-only" />
+            <input type="radio" name={name} checked={active} onChange={() => onChange(o.value)} className="sr-only" />
             <span className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 ${active ? "border-yellow-hover" : "border-border-default"}`}>
               {active && <span className="h-2.5 w-2.5 rounded-full bg-yellow-hover" />}
             </span>
-            <span className="min-w-0">{o.label}</span>
+            <span className={compact ? "whitespace-nowrap" : "min-w-0"}>{o.label}</span>
           </label>
         );
       })}
@@ -279,7 +287,7 @@ function RadioCards({ options, value, onChange, cols, compact }: {
 function CheckCard({ label, checked, onChange, highlight }: { label: string; checked: boolean; onChange: () => void; highlight?: boolean }) {
   return (
     <label
-      className={`flex cursor-pointer items-center gap-2.5 rounded-xl border px-3.5 py-3 text-sm transition-all ${
+      className={`flex cursor-pointer items-center gap-2.5 rounded-xl border px-3.5 py-3 text-sm transition-all has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-yellow ${
         checked
           ? (highlight ? "border-success-border bg-success-bg font-semibold text-success-text" : "border-yellow bg-yellow/10 font-semibold text-text-heading ring-1 ring-yellow")
           : "border-border-default text-text-body hover:border-yellow hover:bg-bg-tinted"

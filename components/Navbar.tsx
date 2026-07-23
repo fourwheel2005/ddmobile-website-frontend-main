@@ -62,7 +62,7 @@ export default function Navbar() {
     { name: 'หน้าหลัก', href: '/', icon: Home },
     { name: 'สินค้าทั้งหมด', href: '/products', icon: Smartphone },
     { name: 'ผ่อนสินค้า', href: '/installments', icon: CreditCard },
-    { name: 'แลกเงิน', href: '/trade-in', icon: Banknote },
+    { name: 'ไอโฟนแลกเงิน', href: '/trade-in', icon: Banknote },
     { name: 'ติดต่อเรา', href: '/contact', icon: Phone },
   ];
 
@@ -175,12 +175,13 @@ export default function Navbar() {
               key={link.name}
               href={link.href}
               aria-label={link.name}
-              className={`flex h-full flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors ${
+              className={`flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-0.5 font-medium transition-colors ${
                 active ? 'text-yellow-hover' : 'text-text-muted'
               }`}
             >
-              <Icon size={22} className={active ? 'text-yellow-hover' : ''} />
-              {link.name}
+              <Icon size={20} className={`flex-shrink-0 ${active ? 'text-yellow-hover' : ''}`} />
+              {/* ชื่อยาว (ไอโฟนแลกเงิน) → ตัด 2 บรรทัด กัน overflow แนวนอนบนจอเล็ก */}
+              <span className="line-clamp-2 w-full text-center text-[10px] leading-tight [overflow-wrap:anywhere]">{link.name}</span>
             </Link>
           );
         })}

@@ -37,7 +37,7 @@ export default function TradeInManager() {
     if (!form.model.trim()) { toast.error("กรอกชื่อรุ่น"); return; }
     if (!form.storage) { toast.error("เลือกความจุ"); return; }
     const price = Number(form.basePrice);
-    if (!Number.isFinite(price) || price < 0) { toast.error("กรอกราคาฐานให้ถูกต้อง"); return; }
+    if (!form.basePrice.trim() || !Number.isFinite(price) || price <= 0) { toast.error("กรอกราคาฐานให้มากกว่า 0"); return; }
     setSaving(true);
     try {
       await api.post("/admin/trade-in/prices", {
