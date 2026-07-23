@@ -13,6 +13,35 @@ export const DEVICE_TYPES: Choice[] = [
   { value: "ipad", label: "iPad" },
 ];
 
+/** รายชื่อรุ่น (curated) — ใช้ชุดเดียวกันทั้งฟอร์มลูกค้าและแอดมิน เพื่อจับคู่ราคาได้แม่นยำ */
+export const IPHONE_MODELS: string[] = [
+  "iPhone 17 Pro Max", "iPhone 17 Pro", "iPhone 17 Air", "iPhone 17",
+  "iPhone 16 Pro Max", "iPhone 16 Pro", "iPhone 16 Plus", "iPhone 16", "iPhone 16e",
+  "iPhone 15 Pro Max", "iPhone 15 Pro", "iPhone 15 Plus", "iPhone 15",
+  "iPhone 14 Pro Max", "iPhone 14 Pro", "iPhone 14 Plus", "iPhone 14",
+  "iPhone 13 Pro Max", "iPhone 13 Pro", "iPhone 13", "iPhone 13 mini",
+  "iPhone 12 Pro Max", "iPhone 12 Pro", "iPhone 12", "iPhone 12 mini",
+  "iPhone 11 Pro Max", "iPhone 11 Pro", "iPhone 11",
+  "iPhone SE (3rd gen)", "iPhone SE (2nd gen)",
+  "iPhone XS Max", "iPhone XS", "iPhone XR", "iPhone X",
+];
+export const IPAD_MODELS: string[] = [
+  "iPad Pro 13\" (M4)", "iPad Pro 11\" (M4)", "iPad Pro 12.9\"", "iPad Pro 11\"",
+  "iPad Air 13\"", "iPad Air 11\"", "iPad Air (5th gen)", "iPad Air (4th gen)",
+  "iPad (10th gen)", "iPad (9th gen)",
+  "iPad mini (7th gen)", "iPad mini (6th gen)",
+];
+export const ALL_MODELS: string[] = [...IPHONE_MODELS, ...IPAD_MODELS];
+export const modelsFor = (deviceType: string): string[] => (deviceType === "ipad" ? IPAD_MODELS : IPHONE_MODELS);
+
+/** สีที่พบบ่อย (ครอบคลุมหลายรุ่น) — เลือกใกล้เคียง หรือ "อื่นๆ" ระบุเอง */
+export const COLORS: string[] = [
+  "ดำ / Space Black", "ขาว / Silver", "เทา / Gray", "ทอง / Gold",
+  "น้ำเงิน / Blue", "ฟ้า", "ม่วง / Purple", "ชมพู / Pink",
+  "เขียว / Green", "เหลือง / Yellow", "แดง / (PRODUCT)RED", "ส้ม / Orange",
+  "ไทเทเนียม / Titanium",
+];
+
 /** ความจุ */
 export const STORAGES: Choice[] = [
   { value: "64GB", label: "64GB" },

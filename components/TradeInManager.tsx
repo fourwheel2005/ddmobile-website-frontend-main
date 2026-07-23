@@ -8,9 +8,11 @@ import { baht } from "@/lib/money";
 import { confirmDialog } from "@/components/ui/confirmDialog";
 import { TableSkeleton } from "@/components/Skeletons";
 import StatCard from "@/components/ui/StatCard";
+import { ALL_MODELS } from "@/lib/tradeIn";
 
 interface TradeInPrice { id: number; model: string; storage: string; basePrice: number; active: boolean; }
 const STORAGE_OPTS = ["64GB", "128GB", "256GB", "512GB", "1TB"];
+const OTHER = "__other__";
 
 /**
  * จัดการ "ราคารับซื้อ" (ไอโฟนแลกเงิน) — แอดมินตั้งราคาฐานต่อรุ่น+ความจุ
@@ -23,6 +25,8 @@ export default function TradeInManager() {
   const [q, setQ] = useState("");
   const empty = { id: null as number | null, model: "", storage: "256GB", basePrice: "", active: true };
   const [form, setForm] = useState(empty);
+  const [customModel, setCustomModel] = useState(false);   // รุ่นนอกรายการมาตรฐาน → พิมพ์เอง
+  const pickModel = (v: string) => { if (v === OTHER) { setCustomModel(true); setForm((f) => ({ ...f, model: "" })); } else { setCustomModel(false); setForm((f) => ({ ...f, model: v })); } };
 
   const load = () => {
     setLoading(true);
@@ -45,6 +49,7 @@ export default function TradeInManager() {
       });
       toast.success(form.id ? "แก้ไขราคาแล้ว" : "เพิ่มราคาแล้ว");
       setForm(empty);
+      setCustomModel(false);
       load();
     } catch (e) { toast.error(getApiError(e, "บันทึกไม่สำเร็จ")); }
     finally { setSaving(false); }
@@ -52,6 +57,7 @@ export default function TradeInManager() {
 
   const edit = (p: TradeInPrice) => {
     setForm({ id: p.id, model: p.model, storage: p.storage, basePrice: String(p.basePrice), active: p.active });
+    setCustomModel(!ALL_MODELS.includes(p.model));   // รุ่นนอกรายการ → โหมดพิมพ์เอง
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -82,10 +88,21 @@ export default function TradeInManager() {
         </h3>
         <p className="mb-4 text-xs text-text-muted">ตั้ง “ราคาฐาน” (สภาพดีสุด) — หน้าเว็บจะหักตามสภาพเครื่องให้อัตโนมัติ</p>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-          <label className="text-sm md:col-span-2">
+          <div className="text-sm md:col-span-2">
             <span className="mb-1 block font-medium text-text-muted">รุ่น *</span>
-            <input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} className="input-dd" placeholder="เช่น iPhone 17 Pro Max" />
-          </label>
+            {!customModel ? (
+              <select value={form.model} onChange={(e) => pickModel(e.target.value)} className="input-dd cursor-pointer">
+                <option value="">— เลือกรุ่น —</option>
+                {ALL_MODELS.map((m) => <option key={m} value={m}>{m}</option>)}
+                <option value={OTHER}>อื่นๆ (พิมพ์เอง)</option>
+              </select>
+            ) : (
+              <div className="space-y-1">
+                <input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} className="input-dd" placeholder="พิมพ์ชื่อรุ่น" />
+                <button type="button" onClick={() => { setCustomModel(false); setForm({ ...form, model: "" }); }} className="text-xs font-semibold text-yellow-text hover:text-text-heading">← เลือกจากรายการ</button>
+              </div>
+            )}
+          </div>
           <label className="text-sm">
             <span className="mb-1 block font-medium text-text-muted">ความจุ *</span>
             <select value={form.storage} onChange={(e) => setForm({ ...form, storage: e.target.value })} className="input-dd cursor-pointer">
@@ -105,7 +122,7 @@ export default function TradeInManager() {
           <button onClick={save} disabled={saving} className="btn-primary disabled:opacity-50">
             {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />} {form.id ? "บันทึกการแก้ไข" : "เพิ่มราคา"}
           </button>
-          {form.id && <button onClick={() => setForm(empty)} className="btn-ghost"><X size={16} /> ยกเลิกแก้ไข</button>}
+          {form.id && <button onClick={() => { setForm(empty); setCustomModel(false); }} className="btn-ghost"><X size={16} /> ยกเลิกแก้ไข</button>}
         </div>
       </div>
 

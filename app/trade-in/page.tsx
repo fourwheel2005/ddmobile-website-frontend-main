@@ -12,16 +12,17 @@ import { baht } from "@/lib/money";
 import { lineChatUrl } from "@/lib/contact";
 import {
   DEVICE_TYPES, STORAGES, REGIONS, BATTERY, ACCESSORIES, WARRANTY, BODY, SCREEN, PROBLEMS, PROBLEM_NONE,
-  emptyTradeIn, validateTradeIn, buildTradeInMessage, estimatePrice, type TradeInForm, type Choice,
+  modelsFor, COLORS, emptyTradeIn, validateTradeIn, buildTradeInMessage, estimatePrice, type TradeInForm, type Choice,
 } from "@/lib/tradeIn";
 
 interface TradeInPrice { id: number; model: string; storage: string; basePrice: number; }
-const OTHER_MODEL = "__other__";
+const OTHER = "__other__";
 
 export default function TradeInPage() {
   const [form, setForm] = useState<TradeInForm>(emptyTradeIn);
   const [prices, setPrices] = useState<TradeInPrice[]>([]);
-  const [customModel, setCustomModel] = useState(false);   // รุ่นไม่อยู่ในรายการ → กรอกเอง (ไม่มีราคาประเมิน)
+  const [customModel, setCustomModel] = useState(false);   // รุ่นไม่อยู่ในรายการ → พิมพ์เอง
+  const [customColor, setCustomColor] = useState(false);   // สีไม่อยู่ในรายการ → พิมพ์เอง
   const set = (patch: Partial<TradeInForm>) => setForm((f) => ({ ...f, ...patch }));
 
   // เติมชื่อจากบัญชีถ้าล็อกอินอยู่ (defer ด้วย rAF — ไม่ setState sync ใน effect)
@@ -37,21 +38,19 @@ export default function TradeInPage() {
     api.get("/trade-in/prices").then((r) => setPrices(Array.isArray(r.data) ? r.data : [])).catch(() => { /* ไม่มีราคา → ส่ง LINE ตีราคา */ });
   }, []);
 
-  const models = useMemo(() => Array.from(new Set(prices.map((p) => p.model))), [prices]);
-  const storagesForModel = useMemo(() => prices.filter((p) => p.model === form.model).map((p) => p.storage), [prices, form.model]);
+  // รายการรุ่นตามประเภทเครื่อง (curated ชุดเดียวกับแอดมิน → จับคู่ราคาได้แม่นยำ)
+  const modelOptions = useMemo(() => modelsFor(form.deviceType), [form.deviceType]);
+  // ราคาฐานจับคู่ตรง ๆ (ทั้งลูกค้า/แอดมินเลือกจากรายการเดียวกัน)
   const basePrice = useMemo(() => prices.find((p) => p.model === form.model && p.storage === form.storage)?.basePrice ?? null, [prices, form.model, form.storage]);
   const estimated = useMemo(() => estimatePrice(basePrice, form), [basePrice, form]);
   // โชว์ราคาประเมินเฉพาะเมื่อเลือกสภาพครบ (ไม่งั้นจะโชว์ราคาเต็ม = ชวนเข้าใจผิด)
   const conditionDone = !!(form.battery && form.accessories && form.warranty && form.body && form.screen && form.region && form.problems.length > 0);
   const shownEstimate = conditionDone ? estimated : null;
 
-  const pickModel = (value: string) => {
-    if (value === OTHER_MODEL) { setCustomModel(true); set({ model: "", storage: "" }); return; }
-    setCustomModel(false);
-    // ตั้งรุ่น + reset ความจุถ้าไม่มีในรุ่นใหม่
-    const storages = prices.filter((p) => p.model === value).map((p) => p.storage);
-    set({ model: value, storage: storages.includes(form.storage) ? form.storage : "" });
-  };
+  // สลับประเภทเครื่อง → ล้างรุ่น (รายการรุ่น iPhone/iPad ต่างกัน)
+  const pickDeviceType = (v: string) => { set({ deviceType: v, model: "" }); setCustomModel(false); };
+  const pickModel = (v: string) => { if (v === OTHER) { setCustomModel(true); set({ model: "" }); } else { setCustomModel(false); set({ model: v }); } };
+  const pickColor = (v: string) => { if (v === OTHER) { setCustomColor(true); set({ color: "" }); } else { setCustomColor(false); set({ color: v }); } };
 
   // เลือกปัญหา: "ไม่มีปัญหา" ตัดกับข้ออื่น + ข้ออื่นตัด "ไม่มีปัญหา"
   const toggleProblem = (value: string) => {
@@ -111,35 +110,40 @@ export default function TradeInPage() {
           {/* 1. เครื่องของคุณ */}
           <FormCard step={1} title="เครื่องที่จะแลกเงิน">
             <Field label="ประเภทเครื่อง *">
-              <RadioCards options={DEVICE_TYPES} value={form.deviceType} onChange={(v) => set({ deviceType: v })} cols={2} />
+              <RadioCards options={DEVICE_TYPES} value={form.deviceType} onChange={pickDeviceType} cols={2} />
             </Field>
             <Field label="รุ่น *">
-              {/* มีราคาในระบบ → เลือกจาก dropdown (คำนวณราคาประเมินให้), ไม่มี → เลือก "อื่นๆ" กรอกเอง */}
-              {models.length > 0 && !customModel ? (
+              {/* เลือกจาก dropdown รุ่น (ตามประเภทเครื่อง) — ไม่มีในรายการ = "อื่นๆ" พิมพ์เอง */}
+              {!customModel ? (
                 <select value={form.model} onChange={(e) => pickModel(e.target.value)} className="input-dd cursor-pointer">
                   <option value="">— เลือกรุ่น —</option>
-                  {models.map((m) => <option key={m} value={m}>{m}</option>)}
-                  <option value={OTHER_MODEL}>รุ่นอื่นๆ (ไม่อยู่ในรายการ)</option>
+                  {modelOptions.map((m) => <option key={m} value={m}>{m}</option>)}
+                  <option value={OTHER}>รุ่นอื่นๆ (พิมพ์เอง)</option>
                 </select>
               ) : (
                 <div className="space-y-2">
-                  <input value={form.model} onChange={(e) => set({ model: e.target.value })} className="input-dd" placeholder="เช่น iPhone 17 Pro Max" />
-                  {models.length > 0 && (
-                    <button type="button" onClick={() => { setCustomModel(false); set({ model: "", storage: "" }); }} className="text-xs font-semibold text-yellow-text hover:text-text-heading">← เลือกจากรายการที่มีราคา</button>
-                  )}
+                  <input value={form.model} onChange={(e) => set({ model: e.target.value })} className="input-dd" placeholder="พิมพ์ชื่อรุ่น เช่น iPhone 17 Pro Max" autoFocus />
+                  <button type="button" onClick={() => { setCustomModel(false); set({ model: "" }); }} className="text-xs font-semibold text-yellow-text hover:text-text-heading">← เลือกจากรายการรุ่น</button>
                 </div>
               )}
             </Field>
             {/* ความจุ — เต็มความกว้าง (กันการ์ดแออัด/label ตัดบรรทัด) */}
             <Field label="ความจุ *">
-              {!customModel && storagesForModel.length > 0 ? (
-                <RadioCards options={storagesForModel.map((s) => ({ value: s, label: s }))} value={form.storage} onChange={(v) => set({ storage: v })} cols={3} compact />
-              ) : (
-                <RadioCards options={STORAGES} value={form.storage} onChange={(v) => set({ storage: v })} cols={3} compact />
-              )}
+              <RadioCards options={STORAGES} value={form.storage} onChange={(v) => set({ storage: v })} cols={3} compact />
             </Field>
             <Field label="สี (ถ้าทราบ)">
-              <input value={form.color} onChange={(e) => set({ color: e.target.value })} className="input-dd sm:max-w-sm" placeholder="เช่น Black Titanium" />
+              {!customColor ? (
+                <select value={form.color} onChange={(e) => pickColor(e.target.value)} className="input-dd cursor-pointer sm:max-w-sm">
+                  <option value="">— เลือกสี (ไม่บังคับ) —</option>
+                  {COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
+                  <option value={OTHER}>อื่นๆ (พิมพ์เอง)</option>
+                </select>
+              ) : (
+                <div className="space-y-2 sm:max-w-sm">
+                  <input value={form.color} onChange={(e) => set({ color: e.target.value })} className="input-dd" placeholder="พิมพ์สี เช่น Desert Titanium" autoFocus />
+                  <button type="button" onClick={() => { setCustomColor(false); set({ color: "" }); }} className="text-xs font-semibold text-yellow-text hover:text-text-heading">← เลือกจากรายการสี</button>
+                </div>
+              )}
             </Field>
             <Field label="เวอร์ชันเครื่อง *">
               <RadioCards options={REGIONS} value={form.region} onChange={(v) => set({ region: v })} cols={3} />
