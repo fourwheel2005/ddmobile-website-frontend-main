@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ShoppingCart, User, LogOut, FileText, LayoutDashboard,
-  Home, Smartphone, CreditCard, Phone, ChevronDown
+  Home, Smartphone, CreditCard, Phone, ChevronDown, Banknote
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
@@ -23,7 +23,7 @@ interface UserData {
 
 export default function Navbar() {
   const pathname = usePathname();
-  const { count } = useCart();
+  const { count, clear } = useCart();
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
@@ -46,6 +46,8 @@ export default function Navbar() {
 
   const handleLogout = () => {
     api.post('/auth/logout').catch(() => { /* เคลียร์ฝั่ง server (cookie) — ล้มก็ไม่เป็นไร */ });
+    clear();                              // ล้างตะกร้าตอนออกจากระบบ (กันตะกร้าค้างให้บัญชีถัดไป)
+    localStorage.removeItem('dd_cart');   // ล้าง storage ทันที เผื่อ effect ยังไม่ flush ก่อน reload
     localStorage.removeItem('user');
     localStorage.removeItem('token');
     setUserData(null);
@@ -60,6 +62,7 @@ export default function Navbar() {
     { name: 'หน้าหลัก', href: '/', icon: Home },
     { name: 'สินค้าทั้งหมด', href: '/products', icon: Smartphone },
     { name: 'ผ่อนสินค้า', href: '/installments', icon: CreditCard },
+    { name: 'แลกเงิน', href: '/trade-in', icon: Banknote },
     { name: 'ติดต่อเรา', href: '/contact', icon: Phone },
   ];
 

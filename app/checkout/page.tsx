@@ -9,6 +9,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Banknote, Smartphone, ArrowRight, ShoppingCart, MessageCircle, TicketPercent, ShieldCheck, Lock, BadgeCheck } from "lucide-react";
 import Reveal from "@/components/Reveal";
+import ThaiAddressAutocomplete, { type ThaiGeo } from "@/components/ThaiAddressAutocomplete";
 
 import { baht as money } from "@/lib/money";
 import { LINE_URL } from "@/lib/contact";
@@ -25,7 +26,8 @@ export default function CheckoutPage() {
 
   const [name, setName] = useState("");
   const [tel, setTel] = useState("");
-  const [address, setAddress] = useState("");
+  const [geo, setGeo] = useState<ThaiGeo | null>(null);   // ตำบล/อำเภอ/จังหวัด/รหัสไปรษณีย์ (auto-fill)
+  const [addrDetail, setAddrDetail] = useState("");        // บ้านเลขที่/หมู่/ซอย/ถนน
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const submitLock = useRef(false);   // กันกดซ้ำแบบ synchronous (ก่อน React re-render disable ปุ่มทัน)
@@ -80,7 +82,11 @@ export default function CheckoutPage() {
     if (!name.trim() || !tel.trim()) { toast.error("กรอกชื่อและเบอร์โทรผู้รับ"); return; }
     // เบอร์ไทย: 9-10 หลัก (รับเว้นวรรค/ขีดได้) — กันกรอกมั่ว เช่น "abc"
     if (!/^0\d{1,2}[-\s]?\d{3}[-\s]?\d{3,4}$/.test(tel.trim())) { toast.error("กรุณากรอกเบอร์โทรให้ถูกต้อง (เช่น 081-234-5678)"); return; }
-    if (!address.trim()) { toast.error("กรอกที่อยู่จัดส่ง"); return; }
+    if (!addrDetail.trim()) { toast.error("กรอกบ้านเลขที่ / ถนน"); return; }
+    if (!geo) { toast.error("เลือกตำบล / อำเภอ / จังหวัด จากช่องค้นหา"); return; }
+
+    // รวมเป็นที่อยู่บรรทัดเดียวส่ง backend (backend เก็บ shippingAddress เป็น string)
+    const shippingAddress = `${addrDetail.trim()} ต.${geo.subdistrict} อ.${geo.district} จ.${geo.province} ${geo.zipcode}`;
 
     submitLock.current = true;
     setSubmitting(true);
@@ -90,7 +96,7 @@ export default function CheckoutPage() {
         paymentMethod: "TRANSFER",
         customerName: name.trim(),
         customerTel: tel.trim(),
-        shippingAddress: address.trim(),
+        shippingAddress,
         note: note.trim() || null,
         installmentMonths: null,
         couponCode: couponCode || null,
@@ -165,9 +171,16 @@ export default function CheckoutPage() {
                 <ArrowRight size={16} className="ml-auto flex-shrink-0 text-line" />
               </a>
 
+              {/* ตำบล/อำเภอ/จังหวัด/รหัสไปรษณีย์ — พิมพ์แล้วเลือก เติมให้อัตโนมัติ */}
               <div className="mt-4">
-                <label htmlFor="co-address" className="label-dd">ที่อยู่จัดส่ง *</label>
-                <textarea id="co-address" value={address} onChange={(e) => setAddress(e.target.value)} rows={3} required autoComplete="street-address" className="input-dd resize-none" placeholder="บ้านเลขที่ / ถนน / ตำบล / อำเภอ / จังหวัด / รหัสไปรษณีย์" />
+                <label htmlFor="co-geo" className="label-dd">ตำบล / อำเภอ / จังหวัด / รหัสไปรษณีย์ *</label>
+                <ThaiAddressAutocomplete value={geo} onChange={setGeo} />
+              </div>
+              {/* รายละเอียดที่อยู่ (บ้านเลขที่/ถนน) */}
+              <div className="mt-4">
+                <label htmlFor="co-addr-detail" className="label-dd">บ้านเลขที่ / หมู่ / ซอย / ถนน *</label>
+                <input id="co-addr-detail" value={addrDetail} onChange={(e) => setAddrDetail(e.target.value)} required autoComplete="street-address"
+                       className="input-dd" placeholder="เช่น 99/1 หมู่ 2 ซ.สุขใจ ถ.รามคำแหง" />
               </div>
               <div className="mt-4">
                 <label htmlFor="co-note" className="label-dd">หมายเหตุ (ถ้ามี)</label>

@@ -349,13 +349,13 @@ function ProductsContent() {
           </div>
         </div>
 
-        {/* หมวดหลัก: มือ 1 / มือ 2 / อุปกรณ์เสริม แยกกันชัด */}
-        <div className="mb-6 inline-flex flex-wrap gap-1 rounded-2xl border border-border-default bg-bg-subtle p-1">
+        {/* หมวดหลัก: มือ 1 / มือ 2 / อุปกรณ์เสริม — เลื่อนแนวนอนบนจอเล็ก (ไม่ wrap เสียทรง) */}
+        <div className="mb-6 flex gap-1 overflow-x-auto rounded-2xl border border-border-default bg-bg-subtle p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:inline-flex sm:flex-wrap">
           {CONDS.map(([k, label, Icon, activeBg]) => (
             <button
               key={k}
               onClick={() => changeCondition(k)}
-              className={`inline-flex items-center gap-1.5 rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors ${cond === k ? `${activeBg} text-white` : "text-text-body hover:text-text-heading"}`}
+              className={`inline-flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors sm:px-5 ${cond === k ? `${activeBg} text-white` : "text-text-body hover:text-text-heading"}`}
             >
               <Icon size={15} /> {label} <span className="opacity-70">({condCounts[k]})</span>
             </button>
@@ -385,7 +385,7 @@ function ProductsContent() {
             <div className="mb-6 flex flex-wrap items-center gap-3 border-b border-border-default pb-4">
               <div className="relative">
                 <ArrowUpDown className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={15} />
-                <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortKey)} aria-label="เรียงลำดับ" className="input-dd min-h-0 w-auto cursor-pointer py-2 pl-9 pr-8 text-sm">
+                <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortKey)} aria-label="เรียงลำดับ" className="input-dd w-auto cursor-pointer py-2 pl-9 pr-8 text-sm">
                   {sortOptions.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
                 </select>
               </div>

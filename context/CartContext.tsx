@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode } from "react";
 
 export interface CartItem {
   catalogId: string;        // = CatalogItem.id (UNIT: serialId · GROUP: variantId|condition)
@@ -35,7 +35,7 @@ const Ctx = createContext<CartCtx | null>(null);
  * ทำความสะอาด cart ที่โหลดจาก localStorage — กันค่าที่ถูกแก้มือ (quantity ติดลบ/ทศนิยม/ยักษ์, ราคาเพี้ยน)
  * ราคาจริงคิดที่ server อยู่แล้ว แต่ quantity ถูกส่งไป /orders → ต้อง clamp เป็นจำนวนเต็มบวก ≤ maxStock
  */
-function sanitizeCart(raw: unknown): CartItem[] {
+export function sanitizeCart(raw: unknown): CartItem[] {
   if (!Array.isArray(raw)) return [];
   const out: CartItem[] = [];
   for (const it of raw) {
@@ -50,26 +50,59 @@ function sanitizeCart(raw: unknown): CartItem[] {
   return out;
 }
 
+/** อีเมลผู้ใช้ที่ล็อกอินอยู่ (null = guest) — ใช้ผูก "เจ้าของตะกร้า" กันตะกร้าค้างข้ามบัญชี */
+function currentUserEmail(): string | null {
+  try {
+    const u = localStorage.getItem("user");
+    if (!u) return null;
+    const p = JSON.parse(u) as { email?: unknown };
+    return typeof p?.email === "string" ? p.email : null;
+  } catch { return null; }
+}
+
+/**
+ * โหลดตะกร้าจาก localStorage โดยเช็ค "เจ้าของ" — กัน bug ตะกร้าค้างเมื่อสลับบัญชี/หลัง logout
+ * - รูปแบบใหม่ { owner, items }: เจ้าของเป็นบัญชีอื่น (ไม่ตรง user ปัจจุบัน และไม่ใช่ guest) → ล้างทิ้ง
+ * - รูปแบบเก่า (array ล้วน ไม่มี owner): เชื่อ owner ไม่ได้ → ถ้าล็อกอินอยู่ให้ล้าง (กัน leak), guest เก็บได้
+ * (login/logout ในแอปนี้ full-reload เสมอ → เช็คตอน mount ครอบทุกเส้นทาง)
+ */
+/** ตัดสินใจว่าตะกร้าที่ parse มาแล้วเป็นของ user ปัจจุบันไหม (pure — แยกจาก localStorage เพื่อเทสต์ได้) */
+export function pickOwnedItems(parsed: unknown, currentEmail: string | null): CartItem[] {
+  if (Array.isArray(parsed)) return currentEmail ? [] : sanitizeCart(parsed);   // legacy: เชื่อ owner ไม่ได้
+  const p = parsed as { owner?: unknown; items?: unknown } | null;
+  const owner = (p?.owner ?? null) as string | null;
+  if (owner != null && owner !== currentEmail) return [];   // ตะกร้าของบัญชีอื่น
+  return sanitizeCart(p?.items);
+}
+
+function loadOwnedCart(currentEmail: string | null): CartItem[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    return pickOwnedItems(JSON.parse(raw), currentEmail);
+  } catch { return []; }
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [ready, setReady] = useState(false);
+  const ownerRef = useRef<string | null>(null);   // เจ้าของตะกร้าปัจจุบัน (email หรือ null=guest)
 
-  // โหลดจาก localStorage ครั้งแรก (ผ่าน sanitize เสมอ)
+  // โหลดจาก localStorage ครั้งแรก (เช็คเจ้าของ + sanitize เสมอ)
   useEffect(() => {
     // รอหลัง first paint เพื่อไม่ให้ hydration effect สร้าง cascading render
     const hydrate = window.setTimeout(() => {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) setItems(sanitizeCart(JSON.parse(raw)));
-      } catch { /* ignore */ }
+      const email = currentUserEmail();
+      ownerRef.current = email;
+      setItems(loadOwnedCart(email));
       setReady(true);
     }, 0);
     return () => window.clearTimeout(hydrate);
   }, []);
 
-  // บันทึกทุกครั้งที่เปลี่ยน (หลังโหลดเสร็จ)
+  // บันทึกทุกครั้งที่เปลี่ยน (หลังโหลดเสร็จ) — ผูกเจ้าของไว้กับตะกร้า
   useEffect(() => {
-    if (ready) localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    if (ready) localStorage.setItem(STORAGE_KEY, JSON.stringify({ owner: ownerRef.current, items }));
   }, [items, ready]);
 
   const add: CartCtx["add"] = useCallback((item, qty = 1) => {

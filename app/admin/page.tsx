@@ -154,6 +154,7 @@ export default function AdminDashboard() {
 
   const handleLogout = () => {
     api.post("/auth/logout").catch(() => { /* เคลียร์ cookie ฝั่ง server */ });
+    localStorage.removeItem("dd_cart");   // ล้างตะกร้าตอนออกจากระบบ (กันค้างข้ามบัญชี)
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     window.location.href = "/login";

@@ -67,8 +67,8 @@ export default function SpinWheel({ segments, alreadyWon, onClose }: {
 
   if (!mounted) return null;
   return createPortal(
-    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="relative w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-[0_20px_60px_rgba(0,0,0,0.3)]">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center overflow-y-auto bg-black/60 p-4 [align-items:safe_center]" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="relative my-auto max-h-[92dvh] w-full max-w-sm overflow-y-auto rounded-3xl bg-white p-6 text-center shadow-[0_20px_60px_rgba(0,0,0,0.3)]">
         <button onClick={onClose} aria-label="ปิด" className="absolute right-4 top-4 rounded-full p-1.5 text-text-muted hover:bg-bg-subtle"><X size={20} /></button>
         <div className="mb-1 flex items-center justify-center gap-2 text-yellow-hover"><Gift size={22} /><h3 className="text-xl font-bold text-text-heading">ต้อนรับสมาชิกใหม่!</h3></div>
         <p className="mb-3 text-sm text-text-muted">หมุนวงล้อ 1 ครั้ง รับโค้ดส่วนลดทันที</p>

@@ -22,7 +22,7 @@ interface Option { key: string; label: string; desc: string; icon: LucideIcon; a
 const OPTIONS: Option[] = [
   { key: "new",   label: "ผ่อนสินค้ามือ 1",    desc: "เครื่องใหม่ ประกันศูนย์ไทย",  icon: Sparkles,  action: { type: "route", href: "/products?condition=NEW" } },
   { key: "used",  label: "ผ่อนสินค้ามือ 2",    desc: "เครื่องมือสอง ตรวจสภาพแล้ว",  icon: RotateCcw, action: { type: "route", href: "/products?condition=SECOND_HAND" } },
-  { key: "cash",  label: "แลกเงิน",           desc: "ไอโฟนแลกเงิน ได้เงินไว",      icon: Banknote,  action: { type: "line" } },
+  { key: "cash",  label: "แลกเงิน",           desc: "ไอโฟนแลกเงิน ได้เงินไว",      icon: Banknote,  action: { type: "route", href: "/trade-in" } },
   { key: "trade", label: "เทิร์นเก่าแลกใหม่",  desc: "นำเครื่องเดิมมาแลกรุ่นใหม่",   icon: Repeat,    action: { type: "line" } },
 ];
 
@@ -69,7 +69,7 @@ export default function IntentGate() {
         initial={{ opacity: 0, y: 16, scale: 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-        className="relative w-full max-w-xl rounded-2xl border border-border-default bg-white p-6 shadow-[0_24px_60px_rgba(16,24,40,0.22)] sm:p-8"
+        className="relative my-auto max-h-[92dvh] w-full max-w-xl overflow-y-auto rounded-2xl border border-border-default bg-white p-6 shadow-[0_24px_60px_rgba(16,24,40,0.22)] sm:p-8"
         onClick={(e) => e.stopPropagation()}
       >
         <button onClick={dismiss} aria-label="ปิด" className="modal-close"><X size={20} /></button>

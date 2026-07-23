@@ -136,11 +136,11 @@ export default function DeliveryTracker({ order }: { order: TrackOrder }) {
             <p className="font-mono text-base font-semibold text-text-heading">{order.trackingNumber}</p>
           </div>
           <div className="flex gap-2">
-            <button onClick={copy} className="btn-ghost min-h-0 py-2" aria-label="คัดลอกเลขพัสดุ">
+            <button onClick={copy} className="btn-ghost py-2.5" aria-label="คัดลอกเลขพัสดุ">
               <Copy size={15} /> คัดลอก
             </button>
             {url && (
-              <a href={url} target="_blank" rel="noopener noreferrer" className="btn-primary min-h-0 py-2">
+              <a href={url} target="_blank" rel="noopener noreferrer" className="btn-primary py-2.5">
                 <ExternalLink size={15} /> ติดตามพัสดุ
               </a>
             )}

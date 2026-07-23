@@ -465,9 +465,10 @@
     backdrop-filter: blur(2px);
     z-index: 1000;
     display: flex;
-    align-items: center;
+    align-items: safe center;   /* safe = ถ้าเนื้อหาสูงเกินจอ ไม่ตัดหัว (จอเตี้ย/แนวนอน) */
     justify-content: center;
     padding: var(--space-4);
+    overflow-y: auto;           /* เลื่อนดูโมดัลที่สูงเกินจอได้ → ปุ่มล่างกดถึงเสมอ */
   }
   .modal-dd {
     background: #ffffff;
@@ -557,6 +558,8 @@
     .desktop-nav { display: none; }
     .mobile-nav { display: flex; }
     button, a, input, select, [role="button"] { min-height: 44px; }
+    /* กัน iOS Safari ซูมหน้าเองตอนโฟกัส input ที่ฟอนต์ < 16px (ทำให้จอเลื่อนแนวนอน) */
+    input, select, textarea, .input-dd { font-size: 16px; }
   }
 
   /* --- Page entry animation --- */
