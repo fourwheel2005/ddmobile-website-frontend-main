@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import api from "@/lib/api";
-import type { InstallmentPlan, InstallmentSerial } from "@/lib/installment";
+import { minValidMonthly, type InstallmentPlan, type InstallmentSerial } from "@/lib/installment";
 import { LINE_URL } from "@/lib/contact";
 
 export default function InstallmentsPage() {
@@ -22,12 +22,12 @@ export default function InstallmentsPage() {
         ]);
         const plans = Array.isArray(plansRes.data) ? plansRes.data as InstallmentPlan[] : [];
         const serials = Array.isArray(serialsRes.data) ? serialsRes.data as InstallmentSerial[] : [];
-        const monthlyValues = [
-          ...plans.flatMap((plan) => plan.terms ?? []).map((term) => term.monthly),
-          ...serials.flatMap((serial) => serial.terms ?? []).map((term) => term.monthly),
-          ...serials.map((serial) => serial.monthly),
-        ].filter((value): value is number => typeof value === "number" && Number.isFinite(value) && value > 0);
-        if (!cancelled) setMinMonthly(monthlyValues.length > 0 ? Math.min(...monthlyValues) : null);
+        // ค่างวดต่ำสุดจาก terms ที่ "งวดสมเหตุสมผล" เท่านั้น — กันข้อมูลกรอกสลับช่อง (months↔monthly) โผล่เป็น ฿12
+        const perModelMin = [
+          ...plans.map((plan) => minValidMonthly(plan.terms)),
+          ...serials.map((serial) => minValidMonthly(serial.terms)),
+        ].filter((v): v is number => v != null);
+        if (!cancelled) setMinMonthly(perModelMin.length > 0 ? Math.min(...perModelMin) : null);
       } catch {
         // ไม่เดาราคาเมื่อข้อมูลตารางผ่อนไม่พร้อม
       } finally {

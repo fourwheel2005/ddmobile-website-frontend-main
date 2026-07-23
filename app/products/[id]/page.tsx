@@ -174,6 +174,7 @@ function ProductDetailContent() {
   const isNew = item.condition === "NEW";
   const isUnit = item.type === "UNIT";
   const isModel = item.type === "MODEL";
+  const isAccessory = item.type === "GROUP";   // อุปกรณ์เสริม — ไม่มีผ่อน
   const options = item.options ?? [];
 
   // มือ 1 (MODEL): ตัวเลือกสี/ความจุ
@@ -499,7 +500,7 @@ function ProductDetailContent() {
                 </button>
               </div>
               {/* ผ่อน → ทักไลน์โดยตรง (เมื่อมีกล่องผ่อน InstallmentBox มีปุ่มผ่อนของตัวเองแล้ว) · ไม่โชว์กับเครื่องขายแล้ว */}
-              {!item.sold && !installment && (
+              {!item.sold && !installment && !isAccessory && (
                 <a href={lineChatUrl(`สนใจผ่อนเครื่องนี้: ${item.productName}`)} target="_blank" rel="noopener noreferrer"
                   className="line-cta group flex w-full items-center gap-3 rounded-full bg-line px-5 py-3.5 text-white shadow-[var(--shadow-line)] transition-transform hover:-translate-y-0.5">
                   <MessageCircle size={24} className="flex-shrink-0" />
