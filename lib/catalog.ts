@@ -70,8 +70,11 @@ export async function getCatalogItem<T extends { id: string } = CatalogRecord>(i
         return data;
       }
     } catch (err) {
-      // 404 → endpoint ยังไม่มี: เลิกลองใน session นี้ (error อื่นเช่น network → ไม่ปิด, fallback ต่อ)
-      if (getApiStatus(err) === 404) itemEndpointAvailable = false;
+      // 404 = backend ยืนยันว่าไม่พบสินค้าชิ้นนี้ (endpoint นี้ resolve serialId ของมือ1/อุปกรณ์เสริม
+      //   → รุ่น/กลุ่มที่สังกัดให้แล้ว) → คืน null เลย ห้าม fallback หา serialId ใน catalog ทั้งก้อน
+      //   ซึ่งหาไม่เจอ (id ของมือ1=productId, อุปกรณ์เสริม=variantId|condition) — FIX-104
+      if (getApiStatus(err) === 404) return null;
+      // error อื่น (network/5xx) → ตกไป fallback catalog ทั้งก้อน
     }
   }
 
