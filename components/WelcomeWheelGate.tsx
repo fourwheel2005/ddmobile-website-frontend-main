@@ -33,7 +33,10 @@ export default function WelcomeWheelGate() {
         if (cancel) return;
         const s: Status = r.data;
         setStatus(s);
-        if (s.canSpin && sessionStorage.getItem("welcomeWheelSeen") !== "1") {
+        // กันเด้งชนป๊อปอัพคัดกรองบริการ (IntentGate) — รอให้ผู้ใช้เห็น intent ก่อน (dd_intent_v1)
+        let intentDone = true;
+        try { intentDone = localStorage.getItem("dd_intent_v1") === "1"; } catch { /* บล็อก storage → ไม่กั้น */ }
+        if (s.canSpin && intentDone && sessionStorage.getItem("welcomeWheelSeen") !== "1") {
           setOpen(true);
           sessionStorage.setItem("welcomeWheelSeen", "1");
         }

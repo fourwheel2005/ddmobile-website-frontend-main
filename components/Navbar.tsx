@@ -13,6 +13,7 @@ import api from '@/lib/api';
 import { useCart } from '@/context/CartContext';
 import NotificationBell from '@/components/NotificationBell';
 import WelcomeWheelGate from '@/components/WelcomeWheelGate';
+import IntentGate from '@/components/IntentGate';
 
 interface UserData {
   email: string;
@@ -67,6 +68,8 @@ export default function Navbar() {
 
   return (
     <>
+      {/* ป๊อปอัพคัดกรองบริการที่สนใจ (เข้าครั้งแรกสุด) — มาก่อนวงล้อ */}
+      <IntentGate />
       {/* วงล้อต้อนรับสมาชิกใหม่ (เด้งอัตโนมัติเมื่อยังไม่เคยหมุน) */}
       <WelcomeWheelGate />
 
