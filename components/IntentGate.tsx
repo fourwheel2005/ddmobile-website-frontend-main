@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { X, Sparkles, RotateCcw, Banknote, Repeat, HandCoins, ArrowRight, Store } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import api from "@/lib/api";
 import { LINE_URL } from "@/lib/contact";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 
@@ -55,6 +56,8 @@ export default function IntentGate() {
     markIntentSeen();
     setClosed(true);
     if (!opt) return;
+    // เก็บสถิติดีมานด์ (fire-and-forget — ไม่บล็อกการพาไปหน้าถัดไป, ล้มก็ไม่กระทบ UX)
+    api.post("/intent", { service: opt.key.toUpperCase() }).catch(() => {});
     if (opt.action.type === "route") router.push(opt.action.href);
     else window.open(LINE_URL, "_blank", "noopener,noreferrer");
   };
