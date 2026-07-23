@@ -20,6 +20,7 @@ import CouponAdmin from "@/components/CouponAdmin";
 import PromotionManager from "@/components/PromotionManager";
 import ReviewAdmin from "@/components/ReviewAdmin";
 import IntentStats from "@/components/IntentStats";
+import TradeInManager from "@/components/TradeInManager";
 import StatCard from "@/components/ui/StatCard";
 import SalesChart, { type DailySales } from "@/components/ui/SalesChart";
 import { confirmDialog } from "@/components/ui/confirmDialog";
@@ -645,6 +646,9 @@ export default function AdminDashboard() {
 
               {/* บริการที่ลูกค้าสนใจ (จากป๊อปอัพคัดกรอง) */}
               {activeMenu === "บริการที่ลูกค้าสนใจ" && <IntentStats />}
+
+              {/* ราคารับซื้อ (ไอโฟนแลกเงิน) */}
+              {activeMenu === "ราคารับซื้อ (แลกเงิน)" && <TradeInManager />}
             </>
           )}
         </div>
@@ -709,6 +713,7 @@ const menuItems = [
   { name: "ตารางผ่อน", icon: CreditCard },
   { name: "คูปองส่วนลด", icon: TicketPercent },
   { name: "โปรโมชั่น / Flash Sale", icon: Zap },
+  { name: "ราคารับซื้อ (แลกเงิน)", icon: Banknote },
   { name: "รีวิวลูกค้า", icon: Star },
   { name: "บริการที่ลูกค้าสนใจ", icon: Target },
   { name: "คำขอผ่อนสินค้า", icon: ClipboardList },

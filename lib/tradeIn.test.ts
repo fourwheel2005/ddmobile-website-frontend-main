@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { validateTradeIn, buildTradeInMessage, emptyTradeIn, PROBLEM_NONE, type TradeInForm } from "./tradeIn";
+import { validateTradeIn, buildTradeInMessage, emptyTradeIn, estimatePrice, deductionRatio, PROBLEM_NONE, type TradeInForm } from "./tradeIn";
 
 // ฟอร์มที่กรอกครบถูกต้อง (override เฉพาะ field ที่ต้องการทดสอบ)
 function valid(over: Partial<TradeInForm> = {}): TradeInForm {
@@ -54,5 +54,35 @@ describe("buildTradeInMessage", () => {
   });
   it("สีว่าง → ไม่มีบรรทัดสี", () => {
     expect(buildTradeInMessage(valid({ color: "" }))).not.toContain("สี:");
+  });
+});
+
+describe("estimatePrice", () => {
+  it("สภาพดีสุด (ไม่หัก) → ~ราคาฐาน", () => {
+    const f = valid({ battery: "90-100", accessories: "full", warranty: "gte4m", body: "none", screen: "none", region: "TH", problems: [PROBLEM_NONE] });
+    expect(estimatePrice(30000, f)).toBe(30000);
+  });
+  it("จอร้าว (-25%) → หักตามสัดส่วนราคาฐาน", () => {
+    const f = valid({ battery: "90-100", accessories: "full", warranty: "gte4m", body: "none", screen: "cracked", region: "TH", problems: [PROBLEM_NONE] });
+    expect(estimatePrice(30000, f)).toBe(22500);   // 30000 * 0.75
+  });
+  it("ราคาสูงหักหนักกว่าราคาต่ำ (% ตามมูลค่า)", () => {
+    const cracked = valid({ battery: "90-100", accessories: "full", warranty: "gte4m", body: "none", screen: "cracked", region: "TH", problems: [PROBLEM_NONE] });
+    const hi = estimatePrice(40000, cracked)!;   // -10000
+    const lo = estimatePrice(10000, cracked)!;   // -2500
+    expect(40000 - hi).toBeGreaterThan(10000 - lo);
+  });
+  it("หักเกิน 85% ถูก clamp + ขั้นต่ำ 500", () => {
+    const wreck = valid({ battery: "lt75", accessories: "none", warranty: "lt4m", body: "damaged", screen: "cracked", region: "OTHER", problems: ["touch", "camera", "speaker", "sensor", "call", "biometric"] });
+    const est = estimatePrice(3000, wreck)!;
+    expect(est).toBeGreaterThanOrEqual(500);
+  });
+  it("ไม่มีราคาฐาน (null/0) → null", () => {
+    expect(estimatePrice(null, valid())).toBeNull();
+    expect(estimatePrice(0, valid())).toBeNull();
+  });
+  it("deductionRatio ไม่เกิน maxDeduct 0.85", () => {
+    const wreck = valid({ battery: "lt75", accessories: "none", warranty: "lt4m", body: "damaged", screen: "cracked", region: "OTHER", problems: ["touch", "camera", "speaker", "sensor", "call", "biometric", "home", "buttons", "vibrate", "wireless"] });
+    expect(deductionRatio(wreck)).toBeLessThanOrEqual(0.85);
   });
 });

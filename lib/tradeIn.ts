@@ -82,6 +82,44 @@ export const PROBLEMS: Choice[] = [
 ];
 export const PROBLEM_NONE = "none";   // "ไม่มีปัญหา" — พิเศษ ตัดกับข้ออื่น
 
+/* ============================ คำนวณราคาประเมิน ============================ */
+/**
+ * หักตามสภาพเป็น "% ของราคาฐาน" (สเกลตามมูลค่าเครื่อง = แม่นกว่า fixed):
+ * แบตแตก/จอร้าว/ตกแตกงอ หักหนัก · สภาพดี ~ราคาฐาน
+ * (ราคาฐาน = สภาพดีสุด แอดมินตั้ง — การประเมินนี้เป็นเบื้องต้น ราคาจริงที่สาขา)
+ */
+const DEDUCT = {
+  battery: { sealed: 0, "90-100": 0, "80-89": 0.03, "75-79": 0.07, lt75: 0.12 } as Record<string, number>,
+  accessories: { full: 0, partial: 0.02, none: 0.04 } as Record<string, number>,
+  warranty: { gte4m: 0, lt4m: 0.02 } as Record<string, number>,
+  body: { none: 0, light: 0.03, heavy: 0.12, damaged: 0.30 } as Record<string, number>,
+  screen: { none: 0, hairline: 0.02, notch: 0.08, cracked: 0.25 } as Record<string, number>,
+  region: { TH: 0, ZP: 0.03, OTHER: 0.08 } as Record<string, number>,
+  problemEach: 0.05,
+  maxDeduct: 0.85,   // หักได้มากสุด 85% ของราคาฐาน (กันติดลบ/ต่ำเกินจริง)
+  minPrice: 500,     // ราคาประเมินขั้นต่ำ
+};
+
+/** สัดส่วนหักรวมตามสภาพ (0..maxDeduct) — pure, เทสต์ได้ */
+export function deductionRatio(f: Pick<TradeInForm, "battery" | "accessories" | "warranty" | "body" | "screen" | "region" | "problems">): number {
+  let pct = 0;
+  pct += DEDUCT.battery[f.battery] ?? 0;
+  pct += DEDUCT.accessories[f.accessories] ?? 0;
+  pct += DEDUCT.warranty[f.warranty] ?? 0;
+  pct += DEDUCT.body[f.body] ?? 0;
+  pct += DEDUCT.screen[f.screen] ?? 0;
+  pct += DEDUCT.region[f.region] ?? 0;
+  if (!f.problems.includes(PROBLEM_NONE)) pct += f.problems.length * DEDUCT.problemEach;
+  return Math.min(pct, DEDUCT.maxDeduct);
+}
+
+/** ราคาประเมิน = ราคาฐาน × (1 − สัดส่วนหัก) ปัดร้อย ขั้นต่ำ minPrice · basePrice ≤ 0 → null (ไม่มีราคา) */
+export function estimatePrice(basePrice: number | null | undefined, f: TradeInForm): number | null {
+  if (basePrice == null || basePrice <= 0) return null;
+  const after = basePrice * (1 - deductionRatio(f));
+  return Math.max(Math.round(after / 100) * 100, DEDUCT.minPrice);
+}
+
 export interface TradeInForm {
   deviceType: string;
   model: string;

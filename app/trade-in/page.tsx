@@ -1,20 +1,27 @@
 "use client";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import {
   Banknote, ShieldCheck, Clock, Check, MessageCircle, Copy,
-  ArrowRight, HelpCircle,
+  ArrowRight, HelpCircle, Wallet,
 } from "lucide-react";
 import Reveal from "@/components/Reveal";
+import api from "@/lib/api";
+import { baht } from "@/lib/money";
 import { lineChatUrl } from "@/lib/contact";
 import {
   DEVICE_TYPES, STORAGES, REGIONS, BATTERY, ACCESSORIES, WARRANTY, BODY, SCREEN, PROBLEMS, PROBLEM_NONE,
-  emptyTradeIn, validateTradeIn, buildTradeInMessage, type TradeInForm, type Choice,
+  emptyTradeIn, validateTradeIn, buildTradeInMessage, estimatePrice, type TradeInForm, type Choice,
 } from "@/lib/tradeIn";
+
+interface TradeInPrice { id: number; model: string; storage: string; basePrice: number; }
+const OTHER_MODEL = "__other__";
 
 export default function TradeInPage() {
   const [form, setForm] = useState<TradeInForm>(emptyTradeIn);
+  const [prices, setPrices] = useState<TradeInPrice[]>([]);
+  const [customModel, setCustomModel] = useState(false);   // รุ่นไม่อยู่ในรายการ → กรอกเอง (ไม่มีราคาประเมิน)
   const set = (patch: Partial<TradeInForm>) => setForm((f) => ({ ...f, ...patch }));
 
   // เติมชื่อจากบัญชีถ้าล็อกอินอยู่ (defer ด้วย rAF — ไม่ setState sync ใน effect)
@@ -24,6 +31,24 @@ export default function TradeInPage() {
     });
     return () => cancelAnimationFrame(f);
   }, []);
+
+  // ราคาฐานที่แอดมินตั้ง (สำหรับคำนวณราคาประเมิน)
+  useEffect(() => {
+    api.get("/trade-in/prices").then((r) => setPrices(Array.isArray(r.data) ? r.data : [])).catch(() => { /* ไม่มีราคา → ส่ง LINE ตีราคา */ });
+  }, []);
+
+  const models = useMemo(() => Array.from(new Set(prices.map((p) => p.model))), [prices]);
+  const storagesForModel = useMemo(() => prices.filter((p) => p.model === form.model).map((p) => p.storage), [prices, form.model]);
+  const basePrice = useMemo(() => prices.find((p) => p.model === form.model && p.storage === form.storage)?.basePrice ?? null, [prices, form.model, form.storage]);
+  const estimated = useMemo(() => estimatePrice(basePrice, form), [basePrice, form]);
+
+  const pickModel = (value: string) => {
+    if (value === OTHER_MODEL) { setCustomModel(true); set({ model: "", storage: "" }); return; }
+    setCustomModel(false);
+    // ตั้งรุ่น + reset ความจุถ้าไม่มีในรุ่นใหม่
+    const storages = prices.filter((p) => p.model === value).map((p) => p.storage);
+    set({ model: value, storage: storages.includes(form.storage) ? form.storage : "" });
+  };
 
   // เลือกปัญหา: "ไม่มีปัญหา" ตัดกับข้ออื่น + ข้ออื่นตัด "ไม่มีปัญหา"
   const toggleProblem = (value: string) => {
@@ -38,7 +63,7 @@ export default function TradeInPage() {
   const submit = () => {
     const err = validateTradeIn(form);
     if (err) { toast.error(err); return; }
-    const msg = buildTradeInMessage(form);
+    const msg = buildTradeInMessage(form) + (estimated != null ? `\n\nราคาประเมินเบื้องต้น (จากเว็บ): ${baht(estimated)}` : "");
     // เปิดแชท LINE พร้อมข้อมูลเครื่อง (user gesture เดียว กัน Safari บล็อก) + คัดลอกสำรอง
     window.open(lineChatUrl(msg), "_blank", "noopener,noreferrer");
     navigator.clipboard?.writeText(msg).then(
@@ -85,17 +110,35 @@ export default function TradeInPage() {
             <Field label="ประเภทเครื่อง *">
               <RadioCards options={DEVICE_TYPES} value={form.deviceType} onChange={(v) => set({ deviceType: v })} cols={2} />
             </Field>
+            <Field label="รุ่น *">
+              {/* มีราคาในระบบ → เลือกจาก dropdown (คำนวณราคาประเมินให้), ไม่มี → เลือก "อื่นๆ" กรอกเอง */}
+              {models.length > 0 && !customModel ? (
+                <select value={form.model} onChange={(e) => pickModel(e.target.value)} className="input-dd cursor-pointer">
+                  <option value="">— เลือกรุ่น —</option>
+                  {models.map((m) => <option key={m} value={m}>{m}</option>)}
+                  <option value={OTHER_MODEL}>รุ่นอื่นๆ (ไม่อยู่ในรายการ)</option>
+                </select>
+              ) : (
+                <div className="space-y-2">
+                  <input value={form.model} onChange={(e) => set({ model: e.target.value })} className="input-dd" placeholder="เช่น iPhone 17 Pro Max" />
+                  {models.length > 0 && (
+                    <button type="button" onClick={() => { setCustomModel(false); set({ model: "", storage: "" }); }} className="text-xs font-semibold text-yellow-text hover:text-text-heading">← เลือกจากรายการที่มีราคา</button>
+                  )}
+                </div>
+              )}
+            </Field>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="รุ่น *">
-                <input value={form.model} onChange={(e) => set({ model: e.target.value })} className="input-dd" placeholder="เช่น iPhone 17 Pro Max" />
+              <Field label="ความจุ *">
+                {!customModel && storagesForModel.length > 0 ? (
+                  <RadioCards options={storagesForModel.map((s) => ({ value: s, label: s }))} value={form.storage} onChange={(v) => set({ storage: v })} cols={3} compact />
+                ) : (
+                  <RadioCards options={STORAGES} value={form.storage} onChange={(v) => set({ storage: v })} cols={3} compact />
+                )}
               </Field>
               <Field label="สี (ถ้าทราบ)">
                 <input value={form.color} onChange={(e) => set({ color: e.target.value })} className="input-dd" placeholder="เช่น Black Titanium" />
               </Field>
             </div>
-            <Field label="ความจุ *">
-              <RadioCards options={STORAGES} value={form.storage} onChange={(v) => set({ storage: v })} cols={3} compact />
-            </Field>
             <Field label="เวอร์ชันเครื่อง *">
               <RadioCards options={REGIONS} value={form.region} onChange={(v) => set({ region: v })} cols={3} />
             </Field>
@@ -142,6 +185,23 @@ export default function TradeInPage() {
               <input value={form.zipcode} onChange={(e) => set({ zipcode: e.target.value.replace(/\D/g, "").slice(0, 5) })} inputMode="numeric" autoComplete="postal-code" className="input-dd sm:max-w-[200px]" placeholder="เช่น 10250" />
             </Field>
           </FormCard>
+
+          {/* ราคาประเมินเบื้องต้น (คำนวณสดจากราคาฐาน − หักตามสภาพ) */}
+          {estimated != null ? (
+            <div className="overflow-hidden rounded-2xl border-2 border-yellow bg-yellow/10">
+              <div className="flex items-center justify-between gap-3 p-5">
+                <div>
+                  <p className="flex items-center gap-1.5 text-sm font-semibold text-text-heading"><Wallet size={16} className="text-yellow-hover" /> ราคาประเมินเบื้องต้น</p>
+                  <p className="mt-0.5 text-xs text-text-muted">{form.model} {form.storage} · หักตามสภาพที่เลือก</p>
+                </div>
+                <p className="flex-shrink-0 text-2xl font-bold text-price md:text-3xl">{baht(estimated)}</p>
+              </div>
+            </div>
+          ) : (form.model && form.storage) ? (
+            <div className="rounded-2xl border border-info-border bg-info-bg p-4 text-sm text-info-text">
+              <p className="flex items-start gap-1.5"><Wallet size={15} className="mt-0.5 flex-shrink-0" /> รุ่นนี้ยังไม่มีราคาประเมินอัตโนมัติ — กรอกข้อมูลแล้วส่งให้ทีมงานตีราคาทาง LINE ได้เลย</p>
+            </div>
+          ) : null}
 
           {/* หมายเหตุ + ปุ่มส่ง */}
           <div className="rounded-2xl border border-border-default bg-bg-subtle p-4 text-xs text-text-muted">
