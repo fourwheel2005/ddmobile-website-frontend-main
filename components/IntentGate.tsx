@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
-import { X, Sparkles, RotateCcw, Banknote, Repeat, HandCoins, ArrowRight, Store } from "lucide-react";
+import { X, Sparkles, RotateCcw, Banknote, Repeat, ArrowRight, Store } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import api from "@/lib/api";
 import { LINE_URL } from "@/lib/contact";
@@ -24,7 +24,6 @@ const OPTIONS: Option[] = [
   { key: "used",  label: "ผ่อนสินค้ามือ 2",    desc: "เครื่องมือสอง ตรวจสภาพแล้ว",  icon: RotateCcw, action: { type: "route", href: "/products?condition=SECOND_HAND" } },
   { key: "cash",  label: "แลกเงิน",           desc: "ไอโฟนแลกเงิน ได้เงินไว",      icon: Banknote,  action: { type: "line" } },
   { key: "trade", label: "เทิร์นเก่าแลกใหม่",  desc: "นำเครื่องเดิมมาแลกรุ่นใหม่",   icon: Repeat,    action: { type: "line" } },
-  { key: "buy",   label: "ยูเฟรนด์รับซื้อ",    desc: "ขายเครื่องให้เรา ตีราคาไว",    icon: HandCoins, action: { type: "line" } },
 ];
 
 export function markIntentSeen() {
@@ -89,11 +88,12 @@ export default function IntentGate() {
           {OPTIONS.map((o, i) => {
             const active = selected === o.key;
             const Icon = o.icon;
-            const isLast = i === OPTIONS.length - 1;   // ตัวที่ 5 (คี่) → จัดกลางเต็มแถว
+            // ถ้าจำนวนเป็นคี่ ตัวสุดท้ายจัดกลางเต็มแถว (ตอนนี้ 4 ตัว = คู่ → 2×2 พอดี ไม่ต้องจัด)
+            const centerLast = OPTIONS.length % 2 === 1 && i === OPTIONS.length - 1;
             return (
               <label
                 key={o.key}
-                className={`flex cursor-pointer items-center gap-3 rounded-2xl border p-4 transition-all ${isLast ? "sm:col-span-2 sm:mx-auto sm:w-1/2" : ""} ${
+                className={`flex cursor-pointer items-center gap-3 rounded-2xl border p-4 transition-all ${centerLast ? "sm:col-span-2 sm:mx-auto sm:w-1/2" : ""} ${
                   active ? "border-yellow bg-yellow/10 ring-1 ring-yellow" : "border-border-default hover:border-yellow hover:bg-bg-tinted"
                 }`}
               >

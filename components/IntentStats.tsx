@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { Target, Sparkles, RotateCcw, Banknote, Repeat, HandCoins, Users } from "lucide-react";
+import { Target, Sparkles, RotateCcw, Banknote, Repeat, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import api from "@/lib/api";
 import StatCard from "@/components/ui/StatCard";
@@ -10,7 +10,7 @@ interface IntentStat { service: string; label: string; count: number; }
 
 // ไอคอนต่อบริการ (ให้ตรงกับ IntentGate)
 const ICON: Record<string, LucideIcon> = {
-  NEW: Sparkles, USED: RotateCcw, CASH: Banknote, TRADE: Repeat, BUY: HandCoins,
+  NEW: Sparkles, USED: RotateCcw, CASH: Banknote, TRADE: Repeat,
 };
 
 /** แดชบอร์ด "บริการที่ลูกค้าสนใจ" — สรุปดีมานด์จากป๊อปอัพคัดกรอง (bar เทียบสัดส่วน) */
