@@ -272,7 +272,7 @@ function ProductDetailContent() {
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
           {/* image + แกลเลอรี */}
           <div>
-            <div className="product-stage-premium relative flex h-[min(52vh,420px)] items-center justify-center rounded-2xl border border-border-default p-6 lg:aspect-square lg:h-auto lg:p-8">
+            <div className="product-stage-premium relative flex h-[min(52vh,420px)] items-center justify-center rounded-2xl border border-border-default p-4 lg:aspect-square lg:h-auto lg:p-6">
               <span className={`badge-dd absolute left-5 top-5 z-10 ${isNew ? "badge-success" : "badge-info"}`}>
                 {isNew ? <Sparkles size={12} /> : <RotateCcw size={12} />} {item.conditionLabel}
               </span>
@@ -288,14 +288,18 @@ function ProductDetailContent() {
                 {mainImg ? (
                   <motion.div
                     key={mainImg}
-                    className="relative h-full w-full max-w-[78%]"
+                    className="relative h-full w-full"
                     initial={reduceMotion ? false : { opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 1.03 }}
                     transition={{ duration: reduceMotion ? 0 : 0.28, ease: "easeOut" }}
                   >
-                    <Image src={mainImg} alt={item.productName} fill priority sizes="(max-width: 1024px) 78vw, 40vw"
-                           className={`${isUnit ? "object-contain scale-110" : "object-contain"} transition-transform duration-300 ${item.sold ? "opacity-40 grayscale" : ""}`} />
+                    {/* มือ 1 (MODEL) = official render มีขอบขาวในไฟล์ ~20-25% ต่อด้าน → ซูม 1.25x ให้เต็มกรอบ
+                        ปลอดภัย "ตราบใดที่ render ยังมีขอบขาว ≥10% ต่อด้าน" (วัดของจริง 32 รูป fill สูงสุด 71% = safe ถึง 1.41x)
+                        ⚠️ ถ้าอนาคตอัปโหลดรูป MODEL แบบครอปแน่น/เต็มเฟรม จะโดน overflow-hidden ตัดตัวเครื่อง — ควร normalize รูปตอนอัปโหลดแทน
+                        มือ 2 (UNIT) / อุปกรณ์เสริม = รูปถ่ายเต็มเฟรมอยู่แล้ว → ไม่ซูม (กันตัดขอบเครื่อง) */}
+                    <Image src={mainImg} alt={item.productName} fill priority sizes="(max-width: 1024px) 92vw, 46vw"
+                           className={`${isModel ? "object-contain scale-125" : "object-contain"} transition-transform duration-300 ${item.sold ? "opacity-40 grayscale" : ""}`} />
                   </motion.div>
                 ) : (
                   <Smartphone size={120} className="text-text-disabled" />
