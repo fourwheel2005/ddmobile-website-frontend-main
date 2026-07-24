@@ -142,10 +142,11 @@ function ProductDetailContent() {
   if (isLoading) {
     return (
       <div className="page-wrapper min-h-screen bg-bg-base">
-        <div className="container-dd py-8 md:py-12">
-          <div className="skeleton mb-6 h-4 w-64 rounded" />
+        <div className="container-dd pt-6 pb-48 md:py-10">
+          <div className="skeleton mb-4 h-4 w-64 rounded" />
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-            <div className="skeleton aspect-square w-full rounded-2xl" />
+            {/* ให้ตรงกับ stage รูปจริง (h-[min(52vh,420px)] lg:aspect-square) กันหน้ากระตุกตอนโหลดเสร็จ */}
+            <div className="skeleton h-[min(52vh,420px)] w-full rounded-2xl lg:aspect-square lg:h-auto" />
             <div className="space-y-4">
               <div className="skeleton h-3 w-32 rounded" />
               <div className="skeleton h-8 w-3/4 rounded" />
@@ -254,7 +255,7 @@ function ProductDetailContent() {
 
   return (
     <div className="page-wrapper min-h-screen bg-bg-base">
-      <div className="container-dd pt-6 pb-36 md:py-10">
+      <div className="container-dd pt-6 pb-48 md:py-10">
 
         {/* Breadcrumb */}
         <nav aria-label="breadcrumb" className="mb-4 flex flex-wrap items-center gap-1.5 text-sm text-text-muted">
@@ -347,7 +348,8 @@ function ProductDetailContent() {
 
             <div className="overflow-hidden rounded-2xl border border-text-heading bg-text-heading p-5 text-white shadow-[0_16px_38px_rgba(17,24,39,0.18)]">
               <p className="text-sm font-medium text-white/65">ราคา{isNew ? "เครื่องใหม่" : "เครื่องมือสอง"}</p>
-              <div className="flex items-baseline gap-2">
+              {/* แถวราคา — flex-wrap กันราคา/ช่วงราคาล้นการ์ดบนจอแคบ */}
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                 {effPrice == null ? (
                   <span className="text-2xl font-bold text-white md:text-3xl">สอบถามราคา</span>
                 ) : flash ? (
@@ -363,15 +365,16 @@ function ProductDetailContent() {
                     )}
                   </>
                 )}
-                {flash && (
-                  <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl bg-white/10 px-3 py-2 ring-1 ring-white/15">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-yellow px-2.5 py-0.5 text-xs font-bold text-text-heading"><Zap size={11} className="fill-text-heading" /> {flash.label}</span>
-                    <span className="text-sm font-semibold text-white">{flash.name}</span>
-                    <FlashCountdown endAt={flash.endAt} />
-                    <span className="w-full text-[11px] text-white/60">ส่วนลดคำนวณให้อัตโนมัติตอนชำระเงิน</span>
-                  </div>
-                )}
               </div>
+              {/* กล่องโปรโมชัน — แยกเป็นบล็อกใต้ราคา (เดิมอยู่ในแถว items-baseline เดียวกันทำให้ล้น) */}
+              {flash && (
+                <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl bg-white/10 px-3 py-2 ring-1 ring-white/15">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-yellow px-2.5 py-0.5 text-xs font-bold text-text-heading"><Zap size={11} className="fill-text-heading" /> {flash.label}</span>
+                  <span className="text-sm font-semibold text-white">{flash.name}</span>
+                  <FlashCountdown endAt={flash.endAt} />
+                  <span className="w-full text-[11px] text-white/60">ส่วนลดคำนวณให้อัตโนมัติตอนชำระเงิน</span>
+                </div>
+              )}
               {bestInstallmentTerm && (
                 <div className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-white/15 bg-white/15">
                   <div className="bg-white/5 px-3 py-2.5">
@@ -462,7 +465,7 @@ function ProductDetailContent() {
             )}
 
             <div className="mt-6 space-y-3">
-              <h3 className="font-bold text-text-heading">{isUnit ? "สภาพเครื่องมือสอง (ตรวจสอบแล้ว)" : "รายละเอียด"}</h3>
+              <h2 className="font-bold text-text-heading">{isUnit ? "สภาพเครื่องมือสอง (ตรวจสอบแล้ว)" : "รายละเอียด"}</h2>
 
               {/* แบตเตอรี่ มือสอง — แสดงเป็นแถบชัดเจน */}
               {isUnit && item.avgBatteryHealth != null && (

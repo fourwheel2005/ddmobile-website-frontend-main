@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -26,6 +26,19 @@ export default function Navbar() {
   const { count, clear } = useCart();
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
+
+  // ปิดเมนูบัญชีเมื่อคลิกนอก/กด Esc (a11y — เดิมปิดได้แค่กดปุ่มซ้ำ)
+  useEffect(() => {
+    if (!isProfileOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) setIsProfileOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setIsProfileOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
+  }, [isProfileOpen]);
 
   useEffect(() => {
     const checkAuthStatus = () => {
@@ -88,7 +101,7 @@ export default function Navbar() {
           {/* Desktop center links */}
           <div className="desktop-nav hidden items-center gap-7 md:flex">
             {navLinks.map((link) => (
-              <Link key={link.name} href={link.href} className={`nav-link ${isActive(link.href) ? 'active' : ''}`}>
+              <Link key={link.name} href={link.href} aria-current={isActive(link.href) ? 'page' : undefined} className={`nav-link ${isActive(link.href) ? 'active' : ''}`}>
                 {link.name}
               </Link>
             ))}
@@ -112,7 +125,7 @@ export default function Navbar() {
             </Link>
 
             {userData ? (
-              <div className="relative">
+              <div className="relative" ref={profileRef}>
                 <button
                   onClick={() => setIsProfileOpen(!isProfileOpen)}
                   aria-label="เมนูบัญชีผู้ใช้"
@@ -175,11 +188,12 @@ export default function Navbar() {
               key={link.name}
               href={link.href}
               aria-label={link.name}
+              aria-current={active ? 'page' : undefined}
               className={`flex h-full min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-0.5 font-medium transition-colors ${
-                active ? 'text-yellow-hover' : 'text-text-muted'
+                active ? 'text-yellow-text' : 'text-text-muted'
               }`}
             >
-              <Icon size={20} className={`flex-shrink-0 ${active ? 'text-yellow-hover' : ''}`} />
+              <Icon size={20} className={`flex-shrink-0 ${active ? 'text-yellow-text' : ''}`} />
               {/* ชื่อยาว (ไอโฟนแลกเงิน) → ตัด 2 บรรทัด กัน overflow แนวนอนบนจอเล็ก */}
               <span className="line-clamp-2 w-full text-center text-[10px] leading-tight [overflow-wrap:anywhere]">{link.name}</span>
             </Link>

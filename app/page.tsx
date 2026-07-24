@@ -135,7 +135,7 @@ export default function Home() {
             <p className="section-label">อัปเดตสต็อกล่าสุด</p>
             <h2 className="text-2xl font-bold text-text-heading md:text-3xl">สินค้าแนะนำ</h2>
           </div>
-          <Link href="/products" className="flex items-center gap-1 text-sm font-semibold text-yellow-hover hover:underline">
+          <Link href="/products" className="flex items-center gap-1 text-sm font-semibold text-yellow-text hover:underline">
             ดูทั้งหมด <ChevronRight size={16} />
           </Link>
         </div>
@@ -218,7 +218,7 @@ function ProductCard({ product, inst }: { product: CatalogItem; inst?: InstInfo 
               ผ่อนเริ่ม ฿{inst.monthly.toLocaleString()}<span className="font-medium text-text-muted">/เดือน</span>
             </div>
           )}
-          {inst?.note && <p className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-yellow-hover"><Sparkles size={11} className="flex-shrink-0" /> <span className="line-clamp-1">{inst.note}</span></p>}
+          {inst?.note && <p className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-yellow-text"><Sparkles size={11} className="flex-shrink-0" /> <span className="line-clamp-1">{inst.note}</span></p>}
         </div>
       </div>
     </Link>

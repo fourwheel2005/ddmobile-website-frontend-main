@@ -160,8 +160,11 @@
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-yellow);
+    /* เหลือง #ffd400 บนพื้นขาว = 1.4:1 มองแทบไม่เห็น (ต่ำกว่า 3:1 ตาม WCAG 2.4.11)
+       → ใช้เส้นเข้ม (16:1 บนขาว) + halo เหลืองบาง ๆ คงกลิ่นแบรนด์และเห็นชัดบนพื้นเข้มด้วย */
+    outline: 2px solid var(--color-text-heading);
     outline-offset: 2px;
+    box-shadow: 0 0 0 4px rgba(255, 212, 0, 0.45);
   }
 
   @media (prefers-reduced-motion: reduce) {
