@@ -132,6 +132,16 @@ function LoginForm() {
           <button type="submit" disabled={isLoading} className="btn-primary w-full py-3 text-base">
             {isLoading ? "กำลังประมวลผล..." : (isLogin ? "เข้าสู่ระบบ" : "สร้างบัญชีใหม่")}
           </button>
+
+          {!isLogin && (
+            <p className="text-center text-xs leading-relaxed text-text-muted">
+              การสมัครสมาชิกถือว่าคุณยอมรับ{" "}
+              <Link href="/privacy" className="font-medium text-yellow-hover underline-offset-2 hover:underline">
+                นโยบายความเป็นส่วนตัว
+              </Link>{" "}
+              ของเรา
+            </p>
+          )}
         </form>
       </div>
     </div>

@@ -4,6 +4,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Facebook, Instagram, MessageCircle, Phone } from "lucide-react";
 import { LINE_URL, TEL, TEL_HREF, FACEBOOK_URL, TIKTOK_URL, INSTAGRAM_URL } from "@/lib/contact";
+import { useCookieConsent } from "@/context/CookieConsentContext";
 
 function TikTokIcon({ className }: { className?: string }) {
   return (
@@ -16,6 +17,7 @@ function TikTokIcon({ className }: { className?: string }) {
 /** Footer กลาง — โชว์ทุกหน้า (ยกเว้นหลังบ้าน /admin ที่เป็น app shell เต็มจอ) */
 export default function Footer() {
   const pathname = usePathname();
+  const { openPreferences } = useCookieConsent();
   if (pathname?.startsWith("/admin")) return null;
 
   return (
@@ -69,8 +71,20 @@ export default function Footer() {
           </div>
         </div>
       </div>
-      <div className="container-dd mt-10 border-t border-border-default pt-6 text-center text-xs text-text-muted">
-        © {new Date().getFullYear()} DDMOBILE. All rights reserved.
+      <div className="container-dd mt-10 flex flex-col items-center justify-center gap-2 border-t border-border-default pt-6 text-center text-xs text-text-muted sm:flex-row sm:gap-3">
+        <span>© {new Date().getFullYear()} DDMOBILE. All rights reserved.</span>
+        <span className="hidden sm:inline" aria-hidden="true">·</span>
+        <Link href="/privacy" className="underline-offset-2 transition-colors hover:text-text-heading hover:underline">
+          นโยบายความเป็นส่วนตัว
+        </Link>
+        <span className="hidden sm:inline" aria-hidden="true">·</span>
+        <button
+          type="button"
+          onClick={openPreferences}
+          className="underline-offset-2 transition-colors hover:text-text-heading hover:underline"
+        >
+          จัดการคุกกี้
+        </button>
       </div>
     </footer>
   );

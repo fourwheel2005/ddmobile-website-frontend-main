@@ -267,6 +267,12 @@ export default function CheckoutPage() {
                 {submitting ? "กำลังสร้างคำสั่งซื้อ..." : <>ยืนยันคำสั่งซื้อ <ArrowRight size={18} /></>}
               </button>
               <p className="mt-2 text-center text-xs text-text-muted">จองสินค้าให้ทันที · ระบบตรวจสลิปอัตโนมัติ · ยอดตรงแอดมินอนุมัติทันที</p>
+              <p className="mt-1.5 text-center text-xs leading-relaxed text-text-muted">
+                การยืนยันคำสั่งซื้อถือว่าคุณยอมรับ{" "}
+                <Link href="/privacy" className="font-medium text-yellow-hover underline-offset-2 hover:underline">
+                  นโยบายความเป็นส่วนตัว
+                </Link>
+              </p>
               {/* trust block — ความมั่นใจก่อนกดจ่าย */}
               <div className="mt-4 grid grid-cols-3 gap-2 border-t border-border-default pt-4">
                 {[

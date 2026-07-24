@@ -6,6 +6,8 @@ import FloatingActions from "@/components/FloatingActions";
 import MotionProvider from "@/components/MotionProvider";
 import { Toaster } from "react-hot-toast"; // ✅ 1. นำเข้า Toaster ที่นี่
 import { CartProvider } from "@/context/CartContext";
+import { CookieConsentProvider } from "@/context/CookieConsentContext";
+import CookieConsent from "@/components/CookieConsent";
 import "./globals.css";
 
 // Display (หัวข้อ/ตัวเลข) — Anuphan มี glyph ไทย+ละตินครบ (Space Grotesk เดิมไม่มีไทย → หัวข้อฟอนต์ผสม)
@@ -38,14 +40,17 @@ export default function RootLayout({
     <html lang="th" className={`${anuphan.variable} ${plexThai.variable}`}>
       {/* พื้นหลัง/ฟอนต์หลักกำหนดใน globals.css (@layer base body) */}
       <body className="antialiased">
-        <CartProvider>
-          <MotionProvider>
-            <Navbar />
-            <main className="pb-[calc(64px+env(safe-area-inset-bottom))] md:pb-0">{children}</main>
-            <Footer />
-            <FloatingActions />
-          </MotionProvider>
-        </CartProvider>
+        <CookieConsentProvider>
+          <CartProvider>
+            <MotionProvider>
+              <Navbar />
+              <main className="pb-[calc(64px+env(safe-area-inset-bottom))] md:pb-0">{children}</main>
+              <Footer />
+              <FloatingActions />
+            </MotionProvider>
+          </CartProvider>
+          <CookieConsent />
+        </CookieConsentProvider>
 
         {/* Toaster — โทนขาวสะอาดเข้ากับธีมใหม่ */}
         <Toaster
