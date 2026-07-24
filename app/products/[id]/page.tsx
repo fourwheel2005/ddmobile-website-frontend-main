@@ -129,7 +129,8 @@ function ProductDetailContent() {
           return;
         }
         const info = res.status === 204 ? null : (res.data as InstallmentInfo);
-        if (!cancel) setInstallment(info && (info.downPayment != null || (info.terms?.length ?? 0) > 0) ? info : null);
+        const hasInst = !!info && (info.downPayment != null || (info.terms?.length ?? 0) > 0 || (info.plans?.length ?? 0) > 0);
+        if (!cancel) setInstallment(hasInst ? info : null);
       } catch {
         if (!cancel) setInstallment(null);
       }
@@ -229,10 +230,22 @@ function ProductDetailContent() {
     else toast(r.reason || "เพิ่มไม่ได้", { icon: <ShoppingCart size={18} className="text-yellow-hover" /> });
   };
   const priceText = baht(effPrice, "สอบถามราคา");
-  const bestInstallmentTerm = installment?.terms?.reduce<InstallmentInfo["terms"][number] | null>(
-    (best, term) => !best || term.monthly < best.monthly ? term : best,
-    null,
-  ) ?? null;
+  // ผ่อนเริ่มต้น = งวดที่ถูกที่สุด "ข้ามทุกแผน" — จับคู่ ดาวน์+ค่างวด ให้มาจากแผนเดียวกัน (ไม่ปนแผน)
+  const installmentPlansForCalc = installment
+    ? (installment.plans && installment.plans.length > 0
+        ? installment.plans
+        : [{ label: null, down: installment.downPayment, promo: installment.note, terms: installment.terms ?? [] }])
+    : [];
+  let bestInstallmentTerm: InstallmentInfo["terms"][number] | null = null;
+  let bestInstallmentDown: number | null = installment?.downPayment ?? null;
+  for (const p of installmentPlansForCalc) {
+    for (const t of p.terms ?? []) {
+      if (!bestInstallmentTerm || t.monthly < bestInstallmentTerm.monthly) {
+        bestInstallmentTerm = t;
+        bestInstallmentDown = p.down;   // ดาวน์ของ "แผนเดียวกัน" กับค่างวดที่ถูกที่สุด
+      }
+    }
+  }
   // โปร flash sale ของตัวที่เลือกอยู่ (แสดงผลเท่านั้น — server คิดจริงตอนสร้างออเดอร์)
   const flash = item.sold ? null : promoForItem(promos, { id: item.id, variantId: effVariantId, category: item.category }, effPrice);
   const warranty = item.warrantyExpire
@@ -361,7 +374,7 @@ function ProductDetailContent() {
                 <div className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-white/15 bg-white/15">
                   <div className="bg-white/5 px-3 py-2.5">
                     <p className="text-[11px] text-white/60">ดาวน์เริ่มต้น</p>
-                    <p className="mt-0.5 text-base font-bold text-yellow">{baht(installment?.downPayment)}</p>
+                    <p className="mt-0.5 text-base font-bold text-yellow">{baht(bestInstallmentDown)}</p>
                   </div>
                   <div className="bg-white/5 px-3 py-2.5">
                     <p className="text-[11px] text-white/60">ผ่อนเริ่มต้น</p>
