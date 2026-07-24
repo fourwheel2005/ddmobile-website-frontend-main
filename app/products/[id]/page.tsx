@@ -294,12 +294,10 @@ function ProductDetailContent() {
                     exit={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 1.03 }}
                     transition={{ duration: reduceMotion ? 0 : 0.28, ease: "easeOut" }}
                   >
-                    {/* มือ 1 (MODEL) = official render มีขอบขาวในไฟล์ ~20-25% ต่อด้าน → ซูม 1.25x ให้เต็มกรอบ
-                        ปลอดภัย "ตราบใดที่ render ยังมีขอบขาว ≥10% ต่อด้าน" (วัดของจริง 32 รูป fill สูงสุด 71% = safe ถึง 1.41x)
-                        ⚠️ ถ้าอนาคตอัปโหลดรูป MODEL แบบครอปแน่น/เต็มเฟรม จะโดน overflow-hidden ตัดตัวเครื่อง — ควร normalize รูปตอนอัปโหลดแทน
-                        มือ 2 (UNIT) / อุปกรณ์เสริม = รูปถ่ายเต็มเฟรมอยู่แล้ว → ไม่ซูม (กันตัดขอบเครื่อง) */}
+                    {/* รูปฝั่ง Stock ผ่าน normalize (ตัดขอบว่าง + margin สม่ำเสมอที่ต้นทาง) แล้ว —
+                        ทั้งมือ 1/มือ 2/อุปกรณ์เสริมเฟรมเท่ากัน → object-contain ล้วน เต็มกรอบพอดี ไม่ต้อง zoom ชดเชยรายชนิด */}
                     <Image src={mainImg} alt={item.productName} fill priority sizes="(max-width: 1024px) 92vw, 46vw"
-                           className={`${isModel ? "object-contain scale-125" : "object-contain"} transition-transform duration-300 ${item.sold ? "opacity-40 grayscale" : ""}`} />
+                           className={`object-contain transition-transform duration-300 ${item.sold ? "opacity-40 grayscale" : ""}`} />
                   </motion.div>
                 ) : (
                   <Smartphone size={120} className="text-text-disabled" />
