@@ -30,13 +30,8 @@ export default function FloatingActions() {
   // ไม่แสดงในหน้า admin (มี layout ของตัวเอง)
   if (pathname.startsWith("/admin")) return null;
 
-  // หน้ารายละเอียดสินค้า (มือถือ) มี decision bar ซื้อสด/ผ่อน 2 แถวอยู่ล่างจอ
-  // → ยกปุ่มลอยขึ้นเหนือแถบนั้น กันปุ่ม LINE ทับปุ่มซื้อ (เดสก์ท็อปไม่มีแถบนี้ ใช้ตำแหน่งปกติ)
-  const onProductDetail = pathname.startsWith("/products/") && pathname !== "/products";
-  const mobileBottom = onProductDetail ? "bottom-[184px]" : "bottom-[76px]";
-
   return (
-    <div className={`fixed ${mobileBottom} right-4 z-[90] flex flex-col items-end gap-3 md:bottom-6 md:right-6`}>
+    <div className="fixed right-6 bottom-6 z-[90] hidden flex-col items-end gap-3 md:flex">
       {showTop && (
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}

@@ -566,7 +566,8 @@
   }
 
   /* --- Page entry animation --- */
-  .page-wrapper { animation: page-enter 320ms ease both; }
+  /* A retained transform makes position: fixed descendants anchor to the page wrapper. */
+  .page-wrapper { animation: page-enter 320ms ease; }
   @keyframes page-enter {
     from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
