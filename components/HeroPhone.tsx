@@ -1,102 +1,254 @@
 "use client";
-import { motion, useMotionValue, useSpring, useTransform, useMotionTemplate, useReducedMotion } from "framer-motion";
-import { Sparkles, Truck, ShieldCheck } from "lucide-react";
+
+import {
+  motion,
+  useMotionTemplate,
+  useMotionValue,
+  useReducedMotion,
+  useSpring,
+  useTransform,
+  type PanInfo,
+} from "framer-motion";
+import { MoveHorizontal, ShieldCheck, Sparkles, Truck } from "lucide-react";
 import Image from "next/image";
-import type { ReactNode } from "react";
+import { useState, type KeyboardEvent, type ReactNode } from "react";
 
-/**
- * Hero โทรศัพท์ — ลอยขึ้นลงนุ่ม ๆ + เอียง 3D ตามเมาส์ (เดสก์ท็อป) + ป้ายลอยรอบเครื่อง + เงาหายใจ
- * เคารพ prefers-reduced-motion (ปิดการเคลื่อนไหวทั้งหมด) · มือถือลอยเฉย ๆ (ไม่เอียงตามเมาส์)
- */
+export type HeroPhoneView = "back" | "front";
+
+const SWIPE_OFFSET_PX = 42;
+const SWIPE_VELOCITY_PX = 420;
+
+export function resolveHeroPhoneView(
+  currentView: HeroPhoneView,
+  offsetX: number,
+  velocityX: number,
+): HeroPhoneView {
+  if (offsetX <= -SWIPE_OFFSET_PX || velocityX <= -SWIPE_VELOCITY_PX) return "front";
+  if (offsetX >= SWIPE_OFFSET_PX || velocityX >= SWIPE_VELOCITY_PX) return "back";
+  return currentView;
+}
+
 export default function HeroPhone() {
-  const reduce = useReducedMotion();
+  const reduceMotion = useReducedMotion();
+  const [activeView, setActiveView] = useState<HeroPhoneView>("front");
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+  const springX = useSpring(mouseX, { stiffness: 120, damping: 18 });
+  const springY = useSpring(mouseY, { stiffness: 120, damping: 18 });
+  const rotateY = useTransform(springX, [-0.5, 0.5], [7, -7]);
+  const rotateX = useTransform(springY, [-0.5, 0.5], [-5, 5]);
+  const glareX = useTransform(springX, [-0.5, 0.5], [32, 68]);
+  const glareY = useTransform(springY, [-0.5, 0.5], [35, 65]);
+  const glareBackground = useMotionTemplate`radial-gradient(circle at ${glareX}% ${glareY}%, rgba(255,255,255,0.38), transparent 52%)`;
 
-  // ตำแหน่งเมาส์ (-0.5..0.5) → เอียง 3D (spring ให้นุ่ม) — ±10° หรูกว่า ±13°
-  const mx = useMotionValue(0);
-  const my = useMotionValue(0);
-  const sx = useSpring(mx, { stiffness: 120, damping: 18 });
-  const sy = useSpring(my, { stiffness: 120, damping: 18 });
-  const rotateY = useTransform(sx, [-0.5, 0.5], [10, -10]);
-  const rotateX = useTransform(sy, [-0.5, 0.5], [-10, 10]);
-  // แสงสะท้อน (specular) วิ่งตามการเอียง — ให้รู้สึกเป็นวัตถุจริงมีผิวมัน
-  const glareX = useTransform(sx, [-0.5, 0.5], [30, 70]);
-  const glareY = useTransform(sy, [-0.5, 0.5], [30, 70]);
-  const glareBg = useMotionTemplate`radial-gradient(circle at ${glareX}% ${glareY}%, rgba(255,255,255,0.45), transparent 55%)`;
+  const selectView = (view: HeroPhoneView) => setActiveView(view);
 
-  const handleMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (reduce) return;
-    const r = e.currentTarget.getBoundingClientRect();
-    mx.set((e.clientX - r.left) / r.width - 0.5);
-    my.set((e.clientY - r.top) / r.height - 0.5);
+  const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (reduceMotion) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    mouseX.set((event.clientX - bounds.left) / bounds.width - 0.5);
+    mouseY.set((event.clientY - bounds.top) / bounds.height - 0.5);
   };
-  const handleLeave = () => { mx.set(0); my.set(0); };
 
-  const loop = { duration: 6, repeat: Infinity, ease: "easeInOut" as const };
+  const handleMouseLeave = () => {
+    mouseX.set(0);
+    mouseY.set(0);
+  };
+
+  const handleDragEnd = (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    selectView(resolveHeroPhoneView(activeView, info.offset.x, info.velocity.x));
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "ArrowLeft" || event.key === "Home") {
+      event.preventDefault();
+      selectView("back");
+    }
+    if (event.key === "ArrowRight" || event.key === "End") {
+      event.preventDefault();
+      selectView("front");
+    }
+  };
+
+  const imageTransition = reduceMotion
+    ? { duration: 0 }
+    : { type: "spring" as const, stiffness: 190, damping: 22, mass: 0.8 };
 
   return (
     <div
-      className="relative flex min-h-[340px] items-center justify-center md:min-h-[460px]"
+      className="relative flex min-h-[410px] items-center justify-center overflow-hidden md:min-h-[470px]"
       style={{ perspective: 1100 }}
-      onMouseMove={handleMove}
-      onMouseLeave={handleLeave}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
     >
-      {/* แสงรองรับสินค้าแบบไร้กรอบ: ไม่ใช้การ์ดสีขาวซ้อนหลังเครื่อง เพราะทำให้ภาพดูเหมือนถูกแปะอยู่ในกล่อง */}
-      <div className="absolute h-64 w-64 rounded-full bg-yellow/30 blur-3xl md:h-80 md:w-80" aria-hidden="true" />
-      <div className="absolute inset-[13%] rounded-[48%] border border-yellow/35 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.42),transparent_68%)]" aria-hidden="true" />
-      <div className="absolute inset-x-[20%] top-[13%] h-px bg-gradient-to-r from-transparent via-yellow/65 to-transparent" aria-hidden="true" />
+      <div
+        aria-hidden="true"
+        className="absolute h-[19rem] w-[19rem] rounded-full bg-[radial-gradient(circle,rgba(255,177,92,0.36)_0%,rgba(255,207,64,0.16)_48%,transparent_72%)] blur-xl md:h-[23rem] md:w-[23rem]"
+      />
+      <motion.div
+        aria-hidden="true"
+        className="absolute h-[72%] w-[82%] rounded-[50%] border border-yellow/35"
+        animate={reduceMotion ? undefined : { rotate: [0, 2, 0], scale: [1, 1.025, 1] }}
+        transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+      />
+      <div
+        aria-hidden="true"
+        className="absolute inset-x-[15%] top-[13%] h-px bg-gradient-to-r from-transparent via-yellow/60 to-transparent"
+      />
 
-      <Chip className="left-[0%] top-[14%]" delay={0} reduce={!!reduce}>
+      <Chip className="left-[0%] top-[14%]" delay={0} reduceMotion={!!reduceMotion}>
         <Sparkles size={13} className="text-success-text" /> มือ 1 ของแท้
       </Chip>
-      <Chip className="right-[2%] top-[34%]" delay={0.7} reduce={!!reduce}>
+      <Chip className="right-[1%] top-[33%]" delay={0.7} reduceMotion={!!reduceMotion}>
         <Truck size={13} className="text-yellow-hover" /> ส่งด่วนทั่วไทย
       </Chip>
-      <Chip className="bottom-[16%] left-[4%]" delay={1.2} reduce={!!reduce}>
+      <Chip className="bottom-[18%] left-[2%]" delay={1.2} reduceMotion={!!reduceMotion}>
         <ShieldCheck size={13} className="text-info-text" /> เครื่องแท้ 100%
       </Chip>
 
       <motion.div
-        className="relative z-10 w-[68%] md:w-[80%]"
+        className="relative z-10 h-[330px] w-[min(94vw,410px)] outline-none [touch-action:pan-y] focus-visible:rounded-[3rem] focus-visible:ring-2 focus-visible:ring-yellow focus-visible:ring-offset-4 md:h-[390px] md:w-[430px]"
         style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
-        initial={reduce ? false : { opacity: 0, y: 26 }}
+        role="group"
+        tabIndex={0}
+        aria-label="ภาพ iPhone 17 Pro Max แบบสองมุม ใช้ปุ่มลูกศรซ้ายและขวาเพื่อเปลี่ยนมุม"
+        onKeyDown={handleKeyDown}
+        initial={reduceMotion ? false : { opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
       >
-        <motion.div className="relative" style={{ translateZ: 50 }} animate={reduce ? undefined : { y: [0, -14, 0] }} transition={loop}>
-          <Image
-            src="/images/iphone-17-promax-orange.png"
-            alt="iPhone 17 Pro Max"
-            width={420}
-            height={520}
-            priority
-            sizes="(max-width: 768px) 68vw, 40vw"
-            className="w-full object-contain drop-shadow-2xl"
-          />
-          {/* specular glare — เลเยอร์แสงบาง ๆ วิ่งตามการเอียง (เดสก์ท็อป) */}
-          {!reduce && (
-            <motion.span aria-hidden="true" className="pointer-events-none absolute inset-0 hidden md:block" style={{ background: glareBg, mixBlendMode: "screen" }} />
+        <motion.div
+          className="absolute inset-0 cursor-grab select-none active:cursor-grabbing"
+          drag={reduceMotion ? false : "x"}
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={0.18}
+          dragMomentum={false}
+          onDragEnd={handleDragEnd}
+          whileDrag={{ scale: 0.985 }}
+        >
+          <motion.div
+            className="absolute inset-0"
+            animate={reduceMotion ? undefined : { y: [0, -9, 0] }}
+            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+          >
+            <motion.div
+              className="absolute left-1/2 top-1/2"
+              animate={
+                activeView === "back"
+                  ? { x: "-79%", y: "-56%", scale: 1.02, rotateY: -7, rotateZ: -1, opacity: 1, zIndex: 2 }
+                  : { x: "-92%", y: "-54%", scale: 0.89, rotateY: 7, rotateZ: -2.5, opacity: 0.76, zIndex: 1 }
+              }
+              transition={imageTransition}
+            >
+              <Image
+                src="/images/iphone-17-promax-orange-back.webp"
+                alt={activeView === "back" ? "iPhone 17 Pro Max สีส้ม มุมด้านหลัง" : ""}
+                width={307}
+                height={879}
+                priority
+                draggable={false}
+                sizes="(max-width: 768px) 34vw, 180px"
+                className="h-[292px] w-auto object-contain drop-shadow-[0_24px_22px_rgba(83,43,14,0.25)] md:h-[350px]"
+              />
+            </motion.div>
+
+            <motion.div
+              className="absolute left-1/2 top-1/2"
+              animate={
+                activeView === "front"
+                  ? { x: "-21%", y: "-56%", scale: 1.02, rotateY: 7, rotateZ: 1, opacity: 1, zIndex: 2 }
+                  : { x: "-8%", y: "-54%", scale: 0.89, rotateY: -7, rotateZ: 2.5, opacity: 0.76, zIndex: 1 }
+              }
+              transition={imageTransition}
+            >
+              <Image
+                src="/images/iphone-17-promax-orange-front.webp"
+                alt={activeView === "front" ? "iPhone 17 Pro Max สีส้ม มุมด้านหน้า" : ""}
+                width={316}
+                height={868}
+                priority
+                draggable={false}
+                sizes="(max-width: 768px) 35vw, 185px"
+                className="h-[288px] w-auto object-contain drop-shadow-[0_24px_22px_rgba(83,43,14,0.25)] md:h-[346px]"
+              />
+            </motion.div>
+          </motion.div>
+
+          {!reduceMotion && (
+            <motion.span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-[7%] rounded-[45%] mix-blend-screen"
+              style={{ background: glareBackground }}
+            />
           )}
         </motion.div>
+
+        <motion.div
+          aria-hidden="true"
+          className="absolute bottom-4 left-1/2 h-4 w-[48%] -translate-x-1/2 rounded-[50%] bg-orange-950/25 blur-md"
+          animate={reduceMotion ? undefined : { scaleX: [1, 0.88, 1], opacity: [0.2, 0.12, 0.2] }}
+          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+        />
       </motion.div>
 
-      <motion.div
-        aria-hidden="true"
-        className="absolute bottom-[8%] h-4 w-1/2 rounded-[50%] bg-black/30 blur-md md:h-5"
-        animate={reduce ? undefined : { scaleX: [1, 0.82, 1], opacity: [0.18, 0.09, 0.18] }}
-        transition={loop}
-        style={{ opacity: 0.16 }}
-      />
+      <div className="absolute bottom-2 z-20 flex flex-col items-center gap-2 md:bottom-3">
+        <p className="flex items-center gap-1.5 text-xs font-medium text-text-muted">
+          <MoveHorizontal size={15} aria-hidden="true" />
+          ลากซ้าย–ขวาเพื่อเปลี่ยนมุม
+        </p>
+        <div className="flex rounded-full border border-border-default bg-white/90 p-1 shadow-sm backdrop-blur">
+          <ViewButton
+            active={activeView === "back"}
+            label="ด้านหลัง"
+            onClick={() => selectView("back")}
+          />
+          <ViewButton
+            active={activeView === "front"}
+            label="ด้านหน้า"
+            onClick={() => selectView("front")}
+          />
+        </div>
+      </div>
+
+      <span className="sr-only" aria-live="polite">
+        กำลังแสดงมุม{activeView === "front" ? "ด้านหน้า" : "ด้านหลัง"}
+      </span>
     </div>
   );
 }
 
-function Chip({ className, children, delay, reduce }: { className: string; children: ReactNode; delay: number; reduce: boolean }) {
+function ViewButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={`min-h-11 rounded-full px-4 text-xs font-semibold transition-colors ${
+        active ? "bg-text-heading text-white" : "text-text-muted hover:bg-bg-subtle hover:text-text-heading"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function Chip({
+  className,
+  children,
+  delay,
+  reduceMotion,
+}: {
+  className: string;
+  children: ReactNode;
+  delay: number;
+  reduceMotion: boolean;
+}) {
   return (
     <motion.div
       aria-hidden="true"
       className={`absolute z-20 hidden items-center gap-1.5 rounded-xl border border-border-default bg-white px-3 py-1.5 text-xs font-semibold text-text-heading shadow-lg sm:flex ${className}`}
-      initial={reduce ? false : { opacity: 0, scale: 0.8, y: 8 }}
-      animate={reduce ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
+      initial={reduceMotion ? false : { opacity: 0, scale: 0.8, y: 8 }}
+      animate={reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.3 + delay, ease: [0.22, 1, 0.36, 1] }}
     >
       {children}
