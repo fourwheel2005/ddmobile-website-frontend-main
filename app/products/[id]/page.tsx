@@ -255,10 +255,24 @@ function ProductDetailContent() {
 
   return (
     <div className="page-wrapper min-h-screen bg-bg-base">
-      <div className="container-dd pt-6 pb-48 md:py-10">
+      <div className="container-dd pt-4 pb-48 sm:pt-6 md:py-10">
 
-        {/* Breadcrumb */}
-        <nav aria-label="breadcrumb" className="mb-4 flex flex-wrap items-center gap-1.5 text-sm text-text-muted">
+        <div className="mb-4 flex min-w-0 items-center justify-between gap-3 sm:hidden">
+          <button
+            type="button"
+            onClick={() => router.push(returnTo)}
+            aria-label={`กลับไปหน้าสินค้าทั้งหมดจาก ${item.productName}`}
+            className="-ml-2 inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-text-muted transition-colors hover:bg-bg-subtle hover:text-text-heading"
+          >
+            <ArrowLeft size={18} /> สินค้าทั้งหมด
+          </button>
+          <span className="min-w-0 truncate text-sm font-semibold text-text-heading">
+            {item.productName}
+          </span>
+        </div>
+
+        {/* Breadcrumb: full hierarchy is kept for tablet and desktop. */}
+        <nav aria-label="breadcrumb" className="mb-4 hidden flex-wrap items-center gap-1.5 text-sm text-text-muted sm:flex">
           <Link href="/" className="hover:text-text-heading">หน้าหลัก</Link>
           <ChevronRight size={14} />
           <Link href={returnTo} className="hover:text-text-heading">สินค้าทั้งหมด</Link>
@@ -266,7 +280,7 @@ function ProductDetailContent() {
           <span className="line-clamp-1 font-medium text-text-heading">{item.productName}</span>
         </nav>
 
-        <button onClick={() => router.push(returnTo)} className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-text-muted hover:text-text-heading">
+        <button onClick={() => router.push(returnTo)} className="mb-6 hidden items-center gap-2 text-sm font-medium text-text-muted hover:text-text-heading sm:inline-flex">
           <ArrowLeft size={18} /> ย้อนกลับ
         </button>
 
