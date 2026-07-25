@@ -83,17 +83,7 @@ export default function HeroPhone() {
     >
       <div
         aria-hidden="true"
-        className="absolute h-[19rem] w-[19rem] rounded-full bg-[radial-gradient(circle,rgba(255,177,92,0.36)_0%,rgba(255,207,64,0.16)_48%,transparent_72%)] blur-xl md:h-[23rem] md:w-[23rem]"
-      />
-      <motion.div
-        aria-hidden="true"
-        className="absolute h-[72%] w-[82%] rounded-[50%] border border-yellow/35"
-        animate={reduceMotion ? undefined : { rotate: [0, 2, 0], scale: [1, 1.025, 1] }}
-        transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <div
-        aria-hidden="true"
-        className="absolute inset-x-[15%] top-[13%] h-px bg-gradient-to-r from-transparent via-yellow/60 to-transparent"
+        className="absolute h-[72%] w-[54%] rounded-[46%] bg-[radial-gradient(ellipse_at_center,rgba(255,151,76,0.22)_0%,rgba(255,196,64,0.10)_44%,transparent_72%)] blur-2xl md:h-[76%] md:w-[58%]"
       />
 
       <Chip className="left-[0%] top-[14%]" delay={0} reduceMotion={!!reduceMotion}>
