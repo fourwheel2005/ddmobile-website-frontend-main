@@ -7,6 +7,7 @@ import { baht } from "@/lib/money";
 import { Search, Smartphone, CheckCircle2, ArrowUpDown, X, BatteryMedium, Sparkles, RotateCcw, ShoppingCart, CreditCard, Cable, Zap, Star, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { stockImageLoader, IMAGE_BLUR_DATA_URL } from "@/lib/imageLoader";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import { ProductGridSkeleton } from "@/components/Skeletons";
@@ -208,7 +209,8 @@ function ProductsContent() {
   };
 
   // การ์ดสินค้า — ใช้ร่วมทั้งโหมด grouped และ flat (เลี่ยง JSX ซ้ำ)
-  const renderCard = (it: CatalogItem) => {
+  // priority = การ์ดที่อยู่เหนือ fold (โหลดทันที ไม่ lazy) เพื่อให้แถวแรกขึ้นเร็ว
+  const renderCard = (it: CatalogItem, priority = false) => {
     const inst = instFor(it);
     const flash = it.sold ? null : promoForItem(promos, it, it.minPrice);
     const rt = ratings.get(it.productName);
@@ -226,7 +228,7 @@ function ProductsContent() {
                 </span>
               )}
               {it.imageUrl ? (
-                <Image src={it.imageUrl} alt={it.productName} fill sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw" className={`object-contain transition-transform duration-300 group-hover:scale-105 ${it.sold ? "opacity-40 grayscale" : ""}`} />
+                <Image src={it.imageUrl} alt={it.productName} fill loader={stockImageLoader} placeholder="blur" blurDataURL={IMAGE_BLUR_DATA_URL} priority={priority} sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw" className={`object-contain transition-transform duration-300 group-hover:scale-105 ${it.sold ? "opacity-40 grayscale" : ""}`} />
               ) : (
                 <Smartphone size={52} className={`text-text-disabled ${it.sold ? "opacity-40" : ""}`} />
               )}
@@ -413,19 +415,19 @@ function ProductsContent() {
             ) : hasQuery ? (
               // โหมดค้นหา — flat ranked (เรียงตามความเกี่ยวข้อง)
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
-                {displayed.map(renderCard)}
+                {displayed.map((it, i) => renderCard(it, i < 4))}
               </div>
             ) : (
               // โหมด browse — จัดกลุ่มตามหมวด
               <div className="space-y-10">
-                {grouped.map(([cat, list]) => (
+                {grouped.map(([cat, list], gi) => (
                   <section key={cat}>
                     <div className="mb-4 flex items-center gap-2.5 border-l-4 border-yellow pl-3">
                       <h2 className="text-lg font-bold text-text-heading md:text-xl">{cat}</h2>
                       <span className="rounded-full bg-bg-subtle px-2.5 py-0.5 text-xs font-medium text-text-muted">{list.length} รายการ</span>
                     </div>
                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
-                      {list.map(renderCard)}
+                      {list.map((it, i) => renderCard(it, gi === 0 && i < 4))}
                     </div>
                   </section>
                 ))}

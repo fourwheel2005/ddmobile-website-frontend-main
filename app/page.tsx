@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { stockImageLoader, IMAGE_BLUR_DATA_URL } from "@/lib/imageLoader";
 import Reveal from "@/components/Reveal";
 import Tilt from "@/components/Tilt";
 import HeroPhone from "@/components/HeroPhone";
@@ -194,7 +195,7 @@ function ProductCard({ product, inst }: { product: CatalogItem; inst?: InstInfo 
           {isNew ? <Sparkles size={11} /> : <RotateCcw size={11} />} {product.conditionLabel}
         </span>
         {product.imageUrl ? (
-          <Image src={product.imageUrl} alt={product.productName} fill sizes="(max-width: 1024px) 50vw, 25vw" className="object-contain transition-transform duration-300 group-hover:scale-105" />
+          <Image src={product.imageUrl} alt={product.productName} fill loader={stockImageLoader} placeholder="blur" blurDataURL={IMAGE_BLUR_DATA_URL} sizes="(max-width: 1024px) 50vw, 25vw" className="object-contain transition-transform duration-300 group-hover:scale-105" />
         ) : (
           <Smartphone size={48} className="text-text-disabled" />
         )}
