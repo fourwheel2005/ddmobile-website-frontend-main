@@ -12,7 +12,8 @@ import { baht } from "@/lib/money";
 import { lineChatUrl } from "@/lib/contact";
 import {
   DEVICE_TYPES, STORAGES, REGIONS, BATTERY, ACCESSORIES, WARRANTY, BODY, SCREEN, PROBLEMS, PROBLEM_NONE,
-  modelsFor, COLORS, emptyTradeIn, validateTradeIn, buildTradeInMessage, estimatePrice, type TradeInForm, type Choice,
+  modelsFor, COLORS, emptyTradeIn, validateTradeIn, buildTradeInMessage, estimatePrice,
+  makeTradeInRef, buildTradeInPayload, type TradeInForm, type Choice,
 } from "@/lib/tradeIn";
 
 interface TradeInPrice { id: number; model: string; storage: string; basePrice: number; }
@@ -23,6 +24,7 @@ export default function TradeInPage() {
   const [prices, setPrices] = useState<TradeInPrice[]>([]);
   const [customModel, setCustomModel] = useState(false);   // รุ่นไม่อยู่ในรายการ → พิมพ์เอง
   const [customColor, setCustomColor] = useState(false);   // สีไม่อยู่ในรายการ → พิมพ์เอง
+  const [sentMsg, setSentMsg] = useState("");              // ข้อความที่ส่งล่าสุด — สำรองให้คัดลอกถ้า LINE ไม่ prefill ให้
   const set = (patch: Partial<TradeInForm>) => setForm((f) => ({ ...f, ...patch }));
 
   // เติมชื่อจากบัญชีถ้าล็อกอินอยู่ (defer ด้วย rAF — ไม่ setState sync ใน effect)
@@ -65,12 +67,25 @@ export default function TradeInPage() {
   const submit = () => {
     const err = validateTradeIn(form);
     if (err) { toast.error(err); return; }
-    const msg = buildTradeInMessage(form) + (estimated != null ? `\n\nราคาประเมินเบื้องต้น (จากเว็บ): ${baht(estimated)}` : "");
-    // เปิดแชท LINE พร้อมข้อมูลเครื่อง (user gesture เดียว กัน Safari บล็อก) + คัดลอกสำรอง
+    const ref = makeTradeInRef();
+    const msg = buildTradeInMessage(form, ref) + (estimated != null ? `\n\nราคาประเมินเบื้องต้น (จากเว็บ): ${baht(estimated)}` : "");
+    setSentMsg(msg);
+    // ลำดับสำคัญ และห้าม await คั่นทั้งบล็อกนี้ ไม่งั้นหมด transient activation → popup โดนบล็อก
+    // 1) คัดลอก "ก่อน" เปิดแท็บ — ถ้าเรียกหลัง window.open โฟกัสหลุดไปแท็บใหม่แล้ว Safari/iOS
+    //    จะปฏิเสธด้วย NotAllowedError (Document is not focused) = พังตรงเคสที่ต้องใช้ตัวสำรองพอดี
+    navigator.clipboard?.writeText(msg).catch(() => { /* คัดลอกไม่ได้ → ยังมีกล่องข้อความสำรองด้านล่างให้คัดลอกเอง */ });
+    // 2) บันทึกลง DB คู่ขนานกับ LINE — ถ้า deep link ไม่ prefill (เดสก์ท็อปไม่มีแอป) ร้านยังตามลูกค้าต่อได้
+    //    ล้มเหลว = ปัญหาฝั่งร้าน ไม่ขึ้น error รบกวนลูกค้า เพราะรายละเอียดไปทาง LINE อยู่แล้ว
+    api.post("/trade-in/requests", buildTradeInPayload(form, ref, estimated)).catch(() => { /* เงียบโดยตั้งใจ */ });
+    // 3) เปิดแชท LINE พร้อมข้อความ
     window.open(lineChatUrl(msg), "_blank", "noopener,noreferrer");
-    navigator.clipboard?.writeText(msg).then(
-      () => toast.success("เปิดแชท LINE พร้อมข้อมูลเครื่องแล้ว — ถ้าข้อความไม่ขึ้น วางจากที่คัดลอกได้เลย", { duration: 4000 }),
-      () => toast("เปิดแชท LINE แล้ว ส่งข้อมูลหาแอดมินได้เลย", { icon: <MessageCircle size={18} className="text-line" /> }),
+    toast.success("เปิดแชท LINE พร้อมรายละเอียดเครื่องแล้ว — ถ้าข้อความไม่ขึ้นในแชท คัดลอกจากกล่องด้านล่างไปวางได้เลย", { duration: 5000 });
+  };
+
+  const copySentMsg = () => {
+    navigator.clipboard?.writeText(sentMsg).then(
+      () => toast.success("คัดลอกรายละเอียดแล้ว — วางในแชท LINE ได้เลย"),
+      () => toast.error("คัดลอกอัตโนมัติไม่ได้ — ลากคลุมข้อความในกล่องแล้วคัดลอกเองได้"),
     );
   };
 
@@ -224,6 +239,23 @@ export default function TradeInPage() {
           <p className="flex items-center justify-center gap-1.5 text-center text-xs text-text-muted">
             <Copy size={12} /> กดแล้วเปิดแชท LINE พร้อมข้อมูลเครื่อง — ทีมงานตีราคาและติดต่อกลับ
           </p>
+
+          {/* ทางสำรอง: เดสก์ท็อปที่ไม่มีแอป LINE จะเด้งหน้า QR แล้วข้อความหาย → ให้คัดลอกไปวางเองได้ ข้อมูลไม่สูญ */}
+          {sentMsg && (
+            <div className="rounded-2xl border border-border-default bg-bg-subtle p-4">
+              <p className="text-sm font-semibold text-text-heading">ข้อความไม่ขึ้นในแชท LINE?</p>
+              <p className="mt-1 text-xs text-text-muted">คัดลอกรายละเอียดทั้งหมดด้านล่างไปวางในแชทได้เลย</p>
+              <pre className="mt-3 max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-border-default bg-white p-3 text-xs leading-relaxed text-text-body">{sentMsg}</pre>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button type="button" onClick={copySentMsg} className="inline-flex items-center gap-1.5 rounded-full border border-border-default bg-white px-4 py-2 text-xs font-bold text-text-heading transition-colors hover:border-yellow hover:bg-bg-tinted">
+                  <Copy size={14} /> คัดลอกรายละเอียด
+                </button>
+                <a href={lineChatUrl(sentMsg)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-full bg-line px-4 py-2 text-xs font-bold text-white transition-transform hover:-translate-y-0.5">
+                  <MessageCircle size={14} /> เปิดแชท LINE อีกครั้ง
+                </a>
+              </div>
+            </div>
+          )}
 
           <div className="pt-2 text-center">
             <Link href="/products" className="inline-flex items-center gap-1 text-sm font-semibold text-yellow-text hover:text-text-heading">

@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Smartphone, ClipboardList, Users,
   LogOut, Clock, CheckCircle2, XCircle, Loader2,
   X, AlertTriangle, Warehouse, Menu, Search,
-  ShoppingBag, Check, Eye, Truck, Store, CreditCard, Receipt, UserCog, TicketPercent, Banknote, TrendingUp, Zap, Star, Target
+  ShoppingBag, Check, Eye, Truck, Store, CreditCard, Receipt, UserCog, TicketPercent, Banknote, TrendingUp, Zap, Star, Target, Inbox
 } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
@@ -21,6 +21,7 @@ import PromotionManager from "@/components/PromotionManager";
 import ReviewAdmin from "@/components/ReviewAdmin";
 import IntentStats from "@/components/IntentStats";
 import TradeInManager from "@/components/TradeInManager";
+import TradeInRequests from "@/components/TradeInRequests";
 import StatCard from "@/components/ui/StatCard";
 import SalesChart, { type DailySales } from "@/components/ui/SalesChart";
 import { confirmDialog } from "@/components/ui/confirmDialog";
@@ -649,6 +650,9 @@ export default function AdminDashboard() {
 
               {/* ราคารับซื้อ (ไอโฟนแลกเงิน) */}
               {activeMenu === "ราคารับซื้อ (แลกเงิน)" && <TradeInManager />}
+
+              {/* คำขอประเมินที่ลูกค้าส่งจากหน้า /trade-in (เก็บคู่ขนานกับแชท LINE) */}
+              {activeMenu === "คำขอประเมิน (แลกเงิน)" && <TradeInRequests />}
             </>
           )}
         </div>
@@ -714,6 +718,7 @@ const menuItems = [
   { name: "คูปองส่วนลด", icon: TicketPercent },
   { name: "โปรโมชั่น / Flash Sale", icon: Zap },
   { name: "ราคารับซื้อ (แลกเงิน)", icon: Banknote },
+  { name: "คำขอประเมิน (แลกเงิน)", icon: Inbox },
   { name: "รีวิวลูกค้า", icon: Star },
   { name: "บริการที่ลูกค้าสนใจ", icon: Target },
   { name: "คำขอผ่อนสินค้า", icon: ClipboardList },

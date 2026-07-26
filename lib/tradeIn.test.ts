@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { validateTradeIn, buildTradeInMessage, emptyTradeIn, estimatePrice, deductionRatio, PROBLEM_NONE, type TradeInForm } from "./tradeIn";
+import { validateTradeIn, buildTradeInMessage, emptyTradeIn, estimatePrice, deductionRatio, PROBLEM_NONE, makeTradeInRef, buildTradeInPayload, type TradeInForm } from "./tradeIn";
 
 // ฟอร์มที่กรอกครบถูกต้อง (override เฉพาะ field ที่ต้องการทดสอบ)
 function valid(over: Partial<TradeInForm> = {}): TradeInForm {
@@ -54,6 +54,48 @@ describe("buildTradeInMessage", () => {
   });
   it("สีว่าง → ไม่มีบรรทัดสี", () => {
     expect(buildTradeInMessage(valid({ color: "" }))).not.toContain("สี:");
+  });
+  it("ส่ง refCode → มีบรรทัดอ้างอิงให้แอดมินเปิดคำขอเดียวกันใน DB", () => {
+    expect(buildTradeInMessage(valid(), "DD-A2B3C4")).toContain("อ้างอิง: DD-A2B3C4");
+  });
+  it("ไม่ส่ง refCode → ไม่มีบรรทัดอ้างอิง (ของเดิมไม่พัง)", () => {
+    expect(buildTradeInMessage(valid())).not.toContain("อ้างอิง:");
+  });
+});
+
+describe("makeTradeInRef", () => {
+  it("รูปแบบ DD- ตามด้วย 6 ตัว และไม่มีอักษรที่อ่านสับสน (0 O 1 I L)", () => {
+    for (let i = 0; i < 200; i++) expect(makeTradeInRef()).toMatch(/^DD-[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{6}$/);
+  });
+  it("ยาวไม่เกิน column ref_code VARCHAR(16)", () => {
+    expect(makeTradeInRef().length).toBeLessThanOrEqual(16);
+  });
+  it("สุ่มไม่ซ้ำกันเป็นก้อน (กัน implementation ที่คืนค่าคงที่)", () => {
+    const set = new Set(Array.from({ length: 300 }, () => makeTradeInRef()));
+    expect(set.size).toBeGreaterThan(290);
+  });
+});
+
+describe("buildTradeInPayload", () => {
+  it("ส่ง code ไม่ใช่ label ไทย — label เปลี่ยนคำแล้วข้อมูลเก่าไม่เพี้ยน", () => {
+    const p = buildTradeInPayload(valid(), "DD-A2B3C4", 22500);
+    expect(p).toMatchObject({
+      refCode: "DD-A2B3C4", deviceType: "iphone", model: "iPhone 17 Pro Max", storage: "256GB",
+      region: "ZP", battery: "90-100", accessories: "full", warranty: "lt4m",
+      body: "none", screen: "none", problems: [PROBLEM_NONE], zipcode: "10250", estimatedPrice: 22500,
+    });
+  });
+  it("ตัดช่องว่างหัวท้าย (ชื่อ/รุ่น/เบอร์) ก่อนส่งขึ้น server", () => {
+    const p = buildTradeInPayload(valid({ name: "  สมชาย  ", model: " iPhone 15 ", tel: " 081-234-5678 " }), "DD-AAAAAA", null);
+    expect(p.name).toBe("สมชาย");
+    expect(p.model).toBe("iPhone 15");
+    expect(p.tel).toBe("081-234-5678");
+  });
+  it("สีว่าง → null (column nullable ไม่ใช่ string ว่าง)", () => {
+    expect(buildTradeInPayload(valid({ color: "   " }), "DD-AAAAAA", null).color).toBeNull();
+  });
+  it("ไม่มีราคาประเมิน → estimatedPrice null", () => {
+    expect(buildTradeInPayload(valid(), "DD-AAAAAA", null).estimatedPrice).toBeNull();
   });
 });
 

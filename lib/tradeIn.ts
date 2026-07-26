@@ -172,7 +172,57 @@ export const emptyTradeIn = (): TradeInForm => ({
   problems: [], name: "", tel: "", zipcode: "",
 });
 
-const labelOf = (list: Choice[], value: string) => list.find((c) => c.value === value)?.label ?? "-";
+/** แปลง code → label ไทย (ใช้ทั้งข้อความ LINE และหน้าแอดมินที่อ่านคำขอจาก DB) */
+export const labelOf = (list: Choice[], value: string) => list.find((c) => c.value === value)?.label ?? "-";
+
+/** แปลง code ปัญหา (หลายข้อ) → ข้อความไทย — "none" ตัดกับข้ออื่นเสมอ */
+export const problemsLabel = (problems: string[]): string =>
+  problems.includes(PROBLEM_NONE) ? "ไม่มีปัญหา" : problems.map((p) => labelOf(PROBLEMS, p)).join(", ") || "-";
+
+/**
+ * รหัสอ้างอิงสั้น ๆ ที่แปะทั้งในข้อความ LINE และเรคคอร์ดใน DB — ไว้จับคู่แชทกับคำขอที่บันทึกไว้
+ * สร้างฝั่ง client เพราะห้าม await ก่อนเปิดแชท (กัน popup โดนบล็อก) จึงรอ id จากเซิร์ฟเวอร์ไม่ได้
+ * ตัวอักษรตัด 0/O/1/I/L ออก — แอดมินต้องอ่านจากแชทแล้วพิมพ์ค้นต่อ
+ */
+const REF_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";   // 32 ตัว → byte % 32 กระจายเท่ากันพอดี
+export function makeTradeInRef(): string {
+  const bytes = new Uint8Array(6);
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") crypto.getRandomValues(bytes);
+  else for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+  let out = "";
+  for (const b of bytes) out += REF_ALPHABET[b % REF_ALPHABET.length];
+  return `DD-${out}`;
+}
+
+/** body ที่ส่งเข้า POST /trade-in/requests — ชื่อ field ต้องตรงกับ TradeInSubmitRequest ฝั่ง backend */
+export interface TradeInPayload {
+  refCode: string;
+  deviceType: string; model: string; storage: string; color: string | null; region: string;
+  battery: string; accessories: string; warranty: string; body: string; screen: string; problems: string[];
+  name: string; tel: string; zipcode: string; estimatedPrice: number | null;
+}
+
+/** ฟอร์ม → payload (ส่ง "code" ไม่ใช่ label ไทย — เปลี่ยนคำในอนาคตแล้วข้อมูลเก่าไม่เพี้ยน) */
+export function buildTradeInPayload(f: TradeInForm, refCode: string, estimatedPrice: number | null): TradeInPayload {
+  return {
+    refCode,
+    deviceType: f.deviceType,
+    model: f.model.trim(),
+    storage: f.storage,
+    color: f.color.trim() || null,
+    region: f.region,
+    battery: f.battery,
+    accessories: f.accessories,
+    warranty: f.warranty,
+    body: f.body,
+    screen: f.screen,
+    problems: f.problems,
+    name: f.name.trim(),
+    tel: f.tel.trim(),
+    zipcode: f.zipcode.trim(),
+    estimatedPrice,
+  };
+}
 
 /** ตรวจว่าฟอร์มกรอกครบพอส่งไหม — คืน error message แรกที่เจอ (null = ผ่าน) */
 export function validateTradeIn(f: TradeInForm): string | null {
@@ -191,15 +241,14 @@ export function validateTradeIn(f: TradeInForm): string | null {
   return null;
 }
 
-/** สร้างข้อความสรุปส่งเข้า LINE (พิมพ์รอในแชทให้แอดมินตีราคา) */
-export function buildTradeInMessage(f: TradeInForm): string {
+/** สร้างข้อความสรุปส่งเข้า LINE (พิมพ์รอในแชทให้แอดมินตีราคา) — refCode ไว้เปิดคำขอเดียวกันใน DB */
+export function buildTradeInMessage(f: TradeInForm, refCode?: string): string {
   const deviceLabel = labelOf(DEVICE_TYPES, f.deviceType);
-  const problemText = f.problems.includes(PROBLEM_NONE)
-    ? "ไม่มีปัญหา"
-    : f.problems.map((p) => labelOf(PROBLEMS, p)).join(", ") || "-";
+  const problemText = problemsLabel(f.problems);
 
   return [
     "📱 ขอประเมินราคา “ไอโฟนแลกเงิน”",
+    refCode ? `อ้างอิง: ${refCode}` : null,
     "",
     `ประเภท: ${deviceLabel}`,
     `รุ่น: ${f.model.trim()}`,
