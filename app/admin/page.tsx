@@ -22,6 +22,7 @@ import ReviewAdmin from "@/components/ReviewAdmin";
 import IntentStats from "@/components/IntentStats";
 import TradeInManager from "@/components/TradeInManager";
 import TradeInRequests from "@/components/TradeInRequests";
+import CustomerModeration from "@/components/CustomerModeration";
 import StatCard from "@/components/ui/StatCard";
 import SalesChart, { type DailySales } from "@/components/ui/SalesChart";
 import { confirmDialog } from "@/components/ui/confirmDialog";
@@ -35,12 +36,6 @@ interface InstallmentApp {
   productName: string;
   applicationDate: string;
   status: string;
-}
-
-interface Customer {
-  id: number;
-  email: string;
-  role: string;
 }
 
 interface WebOrderItem { productName: string; condition: string; quantity: number; lineTotal: number; }
@@ -71,7 +66,7 @@ export default function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
 
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [flagCount, setFlagCount] = useState(0);   // สัญญาณเฝ้าระวังที่รอตรวจ → badge บนเมนู "จัดการลูกค้า"
   const [webOrders, setWebOrders] = useState<WebOrder[]>([]);
   const [slipModal, setSlipModal] = useState<{ url: string } | null>(null);
   const [busyOrderId, setBusyOrderId] = useState<number | null>(null);
@@ -81,7 +76,6 @@ export default function AdminDashboard() {
   const [orderQ, setOrderQ] = useState("");             // ค้นหาออเดอร์ (ชื่อ/เบอร์/สินค้า/#id)
   const [orderStatus, setOrderStatus] = useState("");   // กรองสถานะออเดอร์
   const [orderLimit, setOrderLimit] = useState(20);     // โหลดเพิ่มทีละ 20 (เลิกโชว์ทั้งก้อน)
-  const [custQ, setCustQ] = useState("");               // ค้นหาลูกค้า
 
   // Stock real-time (ผ่าน DD BFF — ไม่ต้อง login stock แยก)
   const [stockSummary, setStockSummary] = useState<StockSummary | null>(null);
@@ -120,10 +114,11 @@ export default function AdminDashboard() {
 
     const fetchData = async () => {
       try {
-        const [, appsRes, customersRes, ordersRes, sumRes, lowRes, salesRes] = await Promise.all([
+        const [, appsRes, flagRes, ordersRes, sumRes, lowRes, salesRes] = await Promise.all([
           api.get("/admin/stats"),
           api.get("/admin/applications"),
-          api.get("/admin/customers"),
+          // จำนวนสัญญาณเฝ้าระวังที่รอตรวจ — endpoint เบา ๆ สำหรับ badge (รายละเอียดโหลดในแท็บจัดการลูกค้า)
+          api.get<{ open: number }>("/admin/accounts/flags/count").catch(() => null),
           api.get("/admin/orders"),
           api.get("/admin/stock/summary").catch(() => null),   // stock ล่มไม่ทำให้ทั้ง dashboard พัง
           api.get("/admin/stock/low-stock").catch(() => null),
@@ -131,7 +126,7 @@ export default function AdminDashboard() {
         ]);
 
         setApplications(appsRes.data);
-        setCustomers(customersRes.data);
+        setFlagCount(flagRes?.data?.open ?? 0);
         setWebOrders(ordersRes.data);
         setStockSummary(sumRes?.data ?? null);
         setStockLow(toArr<StockLowItem>(lowRes?.data));
@@ -244,10 +239,6 @@ export default function AdminDashboard() {
       return hay.includes(q);
     });
   }, [orderedWeb, orderQ, orderStatus]);
-  const filteredCustomers = useMemo(() => {
-    const q = custQ.trim().toLowerCase();
-    return q ? customers.filter(c => c.email.toLowerCase().includes(q)) : customers;
-  }, [customers, custQ]);
   // ยอดขายจริงจาก Stock → รายวัน 14 วันล่าสุด (ไม่นับบิลคืนเงิน/ยกเลิก)
   const sales14 = useMemo<DailySales[]>(() => {
     const byDay = new Map<string, { total: number; bills: number }>();
@@ -327,6 +318,12 @@ export default function AdminDashboard() {
             >
               <item.icon size={18} />
               {item.name}
+              {/* จำนวนสัญญาณเฝ้าระวังที่รอตรวจ — ให้แอดมินเห็นตั้งแต่ยังไม่เปิดแท็บ */}
+              {item.name === "จัดการลูกค้า" && flagCount > 0 && (
+                <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-error-text px-1.5 text-[11px] font-bold text-white">
+                  {flagCount}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -461,47 +458,8 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              {/* จัดการลูกค้า */}
-              {activeMenu === "จัดการลูกค้า" && (
-                <div className="overflow-hidden rounded-2xl border border-border-default bg-white">
-                  <div className="flex items-center justify-between border-b border-border-default bg-bg-surface p-4">
-                    <h2 className="flex items-center gap-2 font-display text-xl"><Users className="text-yellow" size={20} /> รายชื่อลูกค้าทั้งหมด</h2>
-                    <div className="flex items-center gap-2">
-                      <div className="relative">
-                        <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={14} />
-                        <input value={custQ} onChange={(e) => setCustQ(e.target.value)} placeholder="ค้นหาอีเมล..." aria-label="ค้นหาลูกค้า" className="input-dd min-h-0 w-44 py-2 pl-9 text-sm" />
-                      </div>
-                      <span className="badge-dd badge-warning">{filteredCustomers.length} คน</span>
-                    </div>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="table-dd">
-                      <thead>
-                        <tr><th>รหัสลูกค้า</th><th>บัญชี (Email)</th><th>ระดับสิทธิ์</th><th>สถานะบัญชี</th></tr>
-                      </thead>
-                      <tbody>
-                        {filteredCustomers.length === 0 ? (
-                          <tr><td colSpan={4} className="p-8 text-center text-text-muted">ไม่พบลูกค้าที่ค้นหา</td></tr>
-                        ) : (
-                          filteredCustomers.map((customer) => (
-                            <tr key={customer.id} className="group">
-                              <td className="text-text-muted">CUST-{customer.id.toString().padStart(4, "0")}</td>
-                              <td>
-                                <div className="flex items-center gap-3">
-                                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-bg-tinted font-display text-base font-bold uppercase text-yellow-text">{customer.email.charAt(0)}</div>
-                                  <p className="font-semibold text-text-heading">{customer.email}</p>
-                                </div>
-                              </td>
-                              <td><span className="badge-dd badge-info">ลูกค้าทั่วไป</span></td>
-                              <td><span className="badge-dd badge-success"><CheckCircle2 size={12} /> ปกติ (Active)</span></td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
+              {/* จัดการลูกค้า — รายชื่อ + สถานะจริง + ระงับ/ปลดระงับ/เตือน + คิวเฝ้าระวัง */}
+              {activeMenu === "จัดการลูกค้า" && <CustomerModeration onFlagCount={setFlagCount} />}
 
               {/* คำสั่งซื้อจากเว็บ */}
               {activeMenu === "คำสั่งซื้อ (เว็บ)" && (
