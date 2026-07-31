@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Smartphone, ClipboardList, Users,
   LogOut, Clock, CheckCircle2, XCircle, Loader2,
   X, AlertTriangle, Warehouse, Menu, Search,
-  ShoppingBag, Check, Eye, Truck, Store, CreditCard, Receipt, UserCog, TicketPercent, Banknote, TrendingUp, Zap, Star, Target, Inbox, RotateCcw
+  ShoppingBag, Check, Eye, Truck, Store, CreditCard, Receipt, UserCog, TicketPercent, Banknote, TrendingUp, Zap, Star, Target, Inbox, RotateCcw, Scale
 } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
@@ -23,6 +23,7 @@ import IntentStats from "@/components/IntentStats";
 import TradeInManager from "@/components/TradeInManager";
 import TradeInRequests from "@/components/TradeInRequests";
 import CustomerModeration from "@/components/CustomerModeration";
+import ReconciliationView from "@/components/ReconciliationView";
 import StatCard from "@/components/ui/StatCard";
 import SalesChart, { type DailySales } from "@/components/ui/SalesChart";
 import { confirmDialog } from "@/components/ui/confirmDialog";
@@ -73,6 +74,8 @@ export default function AdminDashboard() {
   const [isAuthorized, setIsAuthorized] = useState(false);
 
   const [flagCount, setFlagCount] = useState(0);   // สัญญาณเฝ้าระวังที่รอตรวจ → badge บนเมนู "จัดการลูกค้า"
+  // สุขภาพระบบตรวจสลิปอัตโนมัติ (P2-3) — ล้มติดกันหลายใบ = Slip2Go ล่ม/โควตาหมด
+  const [slipHealth, setSlipHealth] = useState<{ configured: boolean; consecutiveAutoFailures: number; lastFailureAt: string | null } | null>(null);
   const [webOrders, setWebOrders] = useState<WebOrder[]>([]);
   const [slipModal, setSlipModal] = useState<{ url: string; order: WebOrder } | null>(null);
   const [refundModal, setRefundModal] = useState<WebOrder | null>(null);
@@ -124,7 +127,7 @@ export default function AdminDashboard() {
 
     const fetchData = async () => {
       try {
-        const [, appsRes, flagRes, ordersRes, sumRes, lowRes, salesRes] = await Promise.all([
+        const [, appsRes, flagRes, ordersRes, sumRes, lowRes, salesRes, healthRes] = await Promise.all([
           api.get("/admin/stats"),
           api.get("/admin/applications"),
           // จำนวนสัญญาณเฝ้าระวังที่รอตรวจ — endpoint เบา ๆ สำหรับ badge (รายละเอียดโหลดในแท็บจัดการลูกค้า)
@@ -133,11 +136,13 @@ export default function AdminDashboard() {
           api.get("/admin/stock/summary").catch(() => null),   // stock ล่มไม่ทำให้ทั้ง dashboard พัง
           api.get("/admin/stock/low-stock").catch(() => null),
           api.get("/admin/stock/sales").catch(() => null),
+          api.get("/admin/slip-verifier-health").catch(() => null),   // P2-3: สุขภาพระบบตรวจสลิป
         ]);
 
         setApplications(appsRes.data);
         setFlagCount(flagRes?.data?.open ?? 0);
         setWebOrders(ordersRes.data);
+        setSlipHealth(healthRes?.data ?? null);
         setStockSummary(sumRes?.data ?? null);
         setStockLow(toArr<StockLowItem>(lowRes?.data));
         setSalesBills(toArr<SalesBillLite>(salesRes?.data));
@@ -410,6 +415,20 @@ export default function AdminDashboard() {
               {/* ภาพรวมระบบ */}
               {activeMenu === "ภาพรวมระบบ" && (
                 <div className="stagger-children">
+                  {/* P2-3: ระบบตรวจสลิปล้มติดกัน ≥3 ใบ = Slip2Go ล่ม/โควตาหมด — บอกก่อนคิวตรวจมือบวม */}
+                  {slipHealth?.configured && slipHealth.consecutiveAutoFailures >= 3 && (
+                    <div className="mb-6 flex items-start gap-3 rounded-2xl border border-error-border bg-error-bg p-4">
+                      <AlertTriangle size={20} className="mt-0.5 flex-shrink-0 text-error-text" />
+                      <div className="text-sm">
+                        <p className="font-bold text-error-text">ระบบตรวจสลิปอัตโนมัติมีปัญหา — ล้มเหลวติดกัน {slipHealth.consecutiveAutoFailures} ใบ</p>
+                        <p className="mt-0.5 text-xs text-text-body">
+                          อาจเป็น Slip2Go/EasySlip ล่ม หรือโควตา/เครดิตหมด — สลิปช่วงนี้เข้าคิวแบบ &quot;รอตรวจเอง&quot; ทั้งหมด
+                          โปรดตรวจยอดในสลิปอย่างละเอียดก่อนกดอนุมัติ
+                          {slipHealth.lastFailureAt && ` · ล่าสุด ${new Date(slipHealth.lastFailureAt).toLocaleString("th-TH")}`}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                     {statsUI.map((stat, idx) => (
                       <StatCard key={idx} icon={stat.icon} label={stat.title} value={stat.value} unit={stat.unit} iconClass={stat.color} />
@@ -650,6 +669,9 @@ export default function AdminDashboard() {
               {/* บิลการขาย + ความเคลื่อนไหวสต็อก (Logs จาก Stock) */}
               {activeMenu === "บิล & สต็อก (Logs)" && <SalesLogs />}
 
+              {/* กระทบยอดเว็บ ↔ Stock รายบิล + Export CSV บัญชี (P2) */}
+              {activeMenu === "กระทบยอด (เว็บ↔Stock)" && <ReconciliationView />}
+
               {/* ตารางผ่อน (overlay DD เอง) */}
               {activeMenu === "ตารางผ่อน" && <InstallmentManager />}
 
@@ -849,6 +871,7 @@ const menuItems = [
   { name: "คลังสินค้า", icon: Warehouse },
   { name: "คำสั่งซื้อ (เว็บ)", icon: ShoppingBag },
   { name: "บิล & สต็อก (Logs)", icon: Receipt },
+  { name: "กระทบยอด (เว็บ↔Stock)", icon: Scale },
   { name: "ตารางผ่อน", icon: CreditCard },
   { name: "คูปองส่วนลด", icon: TicketPercent },
   { name: "โปรโมชั่น / Flash Sale", icon: Zap },

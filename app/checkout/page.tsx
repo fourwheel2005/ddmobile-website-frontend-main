@@ -32,6 +32,9 @@ export default function CheckoutPage() {
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const submitLock = useRef(false);   // กันกดซ้ำแบบ synchronous (ก่อน React re-render disable ปุ่มทัน)
+  // Idempotency key (P2-4) — 1 key ต่อ "ความตั้งใจสั่งซื้อครั้งเดียว": network retry/กดซ้ำ server จะคืน
+  // ออเดอร์เดิมแทนการสร้างใหม่ · แก้ตะกร้า/คูปอง = ความตั้งใจใหม่ → key ใหม่ (reset ใน effect ด้านล่าง)
+  const idemKey = useRef<string | null>(null);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [couponCode, setCouponCode] = useState("");
   const [promoCode, setPromoCode] = useState("");                       // โค้ดโปรโมชั่น (แยกจากคูปองวงล้อ)
@@ -71,6 +74,9 @@ export default function CheckoutPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
+  // แก้ตะกร้า/คูปอง/โค้ด = ความตั้งใจสั่งซื้อใหม่ → ทิ้ง idempotency key เดิม (กัน server คืนออเดอร์เก่าผิดใบ)
+  useEffect(() => { idemKey.current = null; }, [items, couponCode, promoCode]);
+
   // ส่วนลด (แสดงผลเท่านั้น — server คิดใหม่ตอนสร้างออเดอร์)
   const selectedCoupon = coupons.find((c) => c.code === couponCode) || null;
   const discount = selectedCoupon ? Math.round((total * selectedCoupon.percent) / 100) : 0;
@@ -93,6 +99,8 @@ export default function CheckoutPage() {
     submitLock.current = true;
     setSubmitting(true);
     try {
+      // key เดิมค้างไว้ถ้า retry จากคำสั่งเดิม (server คืนออเดอร์เดิม ไม่สร้างซ้ำ)
+      idemKey.current ??= crypto.randomUUID();
       const res = await api.post("/orders", {
         items: items.map((i) => ({ catalogId: i.catalogId, quantity: i.quantity })),
         paymentMethod: "TRANSFER",
@@ -103,7 +111,7 @@ export default function CheckoutPage() {
         installmentMonths: null,
         couponCode: couponCode || null,
         promoCode: promoCode.trim() || null,
-      });
+      }, { headers: { "Idempotency-Key": idemKey.current } });
       clear();
       toast.success("สร้างคำสั่งซื้อสำเร็จ!");
       router.push(`/orders/${res.data.id}`);
