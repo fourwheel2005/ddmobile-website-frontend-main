@@ -12,7 +12,6 @@ import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { useCart } from '@/context/CartContext';
 import NotificationBell from '@/components/NotificationBell';
-import WelcomeWheelGate from '@/components/WelcomeWheelGate';
 import IntentGate from '@/components/IntentGate';
 
 interface UserData {
@@ -84,10 +83,8 @@ export default function Navbar() {
 
   return (
     <>
-      {/* ป๊อปอัพคัดกรองบริการที่สนใจ (เข้าครั้งแรกสุด) — มาก่อนวงล้อ */}
+      {/* ป๊อปอัพคัดกรองบริการที่สนใจ (เข้าครั้งแรกสุด) */}
       <IntentGate />
-      {/* วงล้อต้อนรับสมาชิกใหม่ (เด้งอัตโนมัติเมื่อยังไม่เคยหมุน) */}
-      <WelcomeWheelGate />
 
       {/* ===================== TOP BAR ===================== */}
       <nav className="sticky top-0 z-[100] border-b border-border-default bg-white/95 backdrop-blur-sm">

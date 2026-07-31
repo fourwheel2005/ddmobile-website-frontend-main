@@ -41,7 +41,7 @@ export default function IntentGate() {
   const [closed, setClosed] = useState(false);   // ปิด/เลือกแล้วในเซสชันนี้
   const [selected, setSelected] = useState<string | null>(null);
 
-  // defer ด้วย rAF (pattern เดียวกับ SpinWheel) — client-only + ไม่ setState sync ใน effect
+  // defer ด้วย rAF (pattern SSR-safe) — client-only + ไม่ setState sync ใน effect
   useEffect(() => { const f = requestAnimationFrame(() => setMounted(true)); return () => cancelAnimationFrame(f); }, []);
 
   // open เป็น derived state (ไม่ setState ใน effect) — โชว์ครั้งแรกสุดนอกหน้า admin
