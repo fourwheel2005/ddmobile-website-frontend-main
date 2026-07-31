@@ -496,7 +496,9 @@ export default function AdminDashboard() {
                         ) : (
                           filteredWeb.slice(0, orderLimit).map((o) => {
                             const st = ORDER_LABEL[o.status] || ORDER_LABEL.RESERVED;
-                            const active = o.status !== "CONFIRMED" && o.status !== "REJECTED";
+                            // ยืนยัน/ปฏิเสธได้เฉพาะออเดอร์ที่ยัง "รอตรวจ" (ก่อนตัดสต็อกจริง) — ตรงกับด่านฝั่ง backend
+          // กันกดยืนยันซ้ำ (ตัดสต็อกรอบสอง) / กดปฏิเสธออเดอร์ที่ส่งของไปแล้ว
+          const active = ["RESERVED", "PENDING_REVIEW", "PENDING_PICKUP"].includes(o.status);
                             const sla = slaInfo(o);
                             return (
                               <tr key={o.id}>
@@ -626,7 +628,9 @@ export default function AdminDashboard() {
           const payable = o.paymentMethod === "INSTALLMENT" && o.downPayment != null ? o.downPayment : o.total;
           const slip = o.slipAmount;
           const amountMatch = slip != null ? Math.abs(slip - payable) < 1 : null;   // ระบบตรวจแล้วยอดตรงไหม
-          const active = o.status !== "CONFIRMED" && o.status !== "REJECTED";
+          // ยืนยัน/ปฏิเสธได้เฉพาะออเดอร์ที่ยัง "รอตรวจ" (ก่อนตัดสต็อกจริง) — ตรงกับด่านฝั่ง backend
+          // กันกดยืนยันซ้ำ (ตัดสต็อกรอบสอง) / กดปฏิเสธออเดอร์ที่ส่งของไปแล้ว
+          const active = ["RESERVED", "PENDING_REVIEW", "PENDING_PICKUP"].includes(o.status);
           return (
           <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="ตรวจสลิปการโอนเงิน" onClick={closeSlipModal}>
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }} className="modal-dd max-h-[92dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -749,6 +753,7 @@ const ORDER_LABEL: Record<string, { t: string; c: string }> = {
   PICKED_UP: { t: "รับแล้ว", c: "badge-success" },
   COMPLETED: { t: "เสร็จสมบูรณ์", c: "badge-success" },
   REJECTED: { t: "ปฏิเสธแล้ว", c: "badge-error" },
+  CANCELLED: { t: "ยกเลิก (หมดเวลาชำระ)", c: "badge-error" },
 };
 
 // ============ คิวงาน SLA (กันออเดอร์ตกหล่น) ============
