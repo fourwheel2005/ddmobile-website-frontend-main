@@ -44,16 +44,25 @@ export default function ThaiAddressAutocomplete({
       try {
         const db = await loadDB();
         const isZip = /^\d+$/.test(query);
+        // ค้นด้วยตำบล + อำเภอ + จังหวัด รวมกัน — พิมพ์ชื่อไหนก็เจอ (เดิมตกอำเภอ/จังหวัดบางกรณี)
         const raw = isZip
           ? db.searchAddressByZipcode(query)
-          : [...db.searchAddressByDistrict(query), ...db.searchAddressByAmphoe(query)];
+          : [...db.searchAddressByDistrict(query), ...db.searchAddressByAmphoe(query), ...db.searchAddressByProvince(query)];
         const seen = new Set<string>();
-        const list = raw.filter((r) => {
+        const deduped = raw.filter((r) => {
           const k = `${r.district}|${r.amphoe}|${r.province}|${r.zipcode}`;
           if (seen.has(k)) return false;
           seen.add(k);
           return true;
-        }).slice(0, 8);
+        });
+        // จัดอันดับ: ชื่อที่ "ขึ้นต้น" ด้วยคำค้นมาก่อน (ตรงใจสุด) แล้วค่อยชื่อที่มีคำค้นอยู่ข้างใน
+        const rank = (r: ThaiAddress) => {
+          if (isZip) return 0;
+          const hit = (s: string) => (s.startsWith(query) ? 0 : s.includes(query) ? 1 : 2);
+          return Math.min(hit(r.district), hit(r.amphoe), hit(r.province));
+        };
+        // เพิ่มเพดานเป็น 50 (เดิม 8 = ตัดตำบล/อำเภอทิ้ง เช่น รหัส 20000 มี 15 ตำบล) · dropdown เลื่อนดูได้
+        const list = deduped.sort((a, b) => rank(a) - rank(b)).slice(0, 50);
         setResults(list);
         setOpen(true);
       } catch { setResults([]); }

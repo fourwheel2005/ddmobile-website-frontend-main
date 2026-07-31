@@ -68,7 +68,7 @@ export default function AdminDashboard() {
 
   const [flagCount, setFlagCount] = useState(0);   // สัญญาณเฝ้าระวังที่รอตรวจ → badge บนเมนู "จัดการลูกค้า"
   const [webOrders, setWebOrders] = useState<WebOrder[]>([]);
-  const [slipModal, setSlipModal] = useState<{ url: string } | null>(null);
+  const [slipModal, setSlipModal] = useState<{ url: string; order: WebOrder } | null>(null);
   const [busyOrderId, setBusyOrderId] = useState<number | null>(null);
   const [shipModal, setShipModal] = useState<{ id: number } | null>(null);
   const [shipPartner, setShipPartner] = useState("");
@@ -164,6 +164,7 @@ export default function AdminDashboard() {
     try {
       const res = await api.post(`/admin/orders/${id}/confirm`);
       setWebOrders(prev => prev.map(o => o.id === id ? res.data : o));
+      setSlipModal(prev => { if (prev?.order.id === id) { URL.revokeObjectURL(prev.url); return null; } return prev; });
       toast.success("ยืนยันออเดอร์ + ตัดสต็อกสำเร็จ!");
     } catch (error: unknown) {
       toast.error(getApiError(error, "ยืนยันไม่สำเร็จ (อาจมีสินค้าถูกขายไปแล้ว)"));
@@ -178,6 +179,7 @@ export default function AdminDashboard() {
     try {
       const res = await api.post(`/admin/orders/${id}/reject`);
       setWebOrders(prev => prev.map(o => o.id === id ? res.data : o));
+      setSlipModal(prev => { if (prev?.order.id === id) { URL.revokeObjectURL(prev.url); return null; } return prev; });
       toast.success("ปฏิเสธคำสั่งซื้อแล้ว");
     } catch (error: unknown) {
       toast.error(getApiError(error, "ทำรายการไม่สำเร็จ"));
@@ -201,12 +203,12 @@ export default function AdminDashboard() {
     }
   };
 
-  const viewSlip = async (id: number) => {
+  const viewSlip = async (o: WebOrder) => {
     try {
-      const res = await api.get(`/admin/orders/${id}/slip`, { responseType: "blob" });
+      const res = await api.get(`/admin/orders/${o.id}/slip`, { responseType: "blob" });
       setSlipModal((prev) => {
         if (prev) URL.revokeObjectURL(prev.url);   // คืน blob เดิมก่อนสร้างใหม่ (กัน memory leak)
-        return { url: URL.createObjectURL(res.data) };
+        return { url: URL.createObjectURL(res.data), order: o };
       });
     } catch {
       toast.error("ไม่พบสลิปของออเดอร์นี้");
@@ -543,7 +545,7 @@ export default function AdminDashboard() {
                                 <td>
                                   <div className="flex items-center justify-end gap-1.5">
                                     {o.slipFileId && (
-                                      <button onClick={() => viewSlip(o.id)} aria-label="ดูสลิป" className="rounded-lg border border-info-border bg-info-bg p-2 text-info-text transition-colors hover:bg-info-text hover:text-white"><Eye size={15} /></button>
+                                      <button onClick={() => viewSlip(o)} aria-label="ตรวจสลิป" className="rounded-lg border border-info-border bg-info-bg p-2 text-info-text transition-colors hover:bg-info-text hover:text-white"><Eye size={15} /></button>
                                     )}
                                     {active && (
                                       <>
@@ -618,17 +620,68 @@ export default function AdminDashboard() {
 
       {/* MODAL: ดูสลิปการโอน */}
       <AnimatePresence>
-        {slipModal && (
-          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="สลิปการโอนเงิน" onClick={closeSlipModal}>
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }} className="modal-dd max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        {slipModal && (() => {
+          const o = slipModal.order;
+          // ยอดที่ต้องชำระตอนนี้: ผ่อน = เงินดาวน์ · อื่น ๆ = เต็มจำนวน (ตรงกับ payableNow ฝั่ง backend)
+          const payable = o.paymentMethod === "INSTALLMENT" && o.downPayment != null ? o.downPayment : o.total;
+          const slip = o.slipAmount;
+          const amountMatch = slip != null ? Math.abs(slip - payable) < 1 : null;   // ระบบตรวจแล้วยอดตรงไหม
+          const active = o.status !== "CONFIRMED" && o.status !== "REJECTED";
+          return (
+          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="ตรวจสลิปการโอนเงิน" onClick={closeSlipModal}>
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }} className="modal-dd max-h-[92dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
               <button onClick={closeSlipModal} className="modal-close"><X size={20} /></button>
-              <h2 className="card-title flex items-center gap-2"><Eye size={20} className="text-info-text" /> สลิปการโอนเงิน</h2>
+              <h2 className="card-title flex items-center gap-2"><Eye size={20} className="text-info-text" /> ตรวจสลิป · ออเดอร์ #{o.id}</h2>
+              <p className="mt-1 text-sm text-text-muted">{o.customerName} · {o.customerTel}</p>
+
+              {/* กระดานเทียบเงิน — ยอดที่ต้องชำระ vs ยอดในสลิป (หัวใจของการอนุมัติ) */}
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-border-default bg-bg-subtle p-3">
+                  <p className="text-xs text-text-muted">ยอดที่ต้องชำระ{o.paymentMethod === "INSTALLMENT" ? " (เงินดาวน์)" : ""}</p>
+                  <p className="font-display text-lg font-bold tabular-nums text-text-heading">฿{payable?.toLocaleString()}</p>
+                </div>
+                <div className={`rounded-xl border p-3 ${amountMatch === false ? "border-error-border bg-error-bg" : amountMatch === true ? "border-success-border bg-success-bg" : "border-border-default bg-bg-subtle"}`}>
+                  <p className="text-xs text-text-muted">ยอดที่อ่านได้จากสลิป</p>
+                  <p className="font-display text-lg font-bold tabular-nums text-text-heading">{slip != null ? `฿${slip.toLocaleString()}` : "— (ระบบอ่านไม่ได้)"}</p>
+                </div>
+              </div>
+
+              {/* ผลตรวจอัตโนมัติ — บอกแอดมินชัด ๆ ว่าเชื่อได้แค่ไหน ก่อนกด Approve */}
+              {o.slipVerified === true ? (
+                <div className="mt-3 flex items-center gap-2 rounded-xl border border-success-border bg-success-bg px-3 py-2 text-sm font-semibold text-success-text">
+                  <CheckCircle2 size={16} /> ระบบตรวจแล้ว: ยอดตรง · สลิปไม่ซ้ำ — พร้อมอนุมัติ
+                </div>
+              ) : o.slipVerified === false ? (
+                <div className="mt-3 flex items-center gap-2 rounded-xl border border-error-border bg-error-bg px-3 py-2 text-sm font-semibold text-error-text">
+                  <AlertTriangle size={16} /> ระบบพบปัญหา: ยอดไม่ตรง/สลิปซ้ำ — ตรวจรูปให้ชัวร์ก่อนกด
+                </div>
+              ) : (
+                <div className="mt-3 flex items-center gap-2 rounded-xl border border-yellow bg-yellow/10 px-3 py-2 text-sm font-semibold text-yellow-hover">
+                  <Clock size={16} /> ระบบตรวจอัตโนมัติไม่ได้ — โปรดเทียบยอด/บัญชีในรูปด้วยตนเอง
+                </div>
+              )}
+
               {/* blob: URL เป็นไฟล์ชั่วคราวใน browser จึงไม่ผ่าน Next image optimizer */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={slipModal.url} alt="สลิปการโอน" className="mt-4 w-full rounded-lg border border-border-default" />
+
+              {/* อนุมัติ/ปฏิเสธ ในหน้าเดียว — ดูสลิปเสร็จตัดสินใจได้ทันที */}
+              {active && (
+                <div className="mt-4 flex gap-3">
+                  <button onClick={() => confirmWebOrder(o.id)} disabled={busyOrderId === o.id}
+                    className="btn-primary flex-1 justify-center disabled:opacity-40">
+                    {busyOrderId === o.id ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} อนุมัติ + ตัดสต็อก
+                  </button>
+                  <button onClick={() => rejectWebOrder(o.id)} disabled={busyOrderId === o.id}
+                    className="flex-1 justify-center rounded-xl border border-error-border bg-error-bg px-4 py-2.5 text-sm font-semibold text-error-text transition-colors hover:bg-error-text hover:text-white disabled:opacity-40">
+                    <X size={16} className="mr-1 inline -translate-y-px" /> ปฏิเสธ
+                  </button>
+                </div>
+              )}
             </motion.div>
           </div>
-        )}
+          );
+        })()}
       </AnimatePresence>
 
       {/* MODAL: จัดส่ง — กรอกขนส่ง + เลขพัสดุ */}
