@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import api from "@/lib/api";
 import toast from "react-hot-toast";
 import { statusOf } from "@/lib/orderStatus";
@@ -17,14 +18,16 @@ import {
 
 interface OItem {
   kind: string; productName: string; condition: string; color: string | null;
-  storage: string | null; imei: string | null; unitPrice: number; quantity: number; lineTotal: number;
+  storage: string | null; imei: string | null; imageUrl: string | null;
+  unitPrice: number; quantity: number; lineTotal: number;
 }
 interface Order {
   id: number; status: string; paymentMethod: string; customerName: string; customerTel: string;
   shippingAddress: string | null; note: string | null; subtotal: number; total: number;
   couponCode: string | null; discountPercent: number | null; discountAmount: number | null;
   promoNames: string | null; promoDiscount: number | null;
-  items: OItem[]; slipFileId: string | null; slipVerified: boolean | null; slipAmount: number | null; createdAt: string;
+  items: OItem[]; slipFileId: string | null; slipVerified: boolean | null; slipAmount: number | null;
+  slipTransferAt: string | null; slipBankAccount: string | null; createdAt: string;
   installmentMonths: number | null; downPayment: number | null; monthlyPayment: number | null;
   shippingPartner: string | null; trackingNumber: string | null;
   confirmedAt: string | null; preparingAt: string | null; shippedAt: string | null;
@@ -47,6 +50,11 @@ export default function OrderDetailPage() {
   const [slipPreview, setSlipPreview] = useState<string | null>(null);
   const [ppPayload, setPpPayload] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  // ข้อมูลการโอนที่ลูกค้าแจ้ง (แนบคู่กับสลิป) — ให้แอดมินเทียบเดินบัญชีได้แม่นยำ
+  const [accounts, setAccounts] = useState<string[]>([]);   // บัญชีร้านจาก config (ว่าง = ซ่อน dropdown)
+  const [transferDate, setTransferDate] = useState("");
+  const [transferTime, setTransferTime] = useState("");
+  const [bankAccount, setBankAccount] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -64,6 +72,10 @@ export default function OrderDetailPage() {
           const pp = await api.get(`/orders/${id}/promptpay`);
           if (pp.status === 200 && pp.data?.payload) setPpPayload(pp.data.payload);
         } catch { /* ไม่มี QR ก็ใช้แนบสลิปปกติ */ }
+        // บัญชีร้านให้เลือกตอนแนบสลิป — ร้านไม่ตั้งไว้ = list ว่าง → ซ่อน dropdown
+        api.get("/orders/payment-accounts")
+          .then((r) => setAccounts(Array.isArray(r.data) ? r.data : []))
+          .catch(() => { /* โหลดไม่ได้ → ไม่บังคับเลือก */ });
       }
     } catch (err: unknown) {
       if ([401, 403].includes(getApiStatus(err) ?? 0)) { router.replace("/login?redirect=/orders"); return; }
@@ -82,11 +94,16 @@ export default function OrderDetailPage() {
   useEffect(() => () => { if (slipPreview) URL.revokeObjectURL(slipPreview); }, [slipPreview]);
 
   const uploadSlip = async (file: File) => {
+    // ต้องแจ้งวันเวลาโอน (+เลือกบัญชี ถ้าร้านตั้งรายการไว้) ก่อนแนบ — แอดมินใช้เทียบเดินบัญชี
+    if (!transferDate || !transferTime) { toast.error("กรุณาระบุวันที่และเวลาที่โอนก่อนแนบสลิป"); return; }
+    if (accounts.length > 0 && !bankAccount) { toast.error("กรุณาเลือกบัญชีที่โอนเข้า"); return; }
     setUploading(true);
     try {
       const compressed = await compressImage(file);   // บีบก่อนอัป (รูปสลิปจากมือถือมักใหญ่)
       const fd = new FormData();
       fd.append("file", compressed);
+      fd.append("transferAt", `${transferDate}T${transferTime}`);   // ISO ให้ backend parse ตรง ๆ
+      if (bankAccount) fd.append("bankAccount", bankAccount);
       const res = await api.post(`/orders/${id}/slip`, fd);
       setOrder(res.data);
       setSlipPreview((prev) => { if (prev) URL.revokeObjectURL(prev); return URL.createObjectURL(compressed); });
@@ -141,7 +158,11 @@ export default function OrderDetailPage() {
               <div className="space-y-3">
                 {order.items.map((it, idx) => (
                   <div key={idx} className="flex items-center gap-3 border-b border-border-subtle pb-3 last:border-0 last:pb-0">
-                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-bg-subtle"><Smartphone size={20} className="text-text-disabled" /></div>
+                    <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg bg-bg-subtle">
+                      {it.imageUrl
+                        ? <Image src={it.imageUrl} alt={it.productName} width={48} height={48} sizes="48px" className="h-full w-full object-contain p-0.5" />
+                        : <Smartphone size={20} className="text-text-disabled" />}
+                    </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold text-text-heading">{it.productName}</p>
                       <p className="text-xs text-text-muted">{condLabel(it.condition)}{[it.color, it.storage].filter(Boolean).map((x) => ` · ${x}`).join("")} · x{it.quantity}</p>
@@ -233,7 +254,33 @@ export default function OrderDetailPage() {
                     )}
                   </div>
 
-                  <label className="mt-4 block cursor-pointer">
+                  {/* ข้อมูลการโอน — กรอกก่อนแนบสลิป ให้แอดมินเทียบเดินบัญชีได้แม่นยำ */}
+                  <div className="mt-4 space-y-3 rounded-xl border border-border-default bg-white p-4">
+                    <p className="text-sm font-semibold text-text-heading">ข้อมูลการโอนของคุณ</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label htmlFor="tf-date" className="label-dd text-xs">วันที่โอน<span className="text-error-text" aria-hidden="true"> *</span></label>
+                        <input id="tf-date" type="date" value={transferDate} max={new Date().toISOString().slice(0, 10)}
+                          onChange={(e) => setTransferDate(e.target.value)} className="input-dd min-h-0 py-2 text-sm" />
+                      </div>
+                      <div>
+                        <label htmlFor="tf-time" className="label-dd text-xs">เวลาที่โอน<span className="text-error-text" aria-hidden="true"> *</span></label>
+                        <input id="tf-time" type="time" value={transferTime}
+                          onChange={(e) => setTransferTime(e.target.value)} className="input-dd min-h-0 py-2 text-sm" />
+                      </div>
+                    </div>
+                    {accounts.length > 0 && (
+                      <div>
+                        <label htmlFor="tf-account" className="label-dd text-xs">บัญชีที่โอนเข้า<span className="text-error-text" aria-hidden="true"> *</span></label>
+                        <select id="tf-account" value={bankAccount} onChange={(e) => setBankAccount(e.target.value)} className="input-dd min-h-0 py-2 text-sm">
+                          <option value="">— เลือกบัญชีของร้านที่คุณโอนเข้า —</option>
+                          {accounts.map((a) => <option key={a} value={a}>{a}</option>)}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+
+                  <label className="mt-3 block cursor-pointer">
                     <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border-default bg-white p-5 text-center transition-colors hover:border-yellow">
                       {uploading ? <Loader2 size={26} className="mb-2 animate-spin text-yellow-hover" /> : <UploadCloud size={26} className="mb-2 text-text-muted" />}
                       <p className="text-sm font-medium text-text-body">{order.slipFileId ? "เปลี่ยนสลิป" : "แนบสลิปการโอน"}</p>
@@ -250,6 +297,12 @@ export default function OrderDetailPage() {
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={slipPreview} alt="สลิปการโอน" className="w-full rounded-xl border border-border-default" />
                     </div>
+                  )}
+                  {order.slipFileId && order.slipTransferAt && (
+                    <p className="mt-2 text-xs text-text-muted">
+                      แจ้งโอนเมื่อ {new Date(order.slipTransferAt).toLocaleString("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                      {order.slipBankAccount ? ` · เข้า ${order.slipBankAccount}` : ""}
+                    </p>
                   )}
                   {order.slipFileId && (
                     order.slipVerified === true ? (

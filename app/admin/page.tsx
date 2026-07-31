@@ -43,6 +43,7 @@ interface WebOrder {
   id: number; status: string; paymentMethod: string; customerName: string; customerTel: string;
   shippingAddress: string | null; note: string | null; total: number; createdAt: string;
   items: WebOrderItem[]; slipFileId: string | null; slipVerified: boolean | null; slipAmount: number | null;
+  slipTransferAt: string | null; slipBankAccount: string | null;
   installmentMonths: number | null; downPayment: number | null; monthlyPayment: number | null;
   stockOrderId: string | null;
   shippingPartner: string | null; trackingNumber: string | null;
@@ -697,6 +698,15 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
+              {/* ข้อมูลการโอนที่ลูกค้าแจ้ง — เทียบกับเวลา/บัญชีในสลิปและเดินบัญชีจริง */}
+              {(o.slipTransferAt || o.slipBankAccount) && (
+                <div className="mt-3 rounded-xl border border-border-default bg-bg-subtle px-3 py-2 text-xs text-text-body">
+                  <span className="font-semibold text-text-heading">ลูกค้าแจ้ง:</span>
+                  {o.slipTransferAt && <> โอนเมื่อ {new Date(o.slipTransferAt).toLocaleString("th-TH", { day: "numeric", month: "short", year: "2-digit", hour: "2-digit", minute: "2-digit" })} น.</>}
+                  {o.slipBankAccount && <> · เข้าบัญชี <span className="font-medium">{o.slipBankAccount}</span></>}
+                </div>
+              )}
+
               {/* ผลตรวจอัตโนมัติ — บอกแอดมินชัด ๆ ว่าเชื่อได้แค่ไหน ก่อนกด Approve */}
               {o.slipVerified === true ? (
                 <div className="mt-3 flex items-center gap-2 rounded-xl border border-success-border bg-success-bg px-3 py-2 text-sm font-semibold text-success-text">
@@ -793,11 +803,12 @@ export default function AdminDashboard() {
                   placeholder="เช่น ลูกค้าขอยกเลิก / เครื่องมีปัญหา รับคืนแล้ว" />
               </div>
 
-              {/* สิ่งที่ระบบ "ไม่ได้" ทำให้ — ต้องบอกชัด ไม่งั้นเงิน/สต็อกเพี้ยน */}
+              {/* ขอบเขตของระบบ — บอกชัดว่าอะไรอัตโนมัติ อะไรต้องทำเอง ไม่งั้นเงิน/สต็อกเพี้ยน */}
               <div className="mt-4 rounded-xl border border-yellow bg-yellow/10 p-3 text-xs leading-relaxed text-text-body">
-                <p className="font-semibold text-text-heading"><AlertTriangle size={13} className="mr-1 inline -translate-y-px" /> ระบบบันทึกอย่างเดียว — 2 อย่างนี้ต้องทำเอง:</p>
-                <p className="mt-1">1. <b>โอนเงินคืนลูกค้าจริง</b> ตามช่องทางที่ลูกค้าโอนมา</p>
-                <p>2. <b>ปรับสต็อกคืนในระบบ Stock</b> ถ้ารับสินค้าคืน (บิล {refundModal.stockOrderId || "-"})</p>
+                <p className="font-semibold text-text-heading"><AlertTriangle size={13} className="mr-1 inline -translate-y-px" /> สิ่งที่เกิดขึ้นเมื่อกดยืนยัน:</p>
+                <p className="mt-1">1. <b>โอนเงินคืนลูกค้าจริง</b> — ต้องทำเองตามช่องทางที่ลูกค้าโอนมา</p>
+                <p>2. <b>สต็อก</b> — ระบบจะสั่งคืนสต็อกที่ Stock ให้อัตโนมัติ (บิล {refundModal.stockOrderId || "-"})
+                  ถ้าสำเร็จจะระบุไว้ท้ายเหตุผลที่บันทึก · ถ้าไม่มีข้อความนั้น = ต้องปรับสต็อกเองในระบบ Stock</p>
               </div>
 
               <div className="mt-5 flex justify-end gap-2">
