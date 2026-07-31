@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Smartphone, ClipboardList, Users,
   LogOut, Clock, CheckCircle2, XCircle, Loader2,
   X, AlertTriangle, Warehouse, Menu, Search,
-  ShoppingBag, Check, Eye, Truck, Store, CreditCard, Receipt, UserCog, TicketPercent, Banknote, TrendingUp, Zap, Star, Target, Inbox
+  ShoppingBag, Check, Eye, Truck, Store, CreditCard, Receipt, UserCog, TicketPercent, Banknote, TrendingUp, Zap, Star, Target, Inbox, RotateCcw
 } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
@@ -48,7 +48,11 @@ interface WebOrder {
   shippingPartner: string | null; trackingNumber: string | null;
   confirmedAt: string | null; preparingAt: string | null; shippedAt: string | null;
   deliveredAt: string | null; completedAt: string | null;
+  refundedAt: string | null; refundAmount: number | null; refundReason: string | null;
 }
+
+// สถานะที่คืนเงินได้ (จ่ายแล้ว + ยืนยันแล้ว = สต็อกถูกตัดจริงแล้ว) — ตรงกับ REFUNDABLE_STATUSES ฝั่ง backend
+const REFUNDABLE = ["CONFIRMED", "PREPARING", "SHIPPED", "READY_PICKUP", "DELIVERED", "PICKED_UP", "COMPLETED"];
 
 interface StockSummary { totalAvailable: number; newAvailable: number; secondHandAvailable: number; }
 interface SalesBillLite { grandTotal: number | null; status: string | null; createdAt: string | null; }
@@ -69,6 +73,9 @@ export default function AdminDashboard() {
   const [flagCount, setFlagCount] = useState(0);   // สัญญาณเฝ้าระวังที่รอตรวจ → badge บนเมนู "จัดการลูกค้า"
   const [webOrders, setWebOrders] = useState<WebOrder[]>([]);
   const [slipModal, setSlipModal] = useState<{ url: string; order: WebOrder } | null>(null);
+  const [refundModal, setRefundModal] = useState<WebOrder | null>(null);
+  const [refundAmount, setRefundAmount] = useState("");
+  const [refundReason, setRefundReason] = useState("");
   const [busyOrderId, setBusyOrderId] = useState<number | null>(null);
   const [shipModal, setShipModal] = useState<{ id: number } | null>(null);
   const [shipPartner, setShipPartner] = useState("");
@@ -188,6 +195,33 @@ export default function AdminDashboard() {
     }
   };
 
+  // เปิดฟอร์มคืนเงิน — ยอดตั้งต้น = ยอดที่ลูกค้าจ่ายจริง (ผ่อน = เงินดาวน์) แก้ได้ถ้าหักค่าเสียหาย
+  const openRefund = (o: WebOrder) => {
+    const paid = o.paymentMethod === "INSTALLMENT" && o.downPayment != null ? o.downPayment : o.total;
+    setRefundAmount(String(paid ?? ""));
+    setRefundReason("");
+    setRefundModal(o);
+  };
+
+  const submitRefund = async () => {
+    if (!refundModal) return;
+    const amount = Number(refundAmount);
+    if (!Number.isFinite(amount) || amount <= 0) { toast.error("ยอดคืนเงินไม่ถูกต้อง"); return; }
+    if (!refundReason.trim()) { toast.error("กรุณาระบุเหตุผลการคืนเงิน"); return; }
+    const id = refundModal.id;
+    setBusyOrderId(id);
+    try {
+      const res = await api.post(`/admin/orders/${id}/refund`, { amount, reason: refundReason.trim() });
+      setWebOrders(prev => prev.map(o => o.id === id ? res.data : o));
+      setRefundModal(null);
+      toast.success("บันทึกการคืนเงินแล้ว — อย่าลืมโอนเงินคืนลูกค้า + ปรับสต็อกในระบบ Stock");
+    } catch (error: unknown) {
+      toast.error(getApiError(error, "คืนเงินไม่สำเร็จ"));
+    } finally {
+      setBusyOrderId(null);
+    }
+  };
+
   // เลื่อนสถานะจัดส่ง (PREPARING/SHIPPED/DELIVERED/READY_PICKUP/PICKED_UP/COMPLETED)
   const fulfill = async (id: number, status: string, shippingPartner?: string, trackingNumber?: string) => {
     setBusyOrderId(id);
@@ -271,6 +305,7 @@ export default function AdminDashboard() {
 
   // ปิดโมดัลด้วย Esc (ต้องเรียก hook ก่อน early return เสมอ — Rules of Hooks)
   useEscapeKey(!!slipModal, closeSlipModal);
+  useEscapeKey(!!refundModal, () => setRefundModal(null));
   useEscapeKey(!!shipModal, () => setShipModal(null));
 
   if (!isAuthorized) {
@@ -522,6 +557,11 @@ export default function AdminDashboard() {
                                 </td>
                                 <td>
                                   <span className={`badge-dd ${st.c}`}>{st.t}</span>
+                                  {o.status === "REFUNDED" && o.refundAmount != null && (
+                                    <span className="mt-1 block text-[11px] font-semibold text-error-text">
+                                      คืน ฿{o.refundAmount.toLocaleString()}{o.refundedAt ? ` · ${new Date(o.refundedAt).toLocaleDateString("th-TH")}` : ""}
+                                    </span>
+                                  )}
                                   {o.slipFileId && (
                                     o.slipVerified === true ? (
                                       <span className="mt-1 block text-[11px] font-semibold text-success-text">
@@ -567,6 +607,13 @@ export default function AdminDashboard() {
                                         </button>
                                       ) : null;
                                     })()}
+                                    {REFUNDABLE.includes(o.status) && (
+                                      <button onClick={() => openRefund(o)} disabled={busyOrderId === o.id} aria-label="คืนเงิน"
+                                        title="คืนเงินออเดอร์นี้"
+                                        className="rounded-lg border border-error-border bg-error-bg p-2 text-error-text transition-colors hover:bg-error-text hover:text-white disabled:opacity-30">
+                                        <RotateCcw size={15} />
+                                      </button>
+                                    )}
                                   </div>
                                 </td>
                               </tr>
@@ -720,6 +767,51 @@ export default function AdminDashboard() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* MODAL: คืนเงิน — ยอด (แก้ได้) + เหตุผล (บังคับ) + เตือนงานที่ระบบทำให้ไม่ได้ */}
+      <AnimatePresence>
+        {refundModal && (() => {
+          const paid = refundModal.paymentMethod === "INSTALLMENT" && refundModal.downPayment != null
+            ? refundModal.downPayment : refundModal.total;
+          return (
+          <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="คืนเงินออเดอร์" onClick={() => setRefundModal(null)}>
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }} className="modal-dd max-h-[92dvh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              <button onClick={() => setRefundModal(null)} className="modal-close"><X size={20} /></button>
+              <h2 className="card-title flex items-center gap-2"><RotateCcw size={20} className="text-error-text" /> คืนเงิน · ออเดอร์ #{refundModal.id}</h2>
+              <p className="mt-1 text-sm text-text-muted">{refundModal.customerName} · จ่ายแล้ว ฿{paid?.toLocaleString()}</p>
+
+              <div className="mt-4">
+                <label htmlFor="refund-amount" className="label-dd">ยอดคืนเงิน (บาท)</label>
+                <input id="refund-amount" type="number" inputMode="decimal" min={1} max={paid ?? undefined}
+                  value={refundAmount} onChange={(e) => setRefundAmount(e.target.value)} className="input-dd" />
+                <p className="mt-1.5 text-xs text-text-muted">ค่าเริ่มต้น = ยอดที่ลูกค้าจ่ายจริง · ลดได้ถ้าหักค่าเสียหาย แต่ห้ามเกินที่จ่าย</p>
+              </div>
+              <div className="mt-4">
+                <label htmlFor="refund-reason" className="label-dd">เหตุผลการคืนเงิน<span className="text-error-text" aria-hidden="true"> *</span></label>
+                <textarea id="refund-reason" rows={2} maxLength={500} value={refundReason}
+                  onChange={(e) => setRefundReason(e.target.value)} className="input-dd resize-none"
+                  placeholder="เช่น ลูกค้าขอยกเลิก / เครื่องมีปัญหา รับคืนแล้ว" />
+              </div>
+
+              {/* สิ่งที่ระบบ "ไม่ได้" ทำให้ — ต้องบอกชัด ไม่งั้นเงิน/สต็อกเพี้ยน */}
+              <div className="mt-4 rounded-xl border border-yellow bg-yellow/10 p-3 text-xs leading-relaxed text-text-body">
+                <p className="font-semibold text-text-heading"><AlertTriangle size={13} className="mr-1 inline -translate-y-px" /> ระบบบันทึกอย่างเดียว — 2 อย่างนี้ต้องทำเอง:</p>
+                <p className="mt-1">1. <b>โอนเงินคืนลูกค้าจริง</b> ตามช่องทางที่ลูกค้าโอนมา</p>
+                <p>2. <b>ปรับสต็อกคืนในระบบ Stock</b> ถ้ารับสินค้าคืน (บิล {refundModal.stockOrderId || "-"})</p>
+              </div>
+
+              <div className="mt-5 flex justify-end gap-2">
+                <button onClick={() => setRefundModal(null)} className="btn-ghost">ยกเลิก</button>
+                <button onClick={submitRefund} disabled={busyOrderId === refundModal.id}
+                  className="rounded-xl bg-error-text px-5 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40">
+                  {busyOrderId === refundModal.id ? <><Loader2 size={16} className="mr-1 inline animate-spin" /> กำลังบันทึก</> : "ยืนยันคืนเงิน"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+          );
+        })()}
+      </AnimatePresence>
     </div>
   );
 }
@@ -754,6 +846,7 @@ const ORDER_LABEL: Record<string, { t: string; c: string }> = {
   COMPLETED: { t: "เสร็จสมบูรณ์", c: "badge-success" },
   REJECTED: { t: "ปฏิเสธแล้ว", c: "badge-error" },
   CANCELLED: { t: "ยกเลิก (หมดเวลาชำระ)", c: "badge-error" },
+  REFUNDED: { t: "คืนเงินแล้ว", c: "badge-error" },
 };
 
 // ============ คิวงาน SLA (กันออเดอร์ตกหล่น) ============

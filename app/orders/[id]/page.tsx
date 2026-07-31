@@ -29,6 +29,7 @@ interface Order {
   shippingPartner: string | null; trackingNumber: string | null;
   confirmedAt: string | null; preparingAt: string | null; shippedAt: string | null;
   deliveredAt: string | null; completedAt: string | null;
+  refundedAt: string | null; refundAmount: number | null; refundReason: string | null;
 }
 
 const FULFILLMENT = ["CONFIRMED", "PREPARING", "SHIPPED", "DELIVERED", "READY_PICKUP", "PICKED_UP", "COMPLETED"];
@@ -200,8 +201,17 @@ export default function OrderDetailPage() {
                   <p className="font-semibold text-success-text">ชำระเงิน/ยืนยันแล้ว</p>
                   <p className="mt-1 text-xs text-text-muted">ติดตามสถานะการจัดส่งได้ที่แผงด้านซ้าย</p>
                 </div>
+              ) : order.status === "REFUNDED" ? (
+                <div className="rounded-xl border border-error-border bg-error-bg p-4 text-sm">
+                  <p className="font-semibold text-error-text">คืนเงินแล้ว {order.refundAmount != null ? `฿${order.refundAmount.toLocaleString()}` : ""}</p>
+                  {order.refundedAt && <p className="mt-1 text-xs text-text-muted">วันที่ {new Date(order.refundedAt).toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" })}</p>}
+                  {order.refundReason && <p className="mt-1 text-xs text-text-muted">เหตุผล: {order.refundReason}</p>}
+                  <p className="mt-2 text-xs text-text-muted">เงินจะโอนกลับช่องทางเดิม หากยังไม่ได้รับภายใน 3 วันทำการ ติดต่อแอดมินทางไลน์</p>
+                </div>
               ) : order.status === "REJECTED" ? (
                 <div className="rounded-xl border border-error-border bg-error-bg p-4 text-center text-sm text-error-text">คำสั่งซื้อถูกปฏิเสธ — ติดต่อแอดมินทางไลน์</div>
+              ) : order.status === "CANCELLED" ? (
+                <div className="rounded-xl border border-error-border bg-error-bg p-4 text-center text-sm text-error-text">คำสั่งซื้อถูกยกเลิก (หมดเวลาชำระเงิน) — สั่งซื้อใหม่ได้เลย</div>
               ) : order.status === "PENDING_PICKUP" ? (
                 <div className="rounded-xl border border-info-border bg-info-bg p-4 text-sm text-info-text">
                   <Store size={20} className="mb-1" /> จองสำเร็จ! กรุณามารับและชำระเงินที่ร้าน รอแอดมินติดต่อยืนยันคิว
