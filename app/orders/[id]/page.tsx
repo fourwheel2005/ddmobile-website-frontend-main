@@ -33,6 +33,8 @@ interface Order {
   confirmedAt: string | null; preparingAt: string | null; shippedAt: string | null;
   deliveredAt: string | null; completedAt: string | null;
   refundedAt: string | null; refundAmount: number | null; refundReason: string | null;
+  receiptNo: string | null;        // เลขบิลจากระบบคลัง — หลักฐานอ้างอิง (มีหลังยืนยันแล้ว)
+  reserveExpiresAt: string | null; // เส้นตายแนบสลิป (เฉพาะ RESERVED) — โชว์นับถอยหลัง
 }
 
 const FULFILLMENT = ["CONFIRMED", "PREPARING", "SHIPPED", "DELIVERED", "READY_PICKUP", "PICKED_UP", "COMPLETED"];
@@ -55,6 +57,7 @@ export default function OrderDetailPage() {
   const [transferDate, setTransferDate] = useState("");
   const [transferTime, setTransferTime] = useState("");
   const [bankAccount, setBankAccount] = useState("");
+  const [nowTs, setNowTs] = useState(() => Date.now());     // นาฬิกาเดินทุกวิ — ขับนับถอยหลังเวลาจอง
 
   const load = useCallback(async () => {
     try {
@@ -93,6 +96,14 @@ export default function OrderDetailPage() {
   // คืน blob URL ของสลิปตอนออกจากหน้า (กัน memory leak)
   useEffect(() => () => { if (slipPreview) URL.revokeObjectURL(slipPreview); }, [slipPreview]);
 
+  // เดินนาฬิกาทุกวินาทีเฉพาะตอนออเดอร์ยังรอสลิป (ขับนับถอยหลัง) — สถานะอื่นไม่ตั้ง interval
+  const ticking = order?.status === "RESERVED" && !!order.reserveExpiresAt;
+  useEffect(() => {
+    if (!ticking) return;
+    const t = setInterval(() => setNowTs(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [ticking]);
+
   const uploadSlip = async (file: File) => {
     // ต้องแจ้งวันเวลาโอน (+เลือกบัญชี ถ้าร้านตั้งรายการไว้) ก่อนแนบ — แอดมินใช้เทียบเดินบัญชี
     if (!transferDate || !transferTime) { toast.error("กรุณาระบุวันที่และเวลาที่โอนก่อนแนบสลิป"); return; }
@@ -128,6 +139,9 @@ export default function OrderDetailPage() {
   );
 
   const s = statusOf(order.status);
+  // นับถอยหลังเวลาจอง (P1-4) — เกินกำหนดระบบปล่อยจองอัตโนมัติ ลูกค้าต้องเห็นก่อนโดนยกเลิก
+  const expiryTs = order.status === "RESERVED" && order.reserveExpiresAt ? new Date(order.reserveExpiresAt).getTime() : null;
+  const remainMs = expiryTs != null ? expiryTs - nowTs : null;
   const StatusIcon = s.icon;
   const isInstallment = order.paymentMethod === "INSTALLMENT";
   const isDelivery = order.paymentMethod !== "PICKUP";
@@ -220,6 +234,9 @@ export default function OrderDetailPage() {
                 <div className="rounded-xl border border-success-border bg-success-bg p-4 text-center">
                   <CheckCircle2 size={32} className="mx-auto mb-2 text-success-text" />
                   <p className="font-semibold text-success-text">ชำระเงิน/ยืนยันแล้ว</p>
+                  {order.receiptNo && (
+                    <p className="mt-1.5 text-xs text-text-body">เลขที่บิล/ใบเสร็จ: <span className="font-mono font-semibold text-text-heading">{order.receiptNo}</span></p>
+                  )}
                   <p className="mt-1 text-xs text-text-muted">ติดตามสถานะการจัดส่งได้ที่แผงด้านซ้าย</p>
                 </div>
               ) : order.status === "REFUNDED" ? (
@@ -239,6 +256,19 @@ export default function OrderDetailPage() {
                 </div>
               ) : (
                 <>
+                  {/* นับถอยหลังเวลาจอง — เกินกำหนดระบบปล่อยจองอัตโนมัติ (P1-4) */}
+                  {remainMs != null && (
+                    remainMs > 0 ? (
+                      <div className={`mb-3 flex items-center justify-center gap-2 rounded-xl border p-3 text-sm font-semibold ${remainMs < 10 * 60_000 ? "border-error-border bg-error-bg text-error-text" : "border-yellow bg-yellow/10 text-text-heading"}`}>
+                        <Clock size={16} className="flex-shrink-0" />
+                        ชำระภายใน <span className="font-mono tabular-nums text-base">{String(Math.floor(remainMs / 60_000)).padStart(2, "0")}:{String(Math.floor((remainMs % 60_000) / 1000)).padStart(2, "0")}</span> นาที ไม่งั้นการจองจะหลุด
+                      </div>
+                    ) : (
+                      <div className="mb-3 rounded-xl border border-error-border bg-error-bg p-3 text-center text-sm font-semibold text-error-text">
+                        เลยกำหนดชำระแล้ว — ออเดอร์จะถูกยกเลิกอัตโนมัติ ถ้าโอนแล้วให้รีบแนบสลิปทันที
+                      </div>
+                    )
+                  )}
                   <div className="rounded-xl bg-bg-subtle p-4 text-center">
                     <p className="text-xs text-text-muted">{isInstallment ? "เงินดาวน์ที่ต้องชำระวันนี้" : "ยอดที่ต้องชำระ"}</p>
                     <p className="text-2xl font-bold text-price">{money(payNow)}</p>

@@ -50,6 +50,7 @@ interface WebOrder {
   confirmedAt: string | null; preparingAt: string | null; shippedAt: string | null;
   deliveredAt: string | null; completedAt: string | null;
   refundedAt: string | null; refundAmount: number | null; refundReason: string | null;
+  confirmedBy: string | null; rejectedBy: string | null; refundedBy: string | null;
 }
 
 // สถานะที่คืนเงินได้ (จ่ายแล้ว + ยืนยันแล้ว = สต็อกถูกตัดจริงแล้ว) — ตรงกับ REFUNDABLE_STATUSES ฝั่ง backend
@@ -77,6 +78,7 @@ export default function AdminDashboard() {
   const [refundModal, setRefundModal] = useState<WebOrder | null>(null);
   const [refundAmount, setRefundAmount] = useState("");
   const [refundReason, setRefundReason] = useState("");
+  const [refundCode, setRefundCode] = useState("");   // รหัสความปลอดภัยร้าน (P0-3) — ตัวเดียวกับ Stock
   const [busyOrderId, setBusyOrderId] = useState<number | null>(null);
   const [shipModal, setShipModal] = useState<{ id: number } | null>(null);
   const [shipPartner, setShipPartner] = useState("");
@@ -201,6 +203,7 @@ export default function AdminDashboard() {
     const paid = o.paymentMethod === "INSTALLMENT" && o.downPayment != null ? o.downPayment : o.total;
     setRefundAmount(String(paid ?? ""));
     setRefundReason("");
+    setRefundCode("");
     setRefundModal(o);
   };
 
@@ -212,7 +215,8 @@ export default function AdminDashboard() {
     const id = refundModal.id;
     setBusyOrderId(id);
     try {
-      const res = await api.post(`/admin/orders/${id}/refund`, { amount, reason: refundReason.trim() });
+      const res = await api.post(`/admin/orders/${id}/refund`,
+        { amount, reason: refundReason.trim(), securityCode: refundCode.trim() || null });
       setWebOrders(prev => prev.map(o => o.id === id ? res.data : o));
       setRefundModal(null);
       toast.success("บันทึกการคืนเงินแล้ว — อย่าลืมโอนเงินคืนลูกค้า + ปรับสต็อกในระบบ Stock");
@@ -563,6 +567,12 @@ export default function AdminDashboard() {
                                       คืน ฿{o.refundAmount.toLocaleString()}{o.refundedAt ? ` · ${new Date(o.refundedAt).toLocaleDateString("th-TH")}` : ""}
                                     </span>
                                   )}
+                                  {/* audit (V28) — ใครทำรายการเงินก้อนนี้ */}
+                                  {(o.refundedBy || o.rejectedBy || o.confirmedBy) && (
+                                    <span className="mt-0.5 block truncate text-[10px] text-text-muted" title={o.refundedBy || o.rejectedBy || o.confirmedBy || ""}>
+                                      โดย {(o.status === "REFUNDED" ? o.refundedBy : o.status === "REJECTED" ? o.rejectedBy : o.confirmedBy) ?? "-"}
+                                    </span>
+                                  )}
                                   {o.slipFileId && (
                                     o.slipVerified === true ? (
                                       <span className="mt-1 block text-[11px] font-semibold text-success-text">
@@ -798,9 +808,16 @@ export default function AdminDashboard() {
               </div>
               <div className="mt-4">
                 <label htmlFor="refund-reason" className="label-dd">เหตุผลการคืนเงิน<span className="text-error-text" aria-hidden="true"> *</span></label>
-                <textarea id="refund-reason" rows={2} maxLength={500} value={refundReason}
+                <textarea id="refund-reason" rows={2} maxLength={450} value={refundReason}
                   onChange={(e) => setRefundReason(e.target.value)} className="input-dd resize-none"
                   placeholder="เช่น ลูกค้าขอยกเลิก / เครื่องมีปัญหา รับคืนแล้ว" />
+              </div>
+              <div className="mt-4">
+                <label htmlFor="refund-code" className="label-dd">รหัสความปลอดภัยร้าน</label>
+                <input id="refund-code" type="password" autoComplete="off" value={refundCode}
+                  onChange={(e) => setRefundCode(e.target.value)} className="input-dd"
+                  placeholder="รหัสเดียวกับตอนยกเลิกบิลในระบบ Stock" />
+                <p className="mt-1.5 text-xs text-text-muted">ถ้าร้านตั้งรหัสไว้ ระบบจะตรวจก่อนคืนเงินทุกครั้ง — กันกดพลาด/เครื่องหลุดมือ</p>
               </div>
 
               {/* ขอบเขตของระบบ — บอกชัดว่าอะไรอัตโนมัติ อะไรต้องทำเอง ไม่งั้นเงิน/สต็อกเพี้ยน */}
