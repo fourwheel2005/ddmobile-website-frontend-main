@@ -10,6 +10,7 @@ import Image from "next/image";
 import { Banknote, Smartphone, ArrowRight, ShoppingCart, MessageCircle, TicketPercent, ShieldCheck, Lock, BadgeCheck } from "lucide-react";
 import Reveal from "@/components/Reveal";
 import ThaiAddressAutocomplete, { type ThaiGeo } from "@/components/ThaiAddressAutocomplete";
+import Req from "@/components/ui/Req";
 
 import { baht as money } from "@/lib/money";
 import { LINE_URL } from "@/lib/contact";
@@ -58,7 +59,8 @@ export default function CheckoutPage() {
   useEffect(() => {
     const u = localStorage.getItem("user");
     if (!u) { router.replace("/login?redirect=/checkout"); return; }
-    try { const user = JSON.parse(u); if (user.name) setName(user.name); } catch { /* */ }
+    // เติมชื่อ + เบอร์จากโปรไฟล์ให้อัตโนมัติ (แก้ไขทับได้) — เบอร์มาจากตอนสมัครสมาชิก
+    try { const user = JSON.parse(u); if (user.name) setName(user.name); if (user.tel) setTel(user.tel); } catch { /* */ }
     // คูปองที่ใช้ได้ของลูกค้า → auto เลือกใบที่ลดมากสุด
     api.get("/coupons/mine").then((r) => {
       const list: Coupon[] = Array.isArray(r.data) ? r.data : [];
@@ -140,11 +142,11 @@ export default function CheckoutPage() {
               <h2 className="mb-4 font-bold text-text-heading">ข้อมูลผู้รับ</h2>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label htmlFor="co-name" className="label-dd">ชื่อ-นามสกุล *</label>
+                  <label htmlFor="co-name" className="label-dd">ชื่อ-นามสกุล<Req /></label>
                   <input id="co-name" value={name} onChange={(e) => setName(e.target.value)} required autoComplete="name" className="input-dd" placeholder="ชื่อผู้รับสินค้า" />
                 </div>
                 <div>
-                  <label htmlFor="co-tel" className="label-dd">เบอร์โทร *</label>
+                  <label htmlFor="co-tel" className="label-dd">เบอร์โทร<Req /></label>
                   <input id="co-tel" type="tel" value={tel} onChange={(e) => setTel(e.target.value)} required inputMode="tel" autoComplete="tel" className="input-dd" placeholder="08x-xxx-xxxx" />
                 </div>
               </div>
@@ -173,12 +175,12 @@ export default function CheckoutPage() {
 
               {/* ตำบล/อำเภอ/จังหวัด/รหัสไปรษณีย์ — พิมพ์แล้วเลือก เติมให้อัตโนมัติ */}
               <div className="mt-4">
-                <label htmlFor="co-geo" className="label-dd">ตำบล / อำเภอ / จังหวัด / รหัสไปรษณีย์ *</label>
+                <label htmlFor="co-geo" className="label-dd">ตำบล / อำเภอ / จังหวัด / รหัสไปรษณีย์<Req /></label>
                 <ThaiAddressAutocomplete value={geo} onChange={setGeo} />
               </div>
               {/* รายละเอียดที่อยู่ (บ้านเลขที่/ถนน) */}
               <div className="mt-4">
-                <label htmlFor="co-addr-detail" className="label-dd">บ้านเลขที่ / หมู่ / ซอย / ถนน *</label>
+                <label htmlFor="co-addr-detail" className="label-dd">บ้านเลขที่ / หมู่ / ซอย / ถนน<Req /></label>
                 <input id="co-addr-detail" value={addrDetail} onChange={(e) => setAddrDetail(e.target.value)} required autoComplete="street-address"
                        className="input-dd" placeholder="เช่น 99/1 หมู่ 2 ซ.สุขใจ ถ.รามคำแหง" />
               </div>

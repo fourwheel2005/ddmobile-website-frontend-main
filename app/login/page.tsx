@@ -6,6 +6,10 @@ import toast from "react-hot-toast";
 import { Eye, EyeOff } from "lucide-react";
 import api from "@/lib/api";
 import { getApiError } from "@/lib/errorMessage";
+import Req from "@/components/ui/Req";
+
+// เบอร์โทรไทย 9–10 หลักขึ้นต้น 0 (คั่นด้วย -/เว้นวรรคได้) — รูปแบบเดียวกับหน้า checkout และ backend
+const TEL_RE = /^0\d{1,2}[-\s]?\d{3}[-\s]?\d{3,4}$/;
 
 /** ปลายทางหลัง login: ใช้ ?redirect= เฉพาะ path ภายในเว็บ (กัน open-redirect ออกโดเมนอื่น) */
 function safeRedirect(raw: string | null): string | null {
@@ -29,6 +33,7 @@ function LoginForm() {
   const redirectTo = safeRedirect(searchParams.get("redirect"));
   const [isLogin, setIsLogin] = useState(true);
   const [name, setName] = useState("");
+  const [tel, setTel] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -40,21 +45,27 @@ function LoginForm() {
     try {
       if (isLogin) {
         const response = await api.post("/auth/login", { email, password });
-        const { token, name, role } = response.data;
+        const { token, name, role, tel } = response.data;
         localStorage.setItem("token", token);
-        localStorage.setItem("user", JSON.stringify({ name: name || "", email, role }));
+        // เก็บ tel ไว้ด้วย → หน้า checkout เติมเบอร์อัตโนมัติ (ไม่มีก็เก็บสตริงว่าง)
+        localStorage.setItem("user", JSON.stringify({ name: name || "", email, role, tel: tel || "" }));
         toast.success("เข้าสู่ระบบสำเร็จ!");
         // ปลายทาง: ?redirect= (ถ้าปลอดภัย) → ไม่งั้นแอดมินไปหลังบ้าน, ลูกค้าไปหน้าแรก
         if (redirectTo) window.location.href = redirectTo;
         else if (role === "ROLE_ADMIN") window.location.href = "/admin";
         else window.location.href = "/";
       } else {
-        if (!name || !email || !password) {
+        if (!name || !tel || !email || !password) {
           toast.error("กรุณากรอกข้อมูลให้ครบทุกช่อง");
           setIsLoading(false);
           return;
         }
-        await api.post("/auth/register", { name, email, password });
+        if (!TEL_RE.test(tel.trim())) {
+          toast.error("เบอร์โทรไม่ถูกต้อง (เช่น 0812345678)");
+          setIsLoading(false);
+          return;
+        }
+        await api.post("/auth/register", { name, tel: tel.trim(), email, password });
         toast.success("สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบด้วยรหัสผ่านของคุณ");
         setIsLogin(true);
         setPassword("");
@@ -96,17 +107,24 @@ function LoginForm() {
 
         <form className="space-y-4" onSubmit={handleAuth}>
           {!isLogin && (
-            <div>
-              <label htmlFor="name" className="label-dd">ชื่อ - นามสกุล</label>
-              <input id="name" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="กรอกชื่อของคุณ" required={!isLogin} className="input-dd" />
-            </div>
+            <>
+              <div>
+                <label htmlFor="name" className="label-dd">ชื่อ - นามสกุล<Req /></label>
+                <input id="name" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="กรอกชื่อของคุณ" required={!isLogin} autoComplete="name" className="input-dd" />
+              </div>
+              <div>
+                <label htmlFor="tel" className="label-dd">เบอร์โทร<Req /></label>
+                <input id="tel" type="tel" inputMode="tel" value={tel} onChange={(e) => setTel(e.target.value)} placeholder="เช่น 0812345678" required={!isLogin} autoComplete="tel" className="input-dd" />
+                <p className="mt-1.5 text-xs text-text-muted">ใช้ติดต่อเรื่องคำสั่งซื้อ + เติมให้อัตโนมัติตอนสั่งซื้อ</p>
+              </div>
+            </>
           )}
           <div>
-            <label htmlFor="email" className="label-dd">อีเมล (Email)</label>
-            <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="example@gmail.com" required className="input-dd" />
+            <label htmlFor="email" className="label-dd">อีเมล (Email){!isLogin && <Req />}</label>
+            <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="example@gmail.com" required autoComplete="email" className="input-dd" />
           </div>
           <div>
-            <label htmlFor="password" className="label-dd">รหัสผ่าน (Password)</label>
+            <label htmlFor="password" className="label-dd">รหัสผ่าน (Password){!isLogin && <Req />}</label>
             <div className="relative">
               <input
                 id="password"
