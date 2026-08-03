@@ -157,10 +157,11 @@ function ProductsContent() {
   // ตารางผ่อน (overlay DD) → ผ่อนเริ่มต้นต่อสินค้า (มือ1 ตาม productId+ความจุ / มือ2 ตาม serialId)
   const instFor = useMemo(() => buildInstLookup(plans, serials), [plans, serials]);
 
+  // นับเฉพาะของที่ยังซื้อได้ — ไม่รวมการ์ด "ขายแล้ว" (social proof) กันตัวเลขแท็บโป่งจนงง (FIX-121)
   const condCounts = useMemo(() => ({
-    NEW: items.filter((i) => kindOf(i) === "NEW").length,
-    SECOND_HAND: items.filter((i) => kindOf(i) === "SECOND_HAND").length,
-    ACCESSORY: items.filter((i) => kindOf(i) === "ACCESSORY").length,
+    NEW: items.filter((i) => kindOf(i) === "NEW" && !i.sold).length,
+    SECOND_HAND: items.filter((i) => kindOf(i) === "SECOND_HAND" && !i.sold).length,
+    ACCESSORY: items.filter((i) => kindOf(i) === "ACCESSORY" && !i.sold).length,
   }), [items]);
 
   // facet ที่มีจริงในหมวดปัจจุบัน (auto-hide ตัวที่ว่าง)
