@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import api from "@/lib/api";
 import { getCatalog } from "@/lib/catalog";
 import { baht } from "@/lib/money";
-import { Search, Smartphone, CheckCircle2, ArrowUpDown, X, BatteryMedium, Sparkles, RotateCcw, ShoppingCart, CreditCard, Cable, Zap, Star, SlidersHorizontal } from "lucide-react";
+import { Search, Smartphone, CheckCircle2, ArrowUpDown, X, BatteryMedium, Sparkles, RotateCcw, ShoppingCart, CreditCard, Cable, Zap, Star, SlidersHorizontal, Scale } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { stockImageLoader, IMAGE_BLUR_DATA_URL } from "@/lib/imageLoader";
@@ -17,6 +17,8 @@ import { useCart } from "@/context/CartContext";
 import { buildInstLookup, type InstallmentPlan, type InstallmentSerial } from "@/lib/installment";
 import { promoForItem, type PublicPromotion } from "@/lib/promo";
 import { searchProducts, deriveFacets, emptyFacet, kindOf, type ProductFilters } from "@/lib/productSearch";
+import { useCompare } from "@/lib/useCompare";
+import CompareBar from "@/components/CompareBar";
 
 interface VariantOption {
   variantId: string;
@@ -97,6 +99,7 @@ function ProductsContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { add } = useCart();
+  const compare = useCompare();
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -244,6 +247,17 @@ function ProductsContent() {
                 <span className="absolute bottom-0 left-0 z-10 rounded-tr-xl bg-text-heading px-3 py-1.5 text-xs font-bold text-white shadow-md">
                   ดาวน์ <span className="text-yellow">฿{inst.down.toLocaleString()}</span>
                 </span>
+              )}
+              {/* ปุ่มเลือกเปรียบเทียบ (S13) — กันคลิกทะลุไปเปิดหน้า detail */}
+              {!it.sold && (
+                <button
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (!compare.toggle(it.id)) toast("เปรียบเทียบได้สูงสุด 3 รายการ"); }}
+                  aria-pressed={compare.has(it.id)}
+                  aria-label={compare.has(it.id) ? "เอาออกจากการเปรียบเทียบ" : "เพิ่มลงการเปรียบเทียบ"}
+                  className={`absolute bottom-2 right-2 z-10 inline-flex h-7 items-center gap-1 rounded-full px-2.5 text-[11px] font-semibold shadow-sm transition-colors ${compare.has(it.id) ? "bg-yellow text-on-yellow" : "bg-white/90 text-text-body hover:bg-white"}`}
+                >
+                  <Scale size={12} /> {compare.has(it.id) ? "เทียบอยู่" : "เทียบ"}
+                </button>
               )}
             </div>
             <div className="flex flex-1 flex-col p-4">
@@ -437,6 +451,8 @@ function ProductsContent() {
           </div>
         </div>
       </div>
+      {compare.count > 0 && <div className="h-20" aria-hidden="true" />}
+      <CompareBar catalog={items} />
     </div>
   );
 }
