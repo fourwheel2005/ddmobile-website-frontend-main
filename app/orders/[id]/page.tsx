@@ -9,6 +9,7 @@ import { statusOf } from "@/lib/orderStatus";
 import { getApiError, getApiStatus } from "@/lib/errorMessage";
 import { compressImage } from "@/lib/imageCompress";
 import DeliveryTracker from "@/components/DeliveryTracker";
+import OrderTimeline, { TimelineStep, NextAction } from "@/components/OrderTimeline";
 import ReviewBox from "@/components/ReviewBox";
 import { QRCodeCanvas } from "qrcode.react";
 import {
@@ -35,6 +36,9 @@ interface Order {
   refundedAt: string | null; refundAmount: number | null; refundReason: string | null;
   receiptNo: string | null;        // เลขบิลจากระบบคลัง — หลักฐานอ้างอิง (มีหลังยืนยันแล้ว)
   reserveExpiresAt: string | null; // เส้นตายแนบสลิป (เฉพาะ RESERVED) — โชว์นับถอยหลัง
+  timeline?: TimelineStep[] | null;      // ไทม์ไลน์ที่ server รับรอง (S12)
+  nextAction?: NextAction | null;        // สิ่งที่ต้องทำต่อ (null = รอฝั่งร้าน)
+  allowedCustomerActions?: string[];     // action ที่ลูกค้าทำได้จริงในสถานะนี้
 }
 
 const FULFILLMENT = ["CONFIRMED", "PREPARING", "SHIPPED", "DELIVERED", "READY_PICKUP", "PICKED_UP", "COMPLETED"];
@@ -162,6 +166,11 @@ export default function OrderDetailPage() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* ซ้าย: รายการ + ที่อยู่ */}
           <div className="space-y-6 lg:col-span-2">
+            {/* ไทม์ไลน์ที่ server รับรอง (S12) — แสดง nextAction เฉพาะที่พาไปหน้าอื่น (กันคลิกวนหน้าเดิม) */}
+            <OrderTimeline
+              timeline={order.timeline}
+              nextAction={order.nextAction && order.nextAction.href !== `/orders/${order.id}` ? order.nextAction : null}
+            />
             {FULFILLMENT.includes(order.status) && <DeliveryTracker order={order} />}
 
             {/* ให้คะแนนหลังได้รับสินค้า (โชว์เฉพาะสถานะรับของแล้ว) */}
