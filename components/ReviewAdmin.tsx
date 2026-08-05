@@ -48,7 +48,9 @@ export default function ReviewAdmin() {
 
   const del = async (r: AdminReview) => {
     if (!(await confirmDialog({ title: "ลบรีวิวนี้?", message: `${r.customerName} · ${r.productName ?? ""} (${r.rating} ดาว)`, confirmText: "ลบรีวิว", danger: true }))) return;
-    try { await api.delete(`/admin/reviews/${r.id}`); toast.success("ลบแล้ว"); load(); }
+    // เก็บเหตุผล (audit) — soft-delete ฝั่ง server จะบันทึกว่าใครลบ/เพราะอะไร (S15)
+    const reason = window.prompt("เหตุผลการลบ (เก็บเป็นหลักฐาน)", "ไม่เหมาะสม") ?? "ไม่เหมาะสม";
+    try { await api.delete(`/admin/reviews/${r.id}`, { params: { reason } }); toast.success("ลบแล้ว"); load(); }
     catch { toast.error("ลบไม่สำเร็จ"); }
   };
 

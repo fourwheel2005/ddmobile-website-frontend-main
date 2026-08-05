@@ -113,7 +113,9 @@ function ProductsContent() {
   const [plans, setPlans] = useState<InstallmentPlan[]>([]);
   const [serials, setSerials] = useState<InstallmentSerial[]>([]);
   const [promos, setPromos] = useState<PublicPromotion[]>([]);   // โปรอัตโนมัติ — โชว์ป้าย/ราคาขีดฆ่า (server คิดจริงตอนสั่งซื้อ)
-  const [ratings, setRatings] = useState<Map<string, { average: number; count: number }>>(new Map());   // ★ ต่อสินค้า (จากรีวิวผู้ซื้อจริง)
+  // ★ ต่อสินค้า (จากรีวิวผู้ซื้อจริง) — จับคู่ด้วย variantId (เสถียร S15) ก่อน แล้ว fallback ชื่อ (legacy/MODEL)
+  const [ratingByVariant, setRatingByVariant] = useState<Map<string, { average: number; count: number }>>(new Map());
+  const [ratingByName, setRatingByName] = useState<Map<string, { average: number; count: number }>>(new Map());
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listHref = `/products?condition=${cond}`;
   const detailHref = (id: string) => `/products/${encodeURIComponent(id)}?returnTo=${encodeURIComponent(listHref)}`;
@@ -144,9 +146,14 @@ function ProductsContent() {
         setPlans(Array.isArray(plan.data) ? plan.data : []);
         setSerials(Array.isArray(ser.data) ? ser.data : []);
         setPromos(Array.isArray(pr.data) ? pr.data : []);
-        const rm = new Map<string, { average: number; count: number }>();
-        (Array.isArray(rt.data) ? rt.data : []).forEach((r: { productName: string; average: number; count: number }) => rm.set(r.productName, r));
-        setRatings(rm);
+        const byVar = new Map<string, { average: number; count: number }>();
+        const byName = new Map<string, { average: number; count: number }>();
+        (Array.isArray(rt.data) ? rt.data : []).forEach((r: { productName: string; average: number; count: number; variantId: string | null }) => {
+          if (r.variantId) byVar.set(r.variantId, r);
+          else if (r.productName) byName.set(r.productName, r);
+        });
+        setRatingByVariant(byVar);
+        setRatingByName(byName);
       } catch (e) {
         console.error("Catalog error:", e);
         setError(true);
@@ -217,7 +224,7 @@ function ProductsContent() {
   const renderCard = (it: CatalogItem, priority = false) => {
     const inst = instFor(it);
     const flash = it.sold ? null : promoForItem(promos, it, it.minPrice);
-    const rt = ratings.get(it.productName);
+    const rt = (it.variantId && ratingByVariant.get(it.variantId)) || ratingByName.get(it.productName);
     return (
       <motion.div key={it.id} layout initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.25 }}>
         <Tilt className="h-full" max={5} scale={1.02} radius={18}>
