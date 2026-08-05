@@ -887,6 +887,8 @@ const menuItems = [
 const ORDER_LABEL: Record<string, { t: string; c: string }> = {
   RESERVED: { t: "รอแนบสลิป", c: "badge-warning" },
   PENDING_REVIEW: { t: "รอตรวจสลิป", c: "badge-info" },
+  CONFIRMING: { t: "กำลังยืนยัน", c: "badge-info" },
+  RECONCILIATION_REQUIRED: { t: "รอตรวจกระทบยอด", c: "badge-error" },
   PENDING_PICKUP: { t: "รอรับที่ร้าน", c: "badge-info" },
   CONFIRMED: { t: "ยืนยันแล้ว", c: "badge-success" },
   PREPARING: { t: "กำลังเตรียม", c: "badge-info" },
