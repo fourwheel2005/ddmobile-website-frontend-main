@@ -267,3 +267,35 @@ export function buildTradeInMessage(f: TradeInForm, refCode?: string): string {
     `รหัสไปรษณีย์: ${f.zipcode.trim()}`,
   ].filter(Boolean).join("\n");
 }
+
+/* ---- CRM lifecycle (S15/Part A) — mirror backend TradeInLifecycle ---- */
+
+export const TRADEIN_STATUS_META: Record<string, { label: string; cls: string }> = {
+  NEW: { label: "ใหม่", cls: "badge-warning" },
+  CONTACTED: { label: "ติดต่อแล้ว", cls: "badge-info" },
+  APPOINTMENT: { label: "นัดหมาย", cls: "badge-info" },
+  INSPECTED: { label: "ตรวจเครื่องแล้ว", cls: "badge-info" },
+  OFFERED: { label: "เสนอราคาแล้ว", cls: "badge-info" },
+  WON: { label: "ปิดการขาย", cls: "badge-success" },
+  LOST: { label: "ไม่สำเร็จ", cls: "badge-error" },
+  ARCHIVED: { label: "พับเก็บ", cls: "bg-bg-subtle text-text-muted" },
+};
+
+const TRADEIN_NEXT: Record<string, string[]> = {
+  NEW: ["CONTACTED", "ARCHIVED"],
+  CONTACTED: ["APPOINTMENT", "LOST", "ARCHIVED"],
+  APPOINTMENT: ["INSPECTED", "LOST", "ARCHIVED"],
+  INSPECTED: ["OFFERED", "LOST", "ARCHIVED"],
+  OFFERED: ["WON", "LOST", "ARCHIVED"],
+  WON: ["ARCHIVED"],
+  LOST: ["ARCHIVED"],
+  ARCHIVED: [],
+};
+
+/** สถานะปลายทาง (ต้องมีเหตุผล) */
+export const TRADEIN_OUTCOMES = ["WON", "LOST", "ARCHIVED"];
+
+/** สถานะถัดไปที่อนุญาตจากสถานะปัจจุบัน (mirror backend — server ยังตรวจซ้ำเสมอ) */
+export function nextTradeInStatuses(status: string): string[] {
+  return TRADEIN_NEXT[status] ?? [];
+}

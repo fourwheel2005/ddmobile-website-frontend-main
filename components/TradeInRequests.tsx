@@ -1,16 +1,16 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { Inbox, Loader2, Trash2, Check, RotateCcw, Copy, Phone, ChevronLeft, ChevronRight } from "lucide-react";
+import { Inbox, Trash2, Copy, Phone, ChevronLeft, ChevronRight } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
 import { getApiError } from "@/lib/errorMessage";
 import { baht } from "@/lib/money";
-import { confirmDialog } from "@/components/ui/confirmDialog";
 import { TableSkeleton } from "@/components/Skeletons";
 import StatCard from "@/components/ui/StatCard";
 import {
   DEVICE_TYPES, STORAGES, REGIONS, BATTERY, ACCESSORIES, WARRANTY, BODY, SCREEN,
   labelOf, problemsLabel,
+  TRADEIN_STATUS_META, TRADEIN_OUTCOMES, nextTradeInStatuses,
 } from "@/lib/tradeIn";
 
 interface TradeInRequest {
@@ -20,6 +20,7 @@ interface TradeInRequest {
   name: string; tel: string; zipcode: string;
   estimatedPrice: number | null; userEmail: string | null;
   handled: boolean; createdAt: string;
+  status: string; assignedTo: string | null; outcomeReason: string | null; version: number;   // S15 CRM
 }
 interface PageResult {
   content: TradeInRequest[]; page: number; totalPages: number; totalElements: number;
@@ -51,20 +52,34 @@ export default function TradeInRequests() {
   // สลับตัวกรอง → กลับหน้าแรกเสมอ (ไม่งั้นค้างหน้า 5 ของชุดเดิมแล้วเห็นตารางว่าง)
   const toggleFilter = () => { setPendingOnly((v) => !v); setPage(0); };
 
-  const setHandled = async (r: TradeInRequest, value: boolean) => {
+  // เปลี่ยนสถานะ lead ตาม lifecycle — outcome (WON/LOST/ARCHIVED) ถามเหตุผลก่อน · ส่ง version กัน race
+  const transition = async (r: TradeInRequest, target: string) => {
+    let reason: string | null = null;
+    if (TRADEIN_OUTCOMES.includes(target)) {
+      reason = window.prompt(`เหตุผลของสถานะ "${TRADEIN_STATUS_META[target]?.label ?? target}"`, r.outcomeReason ?? "");
+      if (reason === null) return;               // กดยกเลิก
+      if (!reason.trim()) { toast.error("กรุณาระบุเหตุผล"); return; }
+    }
     setBusyId(r.id);
     try {
-      await api.put(`/admin/trade-in/requests/${r.id}/handled`, null, { params: { value } });
-      toast.success(value ? "ทำเครื่องหมายว่าติดต่อแล้ว" : "กลับไปเป็นยังไม่ติดต่อ");
+      await api.post(`/admin/trade-in/requests/${r.id}/transition`, { targetStatus: target, reason: reason?.trim() || null, expectedVersion: r.version });
+      toast.success("อัปเดตสถานะแล้ว");
       load();
-    } catch (e) { toast.error(getApiError(e, "อัปเดตไม่สำเร็จ")); }
+    } catch (e) { toast.error(getApiError(e, "อัปเดตสถานะไม่สำเร็จ")); load(); }
     finally { setBusyId(null); }
   };
 
-  const del = async (r: TradeInRequest) => {
-    if (!(await confirmDialog({ title: `ลบคำขอของ "${r.name}"?`, confirmText: "ลบ", danger: true }))) return;
-    try { await api.delete(`/admin/trade-in/requests/${r.id}`); toast.success("ลบแล้ว"); load(); }
-    catch (e) { toast.error(getApiError(e, "ลบไม่สำเร็จ")); }
+  const archive = async (r: TradeInRequest) => {
+    const reason = window.prompt(`พับเก็บคำขอของ "${r.name}"? ระบุเหตุผล`, "");
+    if (reason === null) return;
+    if (!reason.trim()) { toast.error("กรุณาระบุเหตุผล"); return; }
+    setBusyId(r.id);
+    try {
+      await api.delete(`/admin/trade-in/requests/${r.id}`, { params: { reason: reason.trim(), expectedVersion: r.version } });
+      toast.success("พับเก็บแล้ว");
+      load();
+    } catch (e) { toast.error(getApiError(e, "พับเก็บไม่สำเร็จ")); load(); }
+    finally { setBusyId(null); }
   };
 
   const copyDetail = (r: TradeInRequest) => {
@@ -104,16 +119,16 @@ export default function TradeInRequests() {
         ) : (
           <div className="space-y-3">
             {rows.map((r) => (
-              <div key={r.id} className={`rounded-2xl border p-4 ${r.handled ? "border-border-default bg-bg-subtle" : "border-yellow/50 bg-white"}`}>
+              <div key={r.id} className={`rounded-2xl border p-4 ${r.status === "NEW" ? "border-yellow/50 bg-white" : "border-border-default bg-bg-subtle"}`}>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="flex flex-wrap items-center gap-2 font-bold text-text-heading">
                       {r.model} {r.storage}
-                      {r.handled
-                        ? <span className="badge-dd badge-success">ติดต่อแล้ว</span>
-                        : <span className="badge-dd badge-warning">รอติดต่อ</span>}
+                      <span className={`badge-dd ${TRADEIN_STATUS_META[r.status]?.cls ?? "badge-warning"}`}>{TRADEIN_STATUS_META[r.status]?.label ?? r.status}</span>
+                      {r.assignedTo && <span className="text-xs font-normal text-text-muted">· ดูแลโดย {r.assignedTo}</span>}
                       {r.refCode && <span className="font-mono text-xs font-normal text-text-muted">{r.refCode}</span>}
                     </p>
+                    {r.outcomeReason && <p className="mt-0.5 text-xs text-text-muted">เหตุผล: {r.outcomeReason}</p>}
                     <p className="mt-1 text-sm text-text-body">
                       {r.name} · <a href={`tel:${r.tel.replace(/\D/g, "")}`} className="font-semibold text-yellow-text hover:underline">{r.tel}</a> · {r.zipcode}
                     </p>
@@ -143,20 +158,27 @@ export default function TradeInRequests() {
                   </div>
                 </dl>
 
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button type="button" onClick={() => setHandled(r, !r.handled)} disabled={busyId === r.id}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-border-default bg-white px-3 py-1.5 text-xs font-bold text-text-heading transition-colors hover:border-yellow disabled:opacity-50">
-                    {busyId === r.id ? <Loader2 size={13} className="animate-spin" /> : r.handled ? <RotateCcw size={13} /> : <Check size={13} />}
-                    {r.handled ? "กลับเป็นรอติดต่อ" : "ติดต่อแล้ว"}
-                  </button>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {/* stepper — เลือกสถานะถัดไปตาม lifecycle (server ตรวจซ้ำ) */}
+                  {nextTradeInStatuses(r.status).length > 0 && (
+                    <select
+                      aria-label="เปลี่ยนสถานะ" disabled={busyId === r.id} value=""
+                      onChange={(e) => { const t = e.target.value; if (t) transition(r, t); }}
+                      className="input-dd min-h-0 w-auto py-1.5 text-xs">
+                      <option value="">{busyId === r.id ? "กำลังบันทึก…" : "เปลี่ยนสถานะ →"}</option>
+                      {nextTradeInStatuses(r.status).map((s) => <option key={s} value={s}>{TRADEIN_STATUS_META[s]?.label ?? s}</option>)}
+                    </select>
+                  )}
                   <button type="button" onClick={() => copyDetail(r)}
                     className="inline-flex items-center gap-1.5 rounded-full border border-border-default bg-white px-3 py-1.5 text-xs font-bold text-text-heading transition-colors hover:border-yellow">
                     <Copy size={13} /> คัดลอกรายละเอียด
                   </button>
-                  <button type="button" onClick={() => del(r)}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-error-border bg-white px-3 py-1.5 text-xs font-bold text-error-text transition-colors hover:bg-error-bg">
-                    <Trash2 size={13} /> ลบ
-                  </button>
+                  {r.status !== "ARCHIVED" && (
+                    <button type="button" onClick={() => archive(r)} disabled={busyId === r.id}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-error-border bg-white px-3 py-1.5 text-xs font-bold text-error-text transition-colors hover:bg-error-bg disabled:opacity-50">
+                      <Trash2 size={13} /> พับเก็บ
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

@@ -128,3 +128,19 @@ describe("estimatePrice", () => {
     expect(deductionRatio(wreck)).toBeLessThanOrEqual(0.85);
   });
 });
+
+// S15/Part A: lifecycle stepper (mirror backend TradeInLifecycle)
+import { nextTradeInStatuses, TRADEIN_OUTCOMES } from "./tradeIn";
+describe("nextTradeInStatuses (CRM lifecycle)", () => {
+  it("เดินหน้าตามลำดับ + แตกไป outcome ได้", () => {
+    expect(nextTradeInStatuses("NEW")).toContain("CONTACTED");
+    expect(nextTradeInStatuses("OFFERED")).toEqual(expect.arrayContaining(["WON", "LOST", "ARCHIVED"]));
+  });
+  it("สถานะปิดแล้วไปต่อไม่ได้ (archived = ว่าง)", () => {
+    expect(nextTradeInStatuses("ARCHIVED")).toEqual([]);
+    expect(nextTradeInStatuses("NEW")).not.toContain("OFFERED");   // ห้ามข้ามขั้น
+  });
+  it("WON/LOST/ARCHIVED เป็น outcome ที่ต้องมีเหตุผล", () => {
+    expect(TRADEIN_OUTCOMES).toEqual(expect.arrayContaining(["WON", "LOST", "ARCHIVED"]));
+  });
+});
