@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { getApiError, getApiStatus } from "@/lib/errorMessage";
@@ -16,6 +16,20 @@ import { baht as money } from "@/lib/money";
 import { LINE_URL } from "@/lib/contact";
 
 interface Coupon { code: string; percent: number; expiresAt: string | null; }
+
+/** ใบเสนอราคาจาก server (S11) — ราคาจริงที่จะใช้ตอนสั่งซื้อ (ไม่ให้ frontend เดาเอง) */
+interface ServerQuote {
+  subtotal: number;
+  couponDiscount: number;
+  promotions: { name: string; amount: number }[];
+  promotionDiscount: number;
+  discountCapAdjustment: number;
+  shippingFee: number;
+  grandTotal: number;
+  payableNow: number;
+  pricingVersion: string;
+  warnings: string[];
+}
 
 /**
  * ชำระเงินซื้อขาด (โอน/PromptPay + แนบสลิป) เท่านั้น
@@ -40,6 +54,9 @@ export default function CheckoutPage() {
   const [promoCode, setPromoCode] = useState("");                       // โค้ดโปรโมชั่น (แยกจากคูปองวงล้อ)
   const [promoPreview, setPromoPreview] = useState<{ promos: { name: string; amount: number }[]; totalDiscount: number } | null>(null);
   const [checkingPromo, setCheckingPromo] = useState(false);
+  const [quote, setQuote] = useState<ServerQuote | null>(null);   // S11: ราคาจริงจาก server
+  const [quoting, setQuoting] = useState(false);
+  const [quoteError, setQuoteError] = useState(false);
 
   // พรีวิวโปรจาก server (แสดงผลเท่านั้น — ตอนสร้างออเดอร์คิดใหม่) · โปรอัตโนมัติขึ้นเองไม่ต้องกรอกโค้ด
   const previewPromo = async (code: string) => {
@@ -77,6 +94,24 @@ export default function CheckoutPage() {
   // แก้ตะกร้า/คูปอง/โค้ด = ความตั้งใจสั่งซื้อใหม่ → ทิ้ง idempotency key เดิม (กัน server คืนออเดอร์เก่าผิดใบ)
   useEffect(() => { idemKey.current = null; }, [items, couponCode, promoCode]);
 
+  // S11: ดึงราคาจริงจาก server ทุกครั้งที่ตะกร้า/คูปอง/โค้ดเปลี่ยน — ไม่ให้ frontend เดา breakdown เอง
+  const fetchQuote = useCallback(async () => {
+    if (items.length === 0) { setQuote(null); return; }
+    setQuoting(true); setQuoteError(false);
+    try {
+      const res = await api.post<ServerQuote>("/orders/quote", {
+        items: items.map((i) => ({ catalogId: i.catalogId, quantity: i.quantity })),
+        paymentMethod: "TRANSFER",
+        couponCode: couponCode || null,
+        promoCode: promoCode.trim() || null,
+      });
+      setQuote(res.data);
+    } catch { setQuoteError(true); setQuote(null); }
+    finally { setQuoting(false); }
+  }, [items, couponCode, promoCode]);
+
+  useEffect(() => { const t = setTimeout(fetchQuote, 250); return () => clearTimeout(t); }, [fetchQuote]);
+
   // ส่วนลด (แสดงผลเท่านั้น — server คิดใหม่ตอนสร้างออเดอร์)
   const selectedCoupon = coupons.find((c) => c.code === couponCode) || null;
   const discount = selectedCoupon ? Math.round((total * selectedCoupon.percent) / 100) : 0;
@@ -111,13 +146,25 @@ export default function CheckoutPage() {
         installmentMonths: null,
         couponCode: couponCode || null,
         promoCode: promoCode.trim() || null,
-      }, { headers: { "Idempotency-Key": idemKey.current } });
+      }, { headers: {
+        "Idempotency-Key": idemKey.current,
+        // S11: ยืนยันว่าราคาที่เห็นตรงกับที่จะคิดจริง — ถ้าเปลี่ยน server ตอบ 409 QUOTE_CHANGED
+        ...(quote ? { "X-Pricing-Version": quote.pricingVersion } : {}),
+      } });
       clear();
       toast.success("สร้างคำสั่งซื้อสำเร็จ!");
       router.push(`/orders/${res.data.id}`);
     } catch (err: unknown) {
       const status = getApiStatus(err);
       if (status === 401 || status === 403) { router.replace("/login?redirect=/checkout"); return; }
+      // S11: ราคา/สิทธิ์เปลี่ยนระหว่างทาง → อัปเดตยอดล่าสุด ให้ลูกค้าตรวจแล้วยืนยันใหม่ในหน้าเดิม (ไม่เพิ่ม step)
+      const data = (err as { response?: { data?: { code?: string; quote?: ServerQuote } } })?.response?.data;
+      if (status === 409 && data?.code === "QUOTE_CHANGED" && data.quote) {
+        setQuote(data.quote);
+        idemKey.current = null;   // ความตั้งใจใหม่ (ยอดเปลี่ยน) → key ใหม่รอบหน้า
+        toast.error("ราคาหรือสิทธิ์มีการเปลี่ยนแปลง — กรุณาตรวจสอบยอดล่าสุดแล้วยืนยันอีกครั้ง");
+        return;
+      }
       toast.error(getApiError(err, "สร้างคำสั่งซื้อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"));
     } finally {
       submitLock.current = false;   // ปลดล็อกให้ลองใหม่ได้ (สำเร็จแล้ว navigate ออกไปแล้ว)
@@ -260,17 +307,22 @@ export default function CheckoutPage() {
                   </div>
                 ))}
               </div>
-              <div className="mt-4 space-y-2 border-t border-border-default pt-3 text-sm">
-                <div className="flex justify-between"><span className="text-text-muted">ราคาสินค้า</span><span className="font-medium text-text-heading">{money(total)}</span></div>
-                {discount > 0 && (
-                  <div className="flex justify-between text-success-text"><span>ส่วนลดคูปอง ({selectedCoupon?.percent}%)</span><span className="font-semibold">−{money(discount)}</span></div>
+              {/* สรุปยอด — ราคาจริงจาก server (S11) · ระหว่างโหลดโชว์ยอดฝั่ง client ไว้ก่อน */}
+              <div className="mt-4 space-y-2 border-t border-border-default pt-3 text-sm" aria-live="polite" aria-busy={quoting}>
+                <div className="flex justify-between"><span className="text-text-muted">ราคาสินค้า</span><span className="font-medium text-text-heading">{money(quote ? quote.subtotal : total)}</span></div>
+                {(quote ? quote.couponDiscount > 0 : discount > 0) && (
+                  <div className="flex justify-between text-success-text"><span>ส่วนลดคูปอง{selectedCoupon ? ` (${selectedCoupon.percent}%)` : ""}</span><span className="font-semibold">−{money(quote ? quote.couponDiscount : discount)}</span></div>
                 )}
-                {promoTotal > 0 && promoPreview?.promos.map((p) => (
+                {(quote ? quote.promotions : (promoPreview?.promos ?? [])).map((p) => (
                   <div key={p.name} className="flex justify-between text-success-text"><span>โปรโมชั่น: {p.name}</span><span className="font-semibold">−{money(p.amount)}</span></div>
                 ))}
+                {quote?.warnings.map((w) => (
+                  <p key={w} className="flex items-center gap-1 text-[11px] text-yellow-hover"><ShieldCheck size={12} className="flex-shrink-0" /> {w}</p>
+                ))}
+                {quoteError && <p className="text-[11px] text-text-muted">ดึงราคาจากระบบไม่ได้ — ระบบจะคิดยอดจริงตอนกดยืนยัน</p>}
                 <div className="flex items-center justify-between border-t border-border-default pt-2">
                   <span className="font-bold text-text-heading">รวมทั้งสิ้น</span>
-                  <span className="text-xl font-bold text-price">{money(payable)}</span>
+                  <span className="text-xl font-bold text-price">{quoting && !quote ? "…" : money(quote ? quote.grandTotal : payable)}</span>
                 </div>
               </div>
               <button type="submit" disabled={submitting} className="btn-primary mt-5 w-full py-3.5 text-base">
