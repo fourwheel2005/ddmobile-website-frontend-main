@@ -111,6 +111,11 @@ export default function Navbar() {
                 <LayoutDashboard size={16} className="text-yellow-hover" /> หลังบ้าน
               </Link>
             )}
+            {userData?.role === "ROLE_EMPLOYEE" && (
+              <Link href="/employee" className="btn-ghost hidden md:inline-flex">
+                <LayoutDashboard size={16} className="text-yellow-hover" /> งานของฉัน
+              </Link>
+            )}
 
             {userData && <NotificationBell />}
 
@@ -154,6 +159,11 @@ export default function Navbar() {
                       {userData.role === "ROLE_ADMIN" && (
                         <Link href="/admin" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-text-body transition-colors hover:bg-bg-subtle md:hidden">
                           <LayoutDashboard size={16} className="text-yellow-hover" /> หลังบ้าน
+                        </Link>
+                      )}
+                      {userData.role === "ROLE_EMPLOYEE" && (
+                        <Link href="/employee" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-text-body transition-colors hover:bg-bg-subtle md:hidden">
+                          <LayoutDashboard size={16} className="text-yellow-hover" /> งานของฉัน
                         </Link>
                       )}
                       <Link href="/orders" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-text-body transition-colors hover:bg-bg-subtle">
