@@ -35,7 +35,7 @@ const dateTh = (s: string | null) =>
  * รีวิวใต้สินค้าแบบ Shopee/Lazada: สรุปเฉลี่ย + histogram + filter ดาว/มีรูป
  * + sort ตาม relevance + โหวตมีประโยชน์ + ร้านตอบกลับ · ทุกรีวิว = ผู้ซื้อจริง
  */
-export default function ProductReviews({ productName }: { productName: string }) {
+export default function ProductReviews({ productName, variantId }: { productName: string; variantId?: string | null }) {
   const [data, setData] = useState<Data | null>(null);
   const [items, setItems] = useState<Review[]>([]);
   const [star, setStar] = useState(0);
@@ -51,7 +51,8 @@ export default function ProductReviews({ productName }: { productName: string })
     setLoading(true);
     try {
       const res = await api.get("/reviews/product", {
-        params: { name: productName, star, withImages, sort, page: p, size: PAGE_SIZE },
+        // S15B: ส่ง variantId → aggregate ด้วย identity เสถียร (rename แล้วรีวิวไม่หลุด) · ไม่มีก็ fallback ชื่อ
+        params: { name: productName, ...(variantId ? { variantId } : {}), star, withImages, sort, page: p, size: PAGE_SIZE },
       });
       if (seq !== reqSeq.current) return;   // มีคำขอใหม่กว่าแล้ว — ทิ้งผลนี้
       setData(res.data);
@@ -59,7 +60,7 @@ export default function ProductReviews({ productName }: { productName: string })
       setPage(p);
     } catch { /* ไม่มีรีวิว/โหลดพลาด → ซ่อน section */ }
     finally { if (seq === reqSeq.current) setLoading(false); }
-  }, [productName, star, withImages, sort]);
+  }, [productName, variantId, star, withImages, sort]);
 
   // lightbox: Esc ปิด + ล็อกสกอลล์พื้นหลัง
   useEffect(() => {

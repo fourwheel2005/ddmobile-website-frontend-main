@@ -531,7 +531,8 @@ function ProductDetailContent() {
         </div>
 
         {/* รีวิวจากผู้ซื้อจริง (histogram + filter + relevance sort แบบ Shopee) */}
-        <ProductReviews productName={item.productName} />
+        {/* S15B: UNIT/GROUP จับกลุ่มรีวิวด้วย variantId (เสถียร) · MODEL คร่อมหลาย variant → ใช้ชื่อ */}
+        <ProductReviews productName={item.productName} variantId={item.type === "MODEL" ? undefined : item.variantId} />
       </div>
 
       {/* Sticky decision bar (มือถือ): ให้เทียบซื้อสดกับผ่อนได้ในจุดตัดสินใจเดียว */}
