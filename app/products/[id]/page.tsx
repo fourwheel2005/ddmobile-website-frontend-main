@@ -19,6 +19,7 @@ import { useCart } from "@/context/CartContext";
 import InstallmentBox, { InstallmentInfo } from "@/components/InstallmentBox";
 import ProductReviews from "@/components/ProductReviews";
 import ProductConfidence from "@/components/ProductConfidence";
+import { initialProductOption } from "@/lib/productOption";
 
 interface VariantOption {
   variantId: string;
@@ -74,6 +75,7 @@ function ProductDetailContent() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const requestedVariantId = searchParams.get("variant");
   const returnTo = safeProductsReturn(searchParams.get("returnTo"));
   const { add } = useCart();
   const reduceMotion = useReducedMotion();
@@ -92,11 +94,12 @@ function ProductDetailContent() {
   // มือ 1 (MODEL): ตั้งค่าตัวเลือกเริ่มต้น = option แรก
   useEffect(() => {
     if (item?.type === "MODEL" && item.options && item.options.length > 0) {
-      setSelColor(item.options[0].color);
-      setSelStorage(item.options[0].storage);
+      const initial = initialProductOption(item.options, requestedVariantId);
+      setSelColor(initial?.color ?? null);
+      setSelStorage(initial?.storage ?? null);
       setActiveImg(0);
     }
-  }, [item]);
+  }, [item, requestedVariantId]);
 
   useEffect(() => {
     const fetchItem = async () => {
