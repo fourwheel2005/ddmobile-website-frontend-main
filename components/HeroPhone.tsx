@@ -9,9 +9,10 @@ import {
   useTransform,
   type PanInfo,
 } from "framer-motion";
-import { MoveHorizontal, ShieldCheck, Sparkles, Truck } from "lucide-react";
+import { Box, MoveHorizontal, ShieldCheck, Sparkles, Truck, X } from "lucide-react";
 import Image from "next/image";
-import { useState, type KeyboardEvent, type ReactNode } from "react";
+import Script from "next/script";
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
 export type HeroPhoneView = "back" | "front";
 
@@ -29,6 +30,159 @@ export function resolveHeroPhoneView(
 }
 
 export default function HeroPhone() {
+  const [exploring, setExploring] = useState(false);
+  const reduceMotion = useReducedMotion();
+  const stage = useRef<HTMLDivElement>(null);
+  const launch = useRef<HTMLButtonElement>(null);
+  const close = useRef<HTMLButtonElement>(null);
+
+  const closeViewer = () => {
+    setExploring(false);
+    requestAnimationFrame(() => launch.current?.focus({ preventScroll: true }));
+  };
+
+  useEffect(() => {
+    if (!exploring) return;
+    close.current?.focus({ preventScroll: true });
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) setExploring(false);
+    });
+    if (stage.current) observer.observe(stage.current);
+    const onVisibility = () => {
+      if (document.hidden) setExploring(false);
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [exploring]);
+
+  return (
+    <div ref={stage} className="relative min-w-0" onKeyDown={(event) => {
+      if (event.key === "Escape" && exploring) closeViewer();
+    }}>
+      {exploring ? (
+        <div className="overflow-hidden rounded-[2rem] bg-[#191919] text-white shadow-[0_24px_70px_-30px_rgba(112,57,23,0.45)]">
+          <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
+            <div>
+              <p className="text-xs font-semibold tracking-[0.16em] text-orange-300">EXPLORE IN 3D</p>
+              <p className="mt-1 text-sm font-medium">iPhone 17 Pro Max · สีส้ม</p>
+            </div>
+            <button ref={close} type="button" onClick={closeViewer} className="flex min-h-11 shrink-0 items-center gap-1 rounded-full border border-white/25 px-3 text-xs hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-yellow">
+              <X size={15} aria-hidden="true" /> กลับภาพปกติ
+            </button>
+          </div>
+          <PhoneModelViewer reduceMotion={!!reduceMotion} />
+          <div className="space-y-2 px-4 py-3 text-xs leading-relaxed text-white/70 sm:px-5">
+            <p>ลากเพื่อหมุน · จีบสองนิ้วหรือใช้ล้อเมาส์เพื่อซูม · เปิดเต็มจอเพื่อดูรายละเอียด</p>
+            <p className="sm:hidden">เลื่อนหน้าต่อได้จากพื้นที่นอกภาพ 3D หรือกดกลับภาพปกติ</p>
+            <p className="text-[10px] text-white/50">
+              <a className="underline underline-offset-2" href="https://sketchfab.com/3d-models/iphone-17-pro-max-87fc1df741384124a8ce0226d2b2058d" target="_blank" rel="noopener noreferrer">3D: iPhone 17 Pro Max</a>
+              {" by "}<a className="underline underline-offset-2" href="https://sketchfab.com/MG990" target="_blank" rel="noopener noreferrer">MajdyModels</a>
+              {" · "}<a className="underline underline-offset-2" href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>
+              {" · ภาพจำลองประกอบการชมสินค้า"}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <>
+          <HeroPhonePoster />
+          <div className="mt-4 flex flex-col items-center gap-2 pb-2">
+            <button ref={launch} type="button" onClick={() => setExploring(true)} className="group inline-flex min-h-12 items-center gap-2 rounded-full bg-text-heading px-6 py-3 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-orange-950 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-yellow">
+              <Box size={18} className="text-orange-300" aria-hidden="true" /> สำรวจเครื่องแบบ 3D <span className="text-orange-300">360°</span>
+            </button>
+            <p className="text-xs text-text-muted">หมุนดูรอบเครื่องและซูมรายละเอียดได้</p>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+type Point3D = [number, number, number];
+type ModelCamera = { position: Point3D; target: Point3D };
+type ModelAPI = {
+  start: () => void;
+  stop: () => void;
+  addEventListener: (name: string, callback: () => void) => void;
+  getCameraLookAt: (callback: (error: unknown, camera: ModelCamera) => void) => void;
+  setCameraLookAt: (position: Point3D, target: Point3D, duration: number) => void;
+};
+type ModelSDK = new (version: string, iframe: HTMLIFrameElement) => {
+  init: (id: string, options: Record<string, unknown>) => void;
+};
+
+function PhoneModelViewer({ reduceMotion }: { reduceMotion: boolean }) {
+  const iframe = useRef<HTMLIFrameElement>(null);
+  const api = useRef<ModelAPI | null>(null);
+  const camera = useRef<ModelCamera | null>(null);
+  const alive = useRef(true);
+  const [ready, setReady] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [view, setView] = useState("back");
+
+  useEffect(() => {
+    alive.current = true;
+    return () => { alive.current = false; api.current?.stop(); };
+  }, []);
+
+  const chooseView = (next: string) => {
+    if (!camera.current || !api.current) return;
+    const { position, target } = camera.current;
+    const angle = next === "front" ? Math.PI : 0;
+    const scale = next === "detail" ? 0.7 : 1;
+    const x = position[0] - target[0];
+    const y = position[1] - target[1];
+    api.current.setCameraLookAt([
+      target[0] + (x * Math.cos(angle) - y * Math.sin(angle)) * scale,
+      target[1] + (x * Math.sin(angle) + y * Math.cos(angle)) * scale,
+      target[2] + (position[2] - target[2]) * scale,
+    ], target, reduceMotion ? 0 : 0.8);
+    setView(next);
+  };
+
+  const initialize = () => {
+    const SDK = (window as unknown as { Sketchfab?: ModelSDK }).Sketchfab;
+    if (!iframe.current || !SDK) { setFailed(true); return; }
+    const client = new SDK("1.12.1", iframe.current);
+    client.init("87fc1df741384124a8ce0226d2b2058d", {
+      autostart: 1, autospin: 0, camera: 0, preload: 1,
+      ui_stop: 0, ui_inspector: 0, ui_vr: 0, ui_ar: 0,
+      success: (viewer: ModelAPI) => {
+        if (!alive.current) { viewer.stop(); return; }
+        api.current = viewer;
+        viewer.addEventListener("viewerready", () => {
+          if (!alive.current) return;
+          viewer.getCameraLookAt((error, initial) => {
+            if (!alive.current || error) return;
+            const position = initial.position.map((value, index) =>
+              initial.target[index] + (value - initial.target[index]) * 1.35,
+            ) as Point3D;
+            camera.current = { position, target: initial.target };
+            viewer.setCameraLookAt(position, initial.target, reduceMotion ? 0 : 0.9);
+            setReady(true);
+          });
+        });
+        viewer.start();
+      },
+      error: () => { if (alive.current) setFailed(true); },
+    });
+  };
+
+  return <>
+    <Script src="https://static.sketchfab.com/api/sketchfab-viewer-1.12.1.js" strategy="afterInteractive" onReady={initialize} onError={() => setFailed(true)} />
+    <div className="relative">
+      {!ready && <div role="status" className="pointer-events-none absolute inset-x-0 top-3 z-10 text-center text-xs text-orange-200">{failed ? "โหลด 3D ไม่สำเร็จ สามารถกลับภาพปกติได้" : "กำลังเตรียมรายละเอียดเครื่อง 3D…"}</div>}
+      <iframe ref={iframe} title="สำรวจ iPhone 17 Pro Max สีส้มแบบ 3D หมุนและซูมดูรายละเอียด" className="block h-[min(62svh,480px)] min-h-[320px] w-full border-0 md:h-[470px]" allow="fullscreen" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" />
+    </div>
+    <div className="flex flex-wrap justify-center gap-2 px-3 pt-3" aria-label="มุมกล้อง 3D">
+      {[["back", "ด้านหลัง"], ["front", "ด้านหน้า"], ["detail", "ขยายรายละเอียด"]].map(([value, label]) => <button key={value} type="button" disabled={!ready} aria-pressed={view === value} onClick={() => chooseView(value)} className={`min-h-11 rounded-full px-4 text-xs font-medium transition-colors disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-yellow ${view === value ? "bg-orange-200 text-orange-950" : "bg-white/10 text-white hover:bg-white/20"}`}>{label}</button>)}
+    </div>
+  </>;
+}
+
+function HeroPhonePoster() {
   const reduceMotion = useReducedMotion();
   const [activeView, setActiveView] = useState<HeroPhoneView>("front");
   const mouseX = useMotionValue(0);
