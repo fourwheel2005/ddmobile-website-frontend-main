@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { minValidMonthly, buildInstLookup, type InstallmentSerial } from "./installment";
+import { minValidMonthly, buildInstLookup, type InstallmentSerial, cheapestValidTerm } from "./installment";
 
 describe("minValidMonthly — กันข้อมูลกรอกสลับช่อง", () => {
   it("terms ปกติ → คืนค่างวดต่ำสุด", () => {
@@ -30,5 +30,27 @@ describe("buildInstLookup — UNIT ที่ข้อมูลผ่อนเพ
   it("serial ปกติ → คืนค่างวดต่ำสุดจาก terms", () => {
     const lookup = buildInstLookup([], [serial({ serialId: "u2", terms: [{ months: 12, monthly: 1790 }, { months: 10, monthly: 1990 }] })]);
     expect(lookup({ id: "u2", type: "UNIT" })?.monthly).toBe(1790);
+  });
+});
+
+describe("per-term down payment (Stock FIX-200)", () => {
+  it("uses the down of the cheapest term when the shop set a different down for that term", () => {
+    const lookup = buildInstLookup([
+      { productId: "p1", storage: "128", downPayment: 3000, note: null,
+        terms: [{ months: 10, monthly: 2190 }, { months: 24, monthly: 1090, down: 5000 }] },
+    ], []);
+    expect(lookup({ id: "p1", type: "MODEL", options: [{ storage: "128" }] })).toEqual({ down: 5000, monthly: 1090, note: null });
+  });
+
+  it("falls back to the plan down when the cheapest term has no override", () => {
+    const lookup = buildInstLookup([], [
+      { serialId: "s1", downPayment: 1500, months: 10, monthly: 1990, note: "x",
+        terms: [{ months: 10, monthly: 1990 }, { months: 12, monthly: 1790, down: 2500 }, { months: 15, monthly: 1490 }] },
+    ]);
+    expect(lookup({ id: "s1", type: "UNIT" })).toEqual({ down: 1500, monthly: 1490, note: "x" });
+  });
+
+  it("cheapestValidTerm ignores swapped-column garbage", () => {
+    expect(cheapestValidTerm([{ months: 1790, monthly: 12 }, { months: 12, monthly: 1790, down: 1 }])).toEqual({ months: 12, monthly: 1790, down: 1 });
   });
 });

@@ -3,7 +3,7 @@ export interface InstallmentPlan {
   productId: string;
   storage: string;
   downPayment: number | null;
-  terms: { months: number; monthly: number }[];
+  terms: { months: number; monthly: number; down?: number | null }[];
   note: string | null;
 }
 export interface InstallmentSerial {
@@ -11,7 +11,7 @@ export interface InstallmentSerial {
   downPayment: number | null;
   months: number | null;
   monthly: number | null;
-  terms?: { months: number; monthly: number }[] | null;
+  terms?: { months: number; monthly: number; down?: number | null }[] | null;
   note: string | null;
 }
 export interface InstInfo { down: number | null; monthly: number | null; note: string | null; }
@@ -32,6 +32,15 @@ export function minValidMonthly(terms: { months: number; monthly: number }[] | n
   const valid = (terms ?? []).filter((t) => saneMonths(t.months) && saneMonthly(t.monthly)).map((t) => t.monthly);
   return valid.length ? Math.min(...valid) : null;
 }
+/** งวดที่ค่างวดต่ำสุด (ผ่านการกรอง) — ใช้หาดาวน์ของงวดนั้น (down รายงวดถ้ามี) */
+export function cheapestValidTerm<T extends { months: number; monthly: number }>(terms: T[] | null | undefined): T | null {
+  let best: T | null = null;
+  for (const t of terms ?? []) {
+    if (!saneMonths(t.months) || !saneMonthly(t.monthly)) continue;
+    if (best == null || t.monthly < best.monthly) best = t;
+  }
+  return best;
+}
 
 export function buildInstLookup(plans: InstallmentPlan[], serials: InstallmentSerial[]) {
   const planMap = new Map<string, InstallmentPlan>();
@@ -45,7 +54,8 @@ export function buildInstLookup(plans: InstallmentPlan[], serials: InstallmentSe
       if (!s) return null;
       // flat monthly ใช้ได้เฉพาะเมื่อ months สมเหตุสมผล (กันข้อมูลสลับช่อง)
       const flat = saneMonths(s.months) && saneMonthly(s.monthly) ? s.monthly : null;
-      return { down: s.downPayment, monthly: minValidMonthly(s.terms) ?? flat, note: s.note };
+      const cheapest = cheapestValidTerm(s.terms);
+      return { down: cheapest?.down ?? s.downPayment, monthly: cheapest?.monthly ?? flat, note: s.note };
     }
     if (it.type === "MODEL") {
       let best: InstInfo | null = null;
@@ -53,9 +63,10 @@ export function buildInstLookup(plans: InstallmentPlan[], serials: InstallmentSe
       storages.forEach((st) => {
         const p = planMap.get(`${it.id}|${st}`);
         if (!p) return;
-        const minMonthly = minValidMonthly(p.terms);
-        if (minMonthly != null && (best == null || best.monthly == null || minMonthly < best.monthly))
-          best = { down: p.downPayment, monthly: minMonthly, note: p.note };
+        const cheapest = cheapestValidTerm(p.terms);
+        const minMonthly = cheapest?.monthly ?? null;
+        if (cheapest != null && minMonthly != null && (best == null || best.monthly == null || minMonthly < best.monthly))
+          best = { down: cheapest.down ?? p.downPayment, monthly: minMonthly, note: p.note };
       });
       return best;
     }

@@ -3,7 +3,8 @@ import { useState } from "react";
 import { MessageCircle, Copy, Sparkles, CreditCard, FileText, CheckCircle2, IdCard } from "lucide-react";
 import toast from "react-hot-toast";
 
-export interface InstallmentTerm { months: number; monthly: number; }
+/** down = ดาวน์เฉพาะงวดนี้ (ร้านตั้งจาก Stock FIX-200) · null/ไม่มี = ใช้ดาวน์ของแผน */
+export interface InstallmentTerm { months: number; monthly: number; down?: number | null; }
 /** หนึ่งแผนผ่อน (ปุ่มเลือก) — ดาวน์ 1 ค่า + งวดหลายช่วง + โปรโม */
 export interface InstallmentPlanOption {
   label: string | null;
@@ -50,6 +51,9 @@ export default function InstallmentBox({ info, product }: { info: InstallmentInf
   const plan = plans[Math.min(planSel, plans.length - 1)];
   const terms = plan.terms ?? [];
   const term = terms[Math.min(sel, Math.max(0, terms.length - 1))];
+  // ดาวน์ที่ใช้จริง = ดาวน์เฉพาะงวดที่เลือก (ถ้าร้านตั้ง) ไม่งั้นดาวน์ของแผน
+  const downFor = (t: InstallmentTerm | undefined) => (t?.down != null ? t.down : plan.down);
+  const down = downFor(term);
   const planLabel = (p: InstallmentPlanOption, i: number) =>
     p.label?.trim() || (p.down != null ? `ดาวน์ ${baht(p.down)}` : `แผน ${i + 1}`);
 
@@ -64,7 +68,7 @@ export default function InstallmentBox({ info, product }: { info: InstallmentInf
       product.serialOrImei ? `รหัส/IMEI: ${product.serialOrImei}` : (product.sku ? `SKU: ${product.sku}` : null),
       product.price != null ? `ราคาเครื่อง: ${baht(product.price)}` : null,
       plans.length > 1 ? `แผน: ${planLabel(plan, planSel)}` : null,
-      plan.down != null ? `เงินดาวน์: ${baht(plan.down)}` : null,
+      down != null ? `เงินดาวน์: ${baht(down)}` : null,
       term ? `ผ่อน: ${baht(term.monthly)} x ${term.months} เดือน` : null,
       plan.promo ? `โปรโมชัน: ${plan.promo}` : null,
     ].filter(Boolean);
@@ -113,7 +117,7 @@ export default function InstallmentBox({ info, product }: { info: InstallmentInf
         <div className="grid grid-cols-2 gap-4">
           <div>
             <p className="text-xs text-text-muted">ราคาดาวน์</p>
-            <p className="text-2xl font-bold text-price md:text-3xl">{baht(plan.down)}</p>
+            <p className="text-2xl font-bold text-price md:text-3xl">{baht(down)}</p>
           </div>
           <div>
             <p className="text-xs text-text-muted">ราคาผ่อน</p>
@@ -130,7 +134,7 @@ export default function InstallmentBox({ info, product }: { info: InstallmentInf
         {/* สรุปแผนผ่อนของเครื่องนี้ (ชัดเจน) */}
         {term && (
           <div className="mt-3 rounded-xl bg-yellow/15 px-4 py-2.5 text-center text-sm font-semibold text-text-heading">
-            เครื่องนี้ดาวน์ <span className="text-price">{baht(plan.down)}</span> แล้วผ่อนสบาย <span className="text-price">{baht(term.monthly)}</span> × {term.months} เดือน
+            เครื่องนี้ดาวน์ <span className="text-price">{baht(down)}</span> แล้วผ่อนสบาย <span className="text-price">{baht(term.monthly)}</span> × {term.months} เดือน
           </div>
         )}
 
@@ -148,6 +152,9 @@ export default function InstallmentBox({ info, product }: { info: InstallmentInf
                   }`}
                 >
                   {t.months} เดือน · {baht(t.monthly)}
+                  {t.down != null && t.down !== plan.down && (
+                    <span className="ml-1 text-xs text-text-muted">· ดาวน์ {baht(t.down)}</span>
+                  )}
                 </button>
               ))}
             </div>

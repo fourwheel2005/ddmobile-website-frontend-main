@@ -249,7 +249,7 @@ function ProductDetailContent() {
     for (const t of p.terms ?? []) {
       if (!bestInstallmentTerm || t.monthly < bestInstallmentTerm.monthly) {
         bestInstallmentTerm = t;
-        bestInstallmentDown = p.down;   // ดาวน์ของ "แผนเดียวกัน" กับค่างวดที่ถูกที่สุด
+        bestInstallmentDown = t.down ?? p.down;   // ดาวน์เฉพาะงวด (ถ้าตั้ง) ไม่งั้นดาวน์ของ "แผนเดียวกัน" กับค่างวดที่ถูกที่สุด
       }
     }
   }
