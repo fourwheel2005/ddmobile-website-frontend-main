@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
-import { MessageCircle, Copy, Sparkles, CreditCard, FileText, CheckCircle2, IdCard } from "lucide-react";
-import toast from "react-hot-toast";
+import { Sparkles, CreditCard, FileText, CheckCircle2, IdCard, ArrowRight } from "lucide-react";
 
 /** down = ดาวน์เฉพาะงวดนี้ (ร้านตั้งจาก Stock FIX-200) · null/ไม่มี = ใช้ดาวน์ของแผน */
 export interface InstallmentTerm { months: number; monthly: number; down?: number | null; }
@@ -20,26 +19,26 @@ export interface InstallmentInfo {
   plans?: InstallmentPlanOption[] | null;   // แผนหลายแบบ (ปุ่มเลือก) — มีอย่างน้อย 1 แผนเมื่อมีข้อมูลผ่อน
 }
 
-interface ProductInfo {
-  productName: string;
-  sku?: string | null;
-  serialOrImei?: string | null;
-  color?: string | null;
-  storage?: string | null;
-  conditionLabel?: string | null;
-  price?: number | null;
-}
 
-import { lineChatUrl } from "@/lib/contact";
 import { baht } from "@/lib/money";
 
+/** แผนที่ลูกค้าเลือกตอนกด "ยืนยันผ่อนเครื่องนี้" — ส่งต่อเป็น snapshot ในคำขอผ่อน */
+export interface InstallmentSelection {
+  planLabel: string | null;   // ชื่อแผน (+ โปรโมชัน) ถ้ามี
+  downPayment: number | null;
+  months: number | null;
+  monthly: number | null;
+}
+
 /**
- * กล่องผ่อน + ปุ่มดึงเข้า LINE:
- * แสดง เงินดาวน์ + ค่างวดต่อเดือน (เลือกจำนวนงวดได้) แล้วปุ่มเปิดแชท LINE OA
- * พร้อมข้อความข้อมูลเครื่องพิมพ์รอไว้ในช่องแชทให้เลย (ไม่ต้องสแกน QR)
- * และคัดลอกข้อความสำรองไว้ในคลิปบอร์ด เผื่อกรณีข้อความไม่ติดไปกับ deep link
+ * กล่องผ่อน: แสดง เงินดาวน์ + ค่างวดต่อเดือน (เลือกแผน/จำนวนงวดได้)
+ * ปุ่ม "ยืนยันผ่อนเครื่องนี้" → onConfirm(แผนที่เลือก) — หน้าสินค้าเปิดฟอร์มแนบบัตรประชาชน แล้วค่อยส่งเข้า LINE
+ * (ลิงก์ LINE แนบรูปบัตรไม่ได้ จึงต้องอัปโหลดเข้าระบบร้านก่อน)
  */
-export default function InstallmentBox({ info, product }: { info: InstallmentInfo; product: ProductInfo }) {
+export default function InstallmentBox({ info, onConfirm }: {
+  info: InstallmentInfo;
+  onConfirm: (sel: InstallmentSelection) => void;
+}) {
   // แผนผ่อน: ใช้ plans ถ้ามี ไม่งั้น fallback แผนเดียวจาก field เก่า (back-compat)
   const plans: InstallmentPlanOption[] =
     info.plans && info.plans.length > 0
@@ -59,38 +58,21 @@ export default function InstallmentBox({ info, product }: { info: InstallmentInf
 
   const pickPlan = (i: number) => { setPlanSel(i); setSel(0); };   // เปลี่ยนแผน → รีเซ็ตงวดเป็นช่วงแรก
 
-  const buildMessage = () => {
-    const lines = [
-      `สนใจผ่อน: ${product.productName}`,
-      product.color ? `สี: ${product.color}` : null,
-      product.storage ? `ความจุ: ${product.storage}` : null,
-      product.conditionLabel ? `สภาพ: ${product.conditionLabel}` : null,
-      product.serialOrImei ? `รหัส/IMEI: ${product.serialOrImei}` : (product.sku ? `SKU: ${product.sku}` : null),
-      product.price != null ? `ราคาเครื่อง: ${baht(product.price)}` : null,
-      plans.length > 1 ? `แผน: ${planLabel(plan, planSel)}` : null,
-      down != null ? `เงินดาวน์: ${baht(down)}` : null,
-      term ? `ผ่อน: ${baht(term.monthly)} x ${term.months} เดือน` : null,
-      plan.promo ? `โปรโมชัน: ${plan.promo}` : null,
-    ].filter(Boolean);
-    return lines.join("\n");
-  };
-
-  const goLine = () => {
-    const msg = buildMessage();
-    // เปิดลิงก์ทันทีใน user gesture เดียวกัน — ถ้าไปเรียกหลัง await clipboard
-    // Safari/iOS จะมองว่าหมด gesture แล้วบล็อก popup ทำให้ LINE ไม่เด้ง
-    window.open(lineChatUrl(msg), "_blank", "noopener,noreferrer");
-    navigator.clipboard?.writeText(msg).then(
-      () => toast.success("เปิดแชท LINE พร้อมข้อมูลเครื่องแล้ว — ถ้าข้อความไม่ขึ้น วางจากที่คัดลอกไว้ได้เลย", { duration: 4000 }),
-      () => toast("เปิดแชท LINE แล้ว ส่งข้อความหาแอดมินได้เลย", { icon: <MessageCircle size={18} className="text-line" /> }),
-    );
+  const confirm = () => {
+    const label = [plans.length > 1 ? planLabel(plan, planSel) : null, plan.promo].filter(Boolean).join(" · ");
+    onConfirm({
+      planLabel: label ? label.slice(0, 100) : null,
+      downPayment: down ?? null,
+      months: term?.months ?? null,
+      monthly: term?.monthly ?? null,
+    });
   };
 
   return (
-    <div className="mt-5 overflow-hidden rounded-2xl border border-yellow/40 bg-gradient-to-b from-yellow/10 to-white">
+    <div id="installment-box" className="mt-5 scroll-mt-24 overflow-hidden rounded-2xl border border-yellow/40 bg-gradient-to-b from-yellow/10 to-white">
       <div className="flex items-center gap-2 border-b border-yellow/30 bg-yellow/15 px-5 py-3">
         <CreditCard size={18} className="text-yellow-hover" />
-        <span className="font-bold text-text-heading">ผ่อนผ่านเว็บ — ดึงเข้า LINE ต่อ</span>
+        <span className="font-bold text-text-heading">ผ่อนผ่านเว็บ — แนบบัตรประชาชน แล้วส่งเข้า LINE</span>
       </div>
 
       <div className="p-5">
@@ -185,11 +167,11 @@ export default function InstallmentBox({ info, product }: { info: InstallmentInf
           </div>
         </div>
 
-        <button onClick={goLine} className="line-cta mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-line py-3.5 text-base font-bold text-white shadow-[var(--shadow-line)] transition-transform hover:-translate-y-0.5">
-          <MessageCircle size={20} /> ยืนยันผ่อนเครื่องนี้ · ทักแอดมินทาง LINE
+        <button type="button" onClick={confirm} className="btn-primary mt-5 w-full py-3.5 text-base">
+          ยืนยันผ่อนเครื่องนี้ <ArrowRight size={18} />
         </button>
         <p className="mt-2 flex items-center justify-center gap-1.5 text-center text-xs text-text-muted">
-          <Copy size={12} /> กดแล้วเข้าแชท LINE ทันที พร้อมข้อมูลเครื่องพิมพ์รอไว้ให้ — กดส่งได้เลย
+          <IdCard size={13} /> แนบรูปบัตรประชาชน → ส่งข้อมูล → เปิดแชท LINE พร้อมเลขอ้างอิง
         </p>
       </div>
     </div>

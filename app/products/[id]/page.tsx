@@ -7,16 +7,20 @@ import api from "@/lib/api";
 import { getCatalogItem } from "@/lib/catalog";
 import { baht } from "@/lib/money";
 import { promoForItem, type PublicPromotion } from "@/lib/promo";
-import { lineChatUrl } from "@/lib/contact";
+import dynamic from "next/dynamic";
 import {
   Smartphone, ShieldCheck, CheckCircle2, XCircle,
-  MessageCircle, ArrowLeft, ChevronRight, Sparkles, RotateCcw, BatteryMedium, Hash, ShoppingCart, Zap
+  ArrowLeft, ChevronRight, Sparkles, RotateCcw, BatteryMedium, Hash, ShoppingCart, Zap, IdCard, CreditCard
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import CountUp from "@/components/CountUp";
 import { useCart } from "@/context/CartContext";
-import InstallmentBox, { InstallmentInfo } from "@/components/InstallmentBox";
+import InstallmentBox, { InstallmentInfo, type InstallmentSelection } from "@/components/InstallmentBox";
+import type { InstallmentInterest } from "@/lib/serviceRequest";
+
+// ฟอร์มผ่อน (แนบบัตรประชาชน) โหลดเมื่อกด "ยืนยันผ่อนเครื่องนี้" เท่านั้น — หน้าสินค้าไม่ต้องแบก JS ของฟอร์ม
+const InstallmentRequestDialog = dynamic(() => import("@/components/service/InstallmentRequestDialog"), { ssr: false });
 import ProductReviews from "@/components/ProductReviews";
 import ProductConfidence from "@/components/ProductConfidence";
 import { initialProductOption } from "@/lib/productOption";
@@ -86,6 +90,7 @@ function ProductDetailContent() {
   const [selStorage, setSelStorage] = useState<string | null>(null);
   const [installment, setInstallment] = useState<InstallmentInfo | null>(null);
   const [promos, setPromos] = useState<PublicPromotion[]>([]);
+  const [installmentReq, setInstallmentReq] = useState<InstallmentInterest | null>(null);   // เปิดฟอร์มผ่อน (snapshot เครื่อง+แผน)
 
   useEffect(() => {
     api.get("/promotions/active").then((r) => setPromos(Array.isArray(r.data) ? r.data : [])).catch(() => { /* ไม่มีโปร */ });
@@ -216,6 +221,22 @@ function ProductDetailContent() {
     setActiveImg(0);
   };
   const pickStorage = (s: string) => { setSelStorage(s); setActiveImg(0); };
+
+  /** snapshot เครื่อง + แผนที่ลูกค้าเห็นตอนกดยืนยันผ่อน (ราคา/แผนใน Stock เปลี่ยนภายหลังได้) */
+  const installmentSnapshot = (sel: InstallmentSelection | null): InstallmentInterest => ({
+    catalogId: isModel ? effVariantId : item.id,
+    productName: item.productName,
+    color: effColor,
+    storage: effStorage,
+    conditionLabel: item.conditionLabel,
+    serialOrSku: isUnit && item.imei ? item.imei : item.sku,
+    price: effPrice,
+    planLabel: sel?.planLabel ?? null,
+    downPayment: sel?.downPayment ?? null,
+    months: sel?.months ?? null,
+    monthly: sel?.monthly ?? null,
+    note: "",
+  });
 
   const toCartItem = () => ({
     catalogId: isModel ? effVariantId : item.id,
@@ -471,18 +492,7 @@ function ProductDetailContent() {
 
             {/* กล่องผ่อน + ดึงเข้า LINE (แสดงเมื่อแอดมินตั้งตารางผ่อนไว้) */}
             {installment && (
-              <InstallmentBox
-                info={installment}
-                product={{
-                  productName: item.productName,
-                  sku: item.sku,
-                  serialOrImei: isUnit ? item.imei : null,
-                  color: effColor,
-                  storage: effStorage,
-                  conditionLabel: item.conditionLabel,
-                  price: effPrice,
-                }}
-              />
+              <InstallmentBox info={installment} onConfirm={(sel) => setInstallmentReq(installmentSnapshot(sel))} />
             )}
 
             <div className="mt-6 space-y-3">
@@ -517,17 +527,17 @@ function ProductDetailContent() {
                   <Zap size={20} /> {item.sold ? "ขายแล้ว" : item.quantity > 0 ? (item.minPrice == null ? "สอบถามราคา" : "ซื้อเลย") : "สินค้าหมด"}
                 </button>
               </div>
-              {/* ผ่อน → ทักไลน์โดยตรง (เมื่อมีกล่องผ่อน InstallmentBox มีปุ่มผ่อนของตัวเองแล้ว) · ไม่โชว์กับเครื่องขายแล้ว */}
+              {/* ผ่อน (ยังไม่มีตารางผ่อน) → ฟอร์มแนบบัตรประชาชน แล้วส่งเข้า LINE · มีตารางผ่อน = ปุ่มอยู่ใน InstallmentBox */}
               {!item.sold && !installment && !isAccessory && (
-                <a href={lineChatUrl(`สนใจผ่อนเครื่องนี้: ${item.productName}`)} target="_blank" rel="noopener noreferrer"
+                <button type="button" onClick={() => setInstallmentReq(installmentSnapshot(null))}
                   className="line-cta group flex w-full items-center gap-3 rounded-full bg-line px-5 py-3.5 text-white shadow-[var(--shadow-line)] transition-transform hover:-translate-y-0.5">
-                  <MessageCircle size={24} className="flex-shrink-0" />
+                  <IdCard size={24} className="flex-shrink-0" />
                   <span className="flex flex-col text-left leading-tight">
-                    <span className="text-base font-bold">ผ่อนเครื่องนี้ · ทักไลน์รับสิทธิ์เลย</span>
-                    <span className="text-[11px] font-medium text-white/85">อนุมัติไวใน 1 วัน · ใช้บัตรประชาชนใบเดียว ไม่ต้องใช้บัตรเครดิต</span>
+                    <span className="text-base font-bold">ยืนยันผ่อนเครื่องนี้</span>
+                    <span className="text-[11px] font-medium text-white/85">แนบบัตรประชาชนใบเดียว · อนุมัติไวใน 1 วัน · ไม่ต้องใช้บัตรเครดิต</span>
                   </span>
                   <ChevronRight size={20} className="ml-auto flex-shrink-0 transition-transform group-hover:translate-x-1" />
-                </a>
+                </button>
               )}
             </div>
           </div>
@@ -558,13 +568,17 @@ function ProductDetailContent() {
           <button disabled={!canBuy} onClick={buyNow} className="btn-secondary border-text-heading bg-white py-3 text-sm font-bold disabled:opacity-40">
             <Zap size={17} /> {item.sold ? "ขายแล้ว" : item.quantity > 0 ? "ซื้อสด" : "สินค้าหมด"}
           </button>
+          {/* พาไปกล่องผ่อนก่อน — ให้เลือกแผน/งวดเองแล้วค่อยยืนยัน (ไม่ข้ามไปส่งด้วยแผนที่ไม่ได้เลือก) */}
           {bestInstallmentTerm && (
-            <a href={lineChatUrl(`สนใจผ่อนเครื่องนี้: ${item.productName}`)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center gap-1.5 rounded-full bg-line px-3 py-3 text-sm font-bold text-white shadow-[var(--shadow-line)]">
-              <MessageCircle size={17} /> ผ่อนเริ่ม {baht(bestInstallmentTerm.monthly)}
-            </a>
+            <button type="button" onClick={() => document.getElementById("installment-box")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+              className="inline-flex items-center justify-center gap-1.5 rounded-full bg-line px-3 py-3 text-sm font-bold text-white shadow-[var(--shadow-line)]">
+              <CreditCard size={17} /> ผ่อนเริ่ม {baht(bestInstallmentTerm.monthly)}
+            </button>
           )}
         </div>
       </div>
+
+      {installmentReq && <InstallmentRequestDialog product={installmentReq} onClose={() => setInstallmentReq(null)} />}
     </div>
   );
 }

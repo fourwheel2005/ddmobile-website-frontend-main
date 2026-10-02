@@ -7,6 +7,8 @@ import { Eye, EyeOff } from "lucide-react";
 import api from "@/lib/api";
 import { getApiError } from "@/lib/errorMessage";
 import Req from "@/components/ui/Req";
+import ThaiAddressAutocomplete, { type ThaiGeo } from "@/components/ThaiAddressAutocomplete";
+import { addressFromLogin, toAddressPayload } from "@/lib/profile";
 
 // เบอร์โทรไทย 9–10 หลักขึ้นต้น 0 (คั่นด้วย -/เว้นวรรคได้) — รูปแบบเดียวกับหน้า checkout และ backend
 const TEL_RE = /^0\d{1,2}[-\s]?\d{3}[-\s]?\d{3,4}$/;
@@ -36,6 +38,8 @@ function LoginForm() {
   const [tel, setTel] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [geo, setGeo] = useState<ThaiGeo | null>(null);   // ตำบล/อำเภอ/จังหวัด/รหัสไปรษณีย์ (auto-fill)
+  const [addressLine, setAddressLine] = useState("");      // บ้านเลขที่/ถนน (ไม่บังคับ)
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -47,8 +51,11 @@ function LoginForm() {
         const response = await api.post("/auth/login", { email, password });
         const { token, name, role, tel } = response.data;
         localStorage.setItem("token", token);
-        // เก็บ tel ไว้ด้วย → หน้า checkout เติมเบอร์อัตโนมัติ (ไม่มีก็เก็บสตริงว่าง)
-        localStorage.setItem("user", JSON.stringify({ name: name || "", email, role, tel: tel || "" }));
+        // เก็บ tel + ที่อยู่ไว้ด้วย → หน้า checkout/ขายเครื่อง/บอลลูนเติมให้อัตโนมัติโดยไม่ต้องยิง API เพิ่ม
+        // address: null = ไม่มีที่อยู่ (sync แล้ว) — ต่างจาก undefined ของ session เก่า (ดู lib/profile.ts)
+        localStorage.setItem("user", JSON.stringify({
+          name: name || "", email, role, tel: tel || "", address: addressFromLogin(response.data),
+        }));
         toast.success("เข้าสู่ระบบสำเร็จ!");
         // ปลายทาง: ?redirect= (ถ้าปลอดภัย) → ไม่งั้นแอดมินไปหลังบ้าน, ลูกค้าไปหน้าแรก
         if (redirectTo) window.location.href = redirectTo;
@@ -65,7 +72,12 @@ function LoginForm() {
           setIsLoading(false);
           return;
         }
-        await api.post("/auth/register", { name, tel: tel.trim(), email, password });
+        if (!geo) {
+          toast.error("กรุณาเลือกตำบล / อำเภอ / จังหวัด จากช่องค้นหาที่อยู่");
+          setIsLoading(false);
+          return;
+        }
+        await api.post("/auth/register", { name, tel: tel.trim(), email, password, address: toAddressPayload(geo, addressLine) });
         toast.success("สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบด้วยรหัสผ่านของคุณ");
         setIsLogin(true);
         setPassword("");
@@ -116,6 +128,16 @@ function LoginForm() {
                 <label htmlFor="tel" className="label-dd">เบอร์โทร<Req /></label>
                 <input id="tel" type="tel" inputMode="tel" value={tel} onChange={(e) => setTel(e.target.value)} placeholder="เช่น 0812345678" required={!isLogin} autoComplete="tel" className="input-dd" />
                 <p className="mt-1.5 text-xs text-text-muted">ใช้ติดต่อเรื่องคำสั่งซื้อ + เติมให้อัตโนมัติตอนสั่งซื้อ</p>
+              </div>
+              <div>
+                <label htmlFor="reg-geo" className="label-dd">ตำบล / อำเภอ / จังหวัด / รหัสไปรษณีย์<Req /></label>
+                <ThaiAddressAutocomplete inputId="reg-geo" value={geo} onChange={setGeo} />
+                <p className="mt-1.5 text-xs text-text-muted">พิมพ์รหัสไปรษณีย์หรือชื่อตำบล แล้วเลือกจากรายการ — ระบบเติมที่เหลือให้</p>
+              </div>
+              <div>
+                <label htmlFor="reg-addr" className="label-dd">บ้านเลขที่ / หมู่ / ซอย / ถนน</label>
+                <input id="reg-addr" value={addressLine} onChange={(e) => setAddressLine(e.target.value)} maxLength={255} autoComplete="street-address" placeholder="เช่น 99/1 หมู่ 2 ถ.รามคำแหง (ไม่บังคับ)" className="input-dd" />
+                <p className="mt-1.5 text-xs text-text-muted">แก้ไขภายหลังได้ที่หน้าโปรไฟล์</p>
               </div>
             </>
           )}

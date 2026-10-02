@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
+import { SERVICES } from "@/lib/services";
 import { ChevronLeft, ChevronRight, Banknote, CreditCard, Zap } from "lucide-react";
 
 interface Slide {
@@ -24,10 +25,10 @@ const slides: Slide[] = [
     icon: <Zap size={120} className="text-text-heading/10" />,
   },
   {
-    title: "ไอโฟนแลกเงิน ได้เงินไว",
+    title: `${SERVICES.BALLOON.label} ได้เงินไว`,
     sub: "วงเงินสูง ภายใน 1 วัน · ไม่ใช่การจำนำ",
     cta: "ดูรายละเอียด",
-    href: "/contact",
+    href: SERVICES.BALLOON.href,
     className: "bg-gradient-to-br from-[#1f2937] to-[#111827]",
     textClass: "text-white",
     icon: <Banknote size={120} className="text-white/10" />,

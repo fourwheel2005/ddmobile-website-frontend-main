@@ -5,7 +5,7 @@ import { getApiError, getApiStatus } from "@/lib/errorMessage";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   LayoutDashboard, Smartphone, ClipboardList, Users,
-  LogOut, Clock, CheckCircle2, XCircle, Loader2,
+  LogOut, Clock, CheckCircle2, Loader2,
   X, AlertTriangle, Warehouse, Menu, Search,
   ShoppingBag, Check, Eye, Truck, Store, CreditCard, Receipt, UserCog, TicketPercent, Banknote, TrendingUp, Zap, Star, Target, Inbox, RotateCcw, Scale
 } from "lucide-react";
@@ -22,6 +22,7 @@ import ReviewAdmin from "@/components/ReviewAdmin";
 import IntentStats from "@/components/IntentStats";
 import TradeInManager from "@/components/TradeInManager";
 import TradeInRequests from "@/components/TradeInRequests";
+import InstallmentRequestsAdmin from "@/components/InstallmentRequestsAdmin";
 import CustomerModeration from "@/components/CustomerModeration";
 import ReconciliationView from "@/components/ReconciliationView";
 import StatCard from "@/components/ui/StatCard";
@@ -30,14 +31,6 @@ import { confirmDialog } from "@/components/ui/confirmDialog";
 import { TableSkeleton, StatCardSkeleton } from "@/components/Skeletons";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 
-interface InstallmentApp {
-  id: number;
-  customerName: string;
-  customerTel: string;
-  productName: string;
-  applicationDate: string;
-  status: string;
-}
 
 interface WebOrderItem { productName: string; condition: string; quantity: number; lineTotal: number; }
 interface WebOrder {
@@ -69,7 +62,7 @@ function toArr<T>(d: unknown): T[] {
 export default function AdminDashboard() {
   const [activeMenu, setActiveMenu] = useState("ภาพรวมระบบ");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [applications, setApplications] = useState<InstallmentApp[]>([]);
+  const [installmentPending, setInstallmentPending] = useState(0);   // คำขอผ่อนใหม่ที่ยังไม่แตะ → badge เมนู
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
 
@@ -127,9 +120,10 @@ export default function AdminDashboard() {
 
     const fetchData = async () => {
       try {
-        const [, appsRes, flagRes, ordersRes, sumRes, lowRes, salesRes, healthRes] = await Promise.all([
+        const [, instRes, flagRes, ordersRes, sumRes, lowRes, salesRes, healthRes] = await Promise.all([
           api.get("/admin/stats"),
-          api.get("/admin/applications"),
+          // นับคำขอผ่อนใหม่สำหรับ badge (size=1 — ต้องการแค่ pendingCount ไม่ดึงทั้งคิว)
+          api.get<{ pendingCount: number }>("/admin/installment-requests", { params: { size: 1, status: "NEW" } }).catch(() => null),
           // จำนวนสัญญาณเฝ้าระวังที่รอตรวจ — endpoint เบา ๆ สำหรับ badge (รายละเอียดโหลดในแท็บจัดการลูกค้า)
           api.get<{ open: number }>("/admin/accounts/flags/count").catch(() => null),
           api.get("/admin/orders"),
@@ -139,7 +133,7 @@ export default function AdminDashboard() {
           api.get("/admin/slip-verifier-health").catch(() => null),   // P2-3: สุขภาพระบบตรวจสลิป
         ]);
 
-        setApplications(appsRes.data);
+        setInstallmentPending(instRes?.data?.pendingCount ?? 0);
         setFlagCount(flagRes?.data?.open ?? 0);
         setWebOrders(ordersRes.data);
         setSlipHealth(healthRes?.data ?? null);
@@ -371,6 +365,11 @@ export default function AdminDashboard() {
                   {flagCount}
                 </span>
               )}
+              {item.name === "คำขอผ่อนสินค้า" && installmentPending > 0 && (
+                <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-error-text px-1.5 text-[11px] font-bold text-white">
+                  {installmentPending}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -485,39 +484,8 @@ export default function AdminDashboard() {
                 </div>
               )}
 
-              {/* คำขอผ่อนสินค้า */}
-              {activeMenu === "คำขอผ่อนสินค้า" && (
-                <div className="overflow-hidden rounded-2xl border border-border-default bg-white">
-                  <div className="border-b border-border-default bg-bg-surface p-4">
-                    <h2 className="font-display text-xl">คำขอผ่อนสินค้าล่าสุด (ยื่นผ่านระบบ)</h2>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="table-dd">
-                      <thead>
-                        <tr><th>ลูกค้า</th><th>รุ่นสินค้า</th><th>วันที่ยื่นเรื่อง</th><th>สถานะ</th></tr>
-                      </thead>
-                      <tbody>
-                        {applications.length === 0 ? (
-                          <tr><td colSpan={4} className="p-8 text-center font-display text-sm text-text-muted">ยังไม่มีข้อมูลคำขอผ่อนสินค้าผ่านระบบเว็บ</td></tr>
-                        ) : (
-                          applications.map((app) => (
-                            <tr key={app.id}>
-                              <td><p className="font-semibold text-text-heading">{app.customerName}</p><p className="text-xs text-text-muted">{app.customerTel}</p></td>
-                              <td><span className="badge-dd badge-info">{app.productName}</span></td>
-                              <td className="text-text-muted">{app.applicationDate}</td>
-                              <td>
-                                <span className={`badge-dd ${app.status === "รออนุมัติ" ? "badge-warning" : app.status === "อนุมัติแล้ว" ? "badge-success" : "badge-error"}`}>
-                                  {app.status === "รออนุมัติ" ? <Clock size={12} /> : app.status === "อนุมัติแล้ว" ? <CheckCircle2 size={12} /> : <XCircle size={12} />} {app.status}
-                                </span>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
+              {/* คำขอผ่อนสินค้า (หน้าสินค้า "ยืนยันผ่อนเครื่องนี้" / ฟอร์มเลือกบริการ) + บัตรประชาชน */}
+              {activeMenu === "คำขอผ่อนสินค้า" && <InstallmentRequestsAdmin onPendingCount={setInstallmentPending} />}
 
               {/* จัดการลูกค้า — รายชื่อ + สถานะจริง + ระงับ/ปลดระงับ/เตือน + คิวเฝ้าระวัง */}
               {activeMenu === "จัดการลูกค้า" && <CustomerModeration onFlagCount={setFlagCount} />}
@@ -690,11 +658,11 @@ export default function AdminDashboard() {
               {/* บริการที่ลูกค้าสนใจ (จากป๊อปอัพคัดกรอง) */}
               {activeMenu === "บริการที่ลูกค้าสนใจ" && <IntentStats />}
 
-              {/* ราคารับซื้อ (ไอโฟนแลกเงิน) */}
-              {activeMenu === "ราคารับซื้อ (แลกเงิน)" && <TradeInManager />}
+              {/* ราคารับซื้อ (ขายเครื่อง / ผ่อนบอลลูน) */}
+              {activeMenu === "ราคารับซื้อ (ขาย/บอลลูน)" && <TradeInManager />}
 
               {/* คำขอประเมินที่ลูกค้าส่งจากหน้า /trade-in (เก็บคู่ขนานกับแชท LINE) */}
-              {activeMenu === "คำขอประเมิน (แลกเงิน)" && <TradeInRequests />}
+              {activeMenu === "คำขอขาย/บอลลูน" && <TradeInRequests />}
             </>
           )}
         </div>
@@ -875,8 +843,8 @@ const menuItems = [
   { name: "ตารางผ่อน", icon: CreditCard },
   { name: "คูปองส่วนลด", icon: TicketPercent },
   { name: "โปรโมชั่น / Flash Sale", icon: Zap },
-  { name: "ราคารับซื้อ (แลกเงิน)", icon: Banknote },
-  { name: "คำขอประเมิน (แลกเงิน)", icon: Inbox },
+  { name: "ราคารับซื้อ (ขาย/บอลลูน)", icon: Banknote },
+  { name: "คำขอขาย/บอลลูน", icon: Inbox },
   { name: "รีวิวลูกค้า", icon: Star },
   { name: "บริการที่ลูกค้าสนใจ", icon: Target },
   { name: "คำขอผ่อนสินค้า", icon: ClipboardList },

@@ -6,9 +6,10 @@ declare module "thai-address-database" {
     province: string;
     zipcode: number;
   }
-  export function searchAddressByDistrict(query: string): ThaiAddress[];
-  export function searchAddressByAmphoe(query: string): ThaiAddress[];
-  export function searchAddressByProvince(query: string): ThaiAddress[];
-  export function searchAddressByZipcode(query: string | number): ThaiAddress[];
+  /** query ถูกตีเป็น regex · maxResult ไม่ส่ง = 20 แถว */
+  export function searchAddressByDistrict(query: string, maxResult?: number): ThaiAddress[];
+  export function searchAddressByAmphoe(query: string, maxResult?: number): ThaiAddress[];
+  export function searchAddressByProvince(query: string, maxResult?: number): ThaiAddress[];
+  export function searchAddressByZipcode(query: string | number, maxResult?: number): ThaiAddress[];
   export function splitAddress(fullAddress: string): unknown;
 }

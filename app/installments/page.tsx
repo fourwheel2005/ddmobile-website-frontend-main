@@ -1,12 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
 import {
-  CheckCircle2, MessageCircle, FileSignature, ShoppingBag, UserCheck, FileText
+  CheckCircle2, MessageCircle, FileSignature, ShoppingBag, UserCheck, FileText, IdCard
 } from "lucide-react";
 import Link from "next/link";
 import api from "@/lib/api";
 import { minValidMonthly, type InstallmentPlan, type InstallmentSerial } from "@/lib/installment";
 import { LINE_URL } from "@/lib/contact";
+import { SERVICES } from "@/lib/services";
 
 export default function InstallmentsPage() {
   const [minMonthly, setMinMonthly] = useState<number | null>(null);
@@ -128,10 +129,14 @@ export default function InstallmentsPage() {
       <section className="container-dd pb-12 md:pb-16">
         <div className="rounded-3xl bg-yellow p-8 text-center md:p-12">
           <h2 className="text-2xl font-bold text-text-heading md:text-4xl">พร้อมแล้วใช่ไหม?</h2>
-          <p className="mt-3 text-sm font-medium text-text-heading/70">ทักแชทหาแอดมิน เพื่อประเมินสิทธิ์เบื้องต้นได้เลย ไม่มีค่าใช้จ่าย</p>
-          <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-            <a href={LINE_URL} target="_blank" rel="noopener noreferrer"
+          <p className="mt-3 text-sm font-medium text-text-heading/70">แนบบัตรประชาชนใบเดียว ส่งคำขอผ่อนได้เลย หรือทักแชทแอดมินเพื่อประเมินสิทธิ์ ไม่มีค่าใช้จ่าย</p>
+          <div className="mt-6 flex flex-col flex-wrap justify-center gap-3 sm:flex-row">
+            <Link href={SERVICES.INSTALLMENT.href}
               className="inline-flex items-center justify-center gap-2 rounded-full bg-text-heading px-8 py-3.5 font-semibold text-white transition-transform hover:-translate-y-0.5">
+              <IdCard size={20} /> ส่งคำขอผ่อน (แนบบัตรประชาชน)
+            </Link>
+            <a href={LINE_URL} target="_blank" rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-text-heading/20 bg-white px-8 py-3.5 font-semibold text-text-heading transition-colors hover:bg-bg-subtle">
               <MessageCircle size={20} /> ทักแชทแอดมิน (LINE)
             </a>
             <Link href="/products" className="inline-flex items-center justify-center rounded-full border border-text-heading/20 bg-white px-8 py-3.5 font-semibold text-text-heading transition-colors hover:bg-bg-subtle">

@@ -3,10 +3,11 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
-import { X, Sparkles, RotateCcw, Banknote, Repeat, ArrowRight, Store } from "lucide-react";
+import { X, Sparkles, RotateCcw, Banknote, Repeat, ArrowRight, Store, HandCoins } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import api from "@/lib/api";
 import { LINE_URL } from "@/lib/contact";
+import { SERVICES } from "@/lib/services";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 
 /**
@@ -22,7 +23,8 @@ interface Option { key: string; label: string; desc: string; icon: LucideIcon; a
 const OPTIONS: Option[] = [
   { key: "new",   label: "ผ่อนสินค้ามือ 1",    desc: "เครื่องใหม่ ประกันศูนย์ไทย",  icon: Sparkles,  action: { type: "route", href: "/products?condition=NEW" } },
   { key: "used",  label: "ผ่อนสินค้ามือ 2",    desc: "เครื่องมือสอง ตรวจสภาพแล้ว",  icon: RotateCcw, action: { type: "route", href: "/products?condition=SECOND_HAND" } },
-  { key: "cash",  label: "แลกเงิน",           desc: "ไอโฟนแลกเงิน ได้เงินไว",      icon: Banknote,  action: { type: "route", href: "/trade-in" } },
+  { key: "sell",  label: SERVICES.SELL.label,    desc: "ขายเครื่อง รับเงินสด",          icon: HandCoins, action: { type: "route", href: SERVICES.SELL.href } },
+  { key: "cash",  label: SERVICES.BALLOON.label, desc: "แลกเงินสด ได้เครื่องกลับไปใช้", icon: Banknote,  action: { type: "route", href: SERVICES.BALLOON.href } },
   { key: "trade", label: "เทิร์นเก่าแลกใหม่",  desc: "นำเครื่องเดิมมาแลกรุ่นใหม่",   icon: Repeat,    action: { type: "line" } },
 ];
 
@@ -88,7 +90,7 @@ export default function IntentGate() {
           {OPTIONS.map((o, i) => {
             const active = selected === o.key;
             const Icon = o.icon;
-            // ถ้าจำนวนเป็นคี่ ตัวสุดท้ายจัดกลางเต็มแถว (ตอนนี้ 4 ตัว = คู่ → 2×2 พอดี ไม่ต้องจัด)
+            // ถ้าจำนวนเป็นคี่ ตัวสุดท้ายจัดกลางเต็มแถว (ตอนนี้ 5 ตัว → ตัวสุดท้ายอยู่กลาง)
             const centerLast = OPTIONS.length % 2 === 1 && i === OPTIONS.length - 1;
             return (
               <label

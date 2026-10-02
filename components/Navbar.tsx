@@ -5,14 +5,15 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  ShoppingCart, User, LogOut, FileText, LayoutDashboard,
-  Home, Smartphone, CreditCard, Phone, ChevronDown, Banknote
+  ShoppingCart, User, UserRound, LogOut, FileText, LayoutDashboard,
+  Home, Smartphone, CreditCard, Phone, ChevronDown, Banknote, HandCoins
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { useCart } from '@/context/CartContext';
 import NotificationBell from '@/components/NotificationBell';
 import IntentGate from '@/components/IntentGate';
+import { SERVICES } from '@/lib/services';
 
 interface UserData {
   email: string;
@@ -74,7 +75,8 @@ export default function Navbar() {
     { name: 'หน้าหลัก', href: '/', icon: Home },
     { name: 'สินค้าทั้งหมด', href: '/products', icon: Smartphone },
     { name: 'ผ่อนสินค้า', href: '/installments', icon: CreditCard },
-    { name: 'ไอโฟนแลกเงิน', href: '/trade-in', icon: Banknote },
+    { name: SERVICES.SELL.navLabel, href: SERVICES.SELL.href, icon: HandCoins },
+    { name: SERVICES.BALLOON.navLabel, full: SERVICES.BALLOON.label, tiny: 'ผ่อนบอลลูน', href: SERVICES.BALLOON.href, icon: Banknote },
     { name: 'ติดต่อเรา', href: '/contact', icon: Phone },
   ];
 
@@ -96,10 +98,17 @@ export default function Navbar() {
           </Link>
 
           {/* Desktop center links */}
-          <div className="desktop-nav hidden items-center gap-7 md:flex">
+          <div className="desktop-nav hidden items-center gap-3 md:flex lg:gap-5 xl:gap-7">
             {navLinks.map((link) => (
-              <Link key={link.name} href={link.href} aria-current={isActive(link.href) ? 'page' : undefined} className={`nav-link ${isActive(link.href) ? 'active' : ''}`}>
-                {link.name}
+              <Link key={link.name} href={link.href} title={link.full} aria-current={isActive(link.href) ? 'page' : undefined} className={`nav-link whitespace-nowrap ${isActive(link.href) ? 'active' : ''}`}>
+                {/* ชื่อยาวย่อตามความกว้างจอ (md สั้นสุด → xl ชื่อเต็ม) กันเมนู 6 รายการล้นแถว */}
+                {link.full ? (
+                  <>
+                    <span className="lg:hidden">{link.tiny}</span>
+                    <span className="hidden lg:inline xl:hidden">{link.name}</span>
+                    <span className="hidden xl:inline">{link.full}</span>
+                  </>
+                ) : link.name}
               </Link>
             ))}
           </div>
@@ -166,6 +175,9 @@ export default function Navbar() {
                           <LayoutDashboard size={16} className="text-yellow-hover" /> งานของฉัน
                         </Link>
                       )}
+                      <Link href="/profile" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-text-body transition-colors hover:bg-bg-subtle">
+                        <UserRound size={16} /> โปรไฟล์ของฉัน
+                      </Link>
                       <Link href="/orders" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-text-body transition-colors hover:bg-bg-subtle">
                         <FileText size={16} /> คำสั่งซื้อของฉัน
                       </Link>
@@ -201,7 +213,7 @@ export default function Navbar() {
               }`}
             >
               <Icon size={20} className={`flex-shrink-0 ${active ? 'text-yellow-text' : ''}`} />
-              {/* ชื่อยาว (ไอโฟนแลกเงิน) → ตัด 2 บรรทัด กัน overflow แนวนอนบนจอเล็ก */}
+              {/* ชื่อยาว (ผ่อนบอลลูน (แลกเงิน)) → ตัด 2 บรรทัด กัน overflow แนวนอนบนจอเล็ก */}
               <span className="line-clamp-2 w-full text-center text-[10px] leading-tight [overflow-wrap:anywhere]">{link.name}</span>
             </Link>
           );

@@ -1,5 +1,5 @@
 /**
- * ไอโฟนแลกเงิน (trade-in / รับซื้อ) — config ฟอร์มประเมินสภาพเครื่อง + ตัวสร้างข้อความส่ง LINE
+ * ประเมินเครื่องของลูกค้า (ขายเครื่อง / ผ่อนบอลลูน) — config ฟอร์มสภาพเครื่อง + ตัวสร้างข้อความส่ง LINE
  *
  * หมายเหตุ: การประเมินผ่านเว็บเป็น "เบื้องต้น" — ราคาจริงทีมงานตีให้ทาง LINE (เราไม่คำนวณราคาปลอม)
  * ทุกอย่างเป็น config + pure function เพื่อเทสต์ได้และแก้ตัวเลือกที่เดียว
@@ -163,14 +163,29 @@ export interface TradeInForm {
   problems: string[];          // ค่าใน PROBLEMS หรือ [PROBLEM_NONE]
   name: string;
   tel: string;
+  // ที่อยู่ (auto-fill จากโปรไฟล์ / ช่องค้นหาที่อยู่) — ไม่เก็บบ้านเลขที่: ลูกค้านำเครื่องมาที่สาขาเอง
+  subdistrict: string;
+  district: string;
+  province: string;
   zipcode: string;
 }
 
 export const emptyTradeIn = (): TradeInForm => ({
   deviceType: "iphone", model: "", storage: "", color: "",
   region: "", battery: "", accessories: "", warranty: "", body: "", screen: "",
-  problems: [], name: "", tel: "", zipcode: "",
+  problems: [], name: "", tel: "", subdistrict: "", district: "", province: "", zipcode: "",
 });
+
+/** "ต.x อ.y จ.z 10250" — ไม่มีจังหวัด (ข้อมูลเก่า) → เหลือแค่รหัสไปรษณีย์ */
+export function tradeInArea(f: Pick<TradeInForm, "subdistrict" | "district" | "province" | "zipcode">): string {
+  const parts = [
+    f.subdistrict.trim() && `ต.${f.subdistrict.trim()}`,
+    f.district.trim() && `อ.${f.district.trim()}`,
+    f.province.trim() && `จ.${f.province.trim()}`,
+    f.zipcode.trim(),
+  ];
+  return parts.filter(Boolean).join(" ");
+}
 
 /** แปลง code → label ไทย (ใช้ทั้งข้อความ LINE และหน้าแอดมินที่อ่านคำขอจาก DB) */
 export const labelOf = (list: Choice[], value: string) => list.find((c) => c.value === value)?.label ?? "-";
@@ -179,53 +194,8 @@ export const labelOf = (list: Choice[], value: string) => list.find((c) => c.val
 export const problemsLabel = (problems: string[]): string =>
   problems.includes(PROBLEM_NONE) ? "ไม่มีปัญหา" : problems.map((p) => labelOf(PROBLEMS, p)).join(", ") || "-";
 
-/**
- * รหัสอ้างอิงสั้น ๆ ที่แปะทั้งในข้อความ LINE และเรคคอร์ดใน DB — ไว้จับคู่แชทกับคำขอที่บันทึกไว้
- * สร้างฝั่ง client เพราะห้าม await ก่อนเปิดแชท (กัน popup โดนบล็อก) จึงรอ id จากเซิร์ฟเวอร์ไม่ได้
- * ตัวอักษรตัด 0/O/1/I/L ออก — แอดมินต้องอ่านจากแชทแล้วพิมพ์ค้นต่อ
- */
-const REF_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";   // 32 ตัว → byte % 32 กระจายเท่ากันพอดี
-export function makeTradeInRef(): string {
-  const bytes = new Uint8Array(6);
-  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") crypto.getRandomValues(bytes);
-  else for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
-  let out = "";
-  for (const b of bytes) out += REF_ALPHABET[b % REF_ALPHABET.length];
-  return `DD-${out}`;
-}
-
-/** body ที่ส่งเข้า POST /trade-in/requests — ชื่อ field ต้องตรงกับ TradeInSubmitRequest ฝั่ง backend */
-export interface TradeInPayload {
-  refCode: string;
-  deviceType: string; model: string; storage: string; color: string | null; region: string;
-  battery: string; accessories: string; warranty: string; body: string; screen: string; problems: string[];
-  name: string; tel: string; zipcode: string; estimatedPrice: number | null;
-}
-
-/** ฟอร์ม → payload (ส่ง "code" ไม่ใช่ label ไทย — เปลี่ยนคำในอนาคตแล้วข้อมูลเก่าไม่เพี้ยน) */
-export function buildTradeInPayload(f: TradeInForm, refCode: string, estimatedPrice: number | null): TradeInPayload {
-  return {
-    refCode,
-    deviceType: f.deviceType,
-    model: f.model.trim(),
-    storage: f.storage,
-    color: f.color.trim() || null,
-    region: f.region,
-    battery: f.battery,
-    accessories: f.accessories,
-    warranty: f.warranty,
-    body: f.body,
-    screen: f.screen,
-    problems: f.problems,
-    name: f.name.trim(),
-    tel: f.tel.trim(),
-    zipcode: f.zipcode.trim(),
-    estimatedPrice,
-  };
-}
-
-/** ตรวจว่าฟอร์มกรอกครบพอส่งไหม — คืน error message แรกที่เจอ (null = ผ่าน) */
-export function validateTradeIn(f: TradeInForm): string | null {
+/** ส่วนข้อมูลเครื่อง (ขายเครื่อง / ผ่อนบอลลูน) — คืน error แรกที่เจอ (null = ผ่าน) · server ตรวจซ้ำด้วย whitelist */
+export function validateDevice(f: TradeInForm): string | null {
   if (!f.model.trim()) return "กรุณากรอกรุ่นเครื่อง";
   if (!f.storage) return "กรุณาเลือกความจุ";
   if (!f.region) return "กรุณาเลือกเวอร์ชันเครื่อง (TH/ZP/อื่นๆ)";
@@ -235,21 +205,22 @@ export function validateTradeIn(f: TradeInForm): string | null {
   if (!f.body) return "กรุณาเลือกสภาพรอบเครื่อง";
   if (!f.screen) return "กรุณาเลือกสภาพหน้าจอ";
   if (f.problems.length === 0) return "กรุณาเลือกปัญหาตัวเครื่อง (ถ้าไม่มีให้เลือก \"ไม่มีปัญหา\")";
-  if (!f.name.trim()) return "กรุณากรอกชื่อ-นามสกุล";
-  if (!/^0\d{1,2}[-\s]?\d{3}[-\s]?\d{3,4}$/.test(f.tel.trim())) return "กรุณากรอกเบอร์โทรให้ถูกต้อง";
-  if (!/^\d{5}$/.test(f.zipcode.trim())) return "กรุณากรอกรหัสไปรษณีย์ 5 หลัก";
   return null;
 }
 
-/** สร้างข้อความสรุปส่งเข้า LINE (พิมพ์รอในแชทให้แอดมินตีราคา) — refCode ไว้เปิดคำขอเดียวกันใน DB */
-export function buildTradeInMessage(f: TradeInForm, refCode?: string): string {
+/** ส่วนผู้ติดต่อ (ทุกบริการ) */
+export function validateContact(f: Pick<TradeInForm, "name" | "tel" | "province" | "zipcode">): string | null {
+  if (!f.name.trim()) return "กรุณากรอกชื่อ-นามสกุล";
+  if (!/^0\d{1,2}[-\s]?\d{3}[-\s]?\d{3,4}$/.test(f.tel.trim())) return "กรุณากรอกเบอร์โทรให้ถูกต้อง";
+  if (!f.province.trim() || !/^\d{5}$/.test(f.zipcode.trim())) return "กรุณาเลือกตำบล/อำเภอ/จังหวัด/รหัสไปรษณีย์ จากช่องค้นหาที่อยู่";
+  return null;
+}
+
+/** บรรทัดข้อมูลเครื่อง (ใช้ร่วมกับข้อความฟอร์มเลือกบริการ) */
+export function deviceLines(f: TradeInForm): string[] {
   const deviceLabel = labelOf(DEVICE_TYPES, f.deviceType);
   const problemText = problemsLabel(f.problems);
-
   return [
-    "📱 ขอประเมินราคา “ไอโฟนแลกเงิน”",
-    refCode ? `อ้างอิง: ${refCode}` : null,
-    "",
     `ประเภท: ${deviceLabel}`,
     `รุ่น: ${f.model.trim()}`,
     `ความจุ: ${labelOf(STORAGES, f.storage)}`,
@@ -261,11 +232,11 @@ export function buildTradeInMessage(f: TradeInForm, refCode?: string): string {
     `รอบเครื่อง: ${labelOf(BODY, f.body)}`,
     `หน้าจอ: ${labelOf(SCREEN, f.screen)}`,
     `ปัญหา: ${problemText}`,
-    "",
-    `ชื่อ: ${f.name.trim()}`,
-    `เบอร์: ${f.tel.trim()}`,
-    `รหัสไปรษณีย์: ${f.zipcode.trim()}`,
-  ].filter(Boolean).join("\n");
+  ].filter((l): l is string => !!l);
+}
+
+export function contactLines(f: Pick<TradeInForm, "name" | "tel" | "subdistrict" | "district" | "province" | "zipcode">): string[] {
+  return [`ชื่อ: ${f.name.trim()}`, `เบอร์: ${f.tel.trim()}`, `ที่อยู่: ${tradeInArea(f)}`];
 }
 
 /* ---- CRM lifecycle (S15/Part A) — mirror backend TradeInLifecycle ---- */

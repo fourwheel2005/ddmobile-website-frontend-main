@@ -4,6 +4,7 @@ import {
   Target, Users, RefreshCw, Lightbulb, Heart, Clock, TrendingUp, Banknote
 } from "lucide-react";
 import { LINE_URL, FACEBOOK_URL, TEL, TEL_HREF } from "@/lib/contact";
+import { SERVICES } from "@/lib/services";
 
 export default function ContactPage() {
   return (
@@ -35,7 +36,7 @@ export default function ContactPage() {
         <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-2">
           <div className="relative overflow-hidden rounded-2xl bg-yellow p-8">
             <Banknote className="pointer-events-none absolute -bottom-4 -right-4 h-28 w-28 text-text-heading/10" />
-            <h3 className="text-2xl font-bold text-text-heading md:text-3xl">ไอโฟนแลกเงิน</h3>
+            <h3 className="text-2xl font-bold text-text-heading md:text-3xl">{SERVICES.BALLOON.label}</h3>
             <ul className="mt-5 space-y-3">
               {["ได้เงินไว วงเงินสูง ภายใน 1 วัน", "ได้เครื่องกลับไปใช้ ไม่ต้องมีคนค้ำ", "ไม่ใช่การจำนำ"].map((text, i) => (
                 <li key={i} className="flex items-center gap-3 rounded-xl bg-white/60 p-3 text-sm font-medium text-text-heading">

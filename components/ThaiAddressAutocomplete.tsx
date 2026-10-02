@@ -1,74 +1,57 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { MapPin, Search, Loader2, CheckCircle2, Pencil } from "lucide-react";
-import type { ThaiAddress } from "thai-address-database";
+import { buildAddressIndex, searchAddress, type AddressRow, type ThaiGeo } from "@/lib/thaiAddress";
 
-/** ตำบล/อำเภอ/จังหวัด/รหัสไปรษณีย์ ที่ลูกค้าเลือก */
-export interface ThaiGeo {
-  subdistrict: string;   // ตำบล/แขวง
-  district: string;      // อำเภอ/เขต
-  province: string;      // จังหวัด
-  zipcode: string;
-}
+export type { ThaiGeo };
 
-// lazy-load ฐานข้อมูลที่อยู่ (2 MB) เฉพาะตอนใช้จริง — โหลดครั้งเดียวต่อ session
-type DB = typeof import("thai-address-database");
-let dbPromise: Promise<DB> | null = null;
-const loadDB = () => (dbPromise ??= import("thai-address-database"));
+// lazy-load ฐานข้อมูลที่อยู่ (2 MB) เฉพาะตอนใช้จริง แล้วสร้าง index ครั้งเดียวต่อ session (~4ms)
+// โหลดพลาด (เน็ตหลุดตอนดึง chunk) → ล้าง promise ให้ลองใหม่ได้ ไม่ค้าง reject ไว้ทั้ง session
+let indexPromise: Promise<AddressRow[]> | null = null;
+const loadIndex = () => (indexPromise ??= import("thai-address-database")
+  // regex "." = ทุกแถว (lib ไม่มี API คืนทั้งหมด) — ทำครั้งเดียว ที่เหลือค้นใน index เอง
+  .then((db) => buildAddressIndex(db.searchAddressByProvince(".", Number.MAX_SAFE_INTEGER)))
+  .catch((e) => { indexPromise = null; throw e; }));
 
 /**
  * ช่องค้นหาที่อยู่ไทย — พิมพ์ "รหัสไปรษณีย์" หรือ "ตำบล/อำเภอ/จังหวัด" แล้วเลือกจากรายการ
  * → เติม ตำบล/อำเภอ/จังหวัด/รหัสไปรษณีย์ ให้อัตโนมัติทั้งหมด (auto-fill)
  */
 export default function ThaiAddressAutocomplete({
-  value, onChange, error,
+  value, onChange, error, inputId, disabled,
 }: {
   value: ThaiGeo | null;
   onChange: (v: ThaiGeo | null) => void;
   error?: boolean;
+  inputId?: string;      // ผูกกับ <label htmlFor>
+  disabled?: boolean;
 }) {
   const [q, setQ] = useState("");
-  const [results, setResults] = useState<ThaiAddress[]>([]);
+  const [results, setResults] = useState<ThaiGeo[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
-  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const seq = useRef(0);   // กันผลค้นเก่ามาทับผลใหม่ (async ระหว่างรอโหลด DB ครั้งแรก)
 
-  // ค้นหา (debounce 200ms) — ตัวเลขล้วน = รหัสไปรษณีย์, อื่น ๆ = ตำบล+อำเภอ
+  // ค้นหา (debounce 150ms) — ค้นใน index ใช้ไม่ถึง 1ms ช่วงหน่วงมีไว้แค่ไม่ให้ dropdown กระพริบ
   useEffect(() => {
-    if (debounce.current) clearTimeout(debounce.current);
     const query = q.trim();
-    if (query.length < 2) { setResults([]); setOpen(false); return; }
-    debounce.current = setTimeout(async () => {
+    const id = ++seq.current;
+    if (query.length < 2) { setResults([]); setOpen(false); setLoading(false); return; }
+    const timer = setTimeout(async () => {
       setLoading(true);
       try {
-        const db = await loadDB();
-        const isZip = /^\d+$/.test(query);
-        // ค้นด้วยตำบล + อำเภอ + จังหวัด รวมกัน — พิมพ์ชื่อไหนก็เจอ (เดิมตกอำเภอ/จังหวัดบางกรณี)
-        const raw = isZip
-          ? db.searchAddressByZipcode(query)
-          : [...db.searchAddressByDistrict(query), ...db.searchAddressByAmphoe(query), ...db.searchAddressByProvince(query)];
-        const seen = new Set<string>();
-        const deduped = raw.filter((r) => {
-          const k = `${r.district}|${r.amphoe}|${r.province}|${r.zipcode}`;
-          if (seen.has(k)) return false;
-          seen.add(k);
-          return true;
-        });
-        // จัดอันดับ: ชื่อที่ "ขึ้นต้น" ด้วยคำค้นมาก่อน (ตรงใจสุด) แล้วค่อยชื่อที่มีคำค้นอยู่ข้างใน
-        const rank = (r: ThaiAddress) => {
-          if (isZip) return 0;
-          const hit = (s: string) => (s.startsWith(query) ? 0 : s.includes(query) ? 1 : 2);
-          return Math.min(hit(r.district), hit(r.amphoe), hit(r.province));
-        };
-        // เพิ่มเพดานเป็น 50 (เดิม 8 = ตัดตำบล/อำเภอทิ้ง เช่น รหัส 20000 มี 15 ตำบล) · dropdown เลื่อนดูได้
-        const list = deduped.sort((a, b) => rank(a) - rank(b)).slice(0, 50);
-        setResults(list);
+        const index = await loadIndex();
+        if (id !== seq.current) return;
+        setResults(searchAddress(index, query, 50));
         setOpen(true);
-      } catch { setResults([]); }
-      finally { setLoading(false); }
-    }, 200);
-    return () => { if (debounce.current) clearTimeout(debounce.current); };
+      } catch {
+        if (id === seq.current) setResults([]);
+      } finally {
+        if (id === seq.current) setLoading(false);
+      }
+    }, 150);
+    return () => clearTimeout(timer);
   }, [q]);
 
   // ปิด dropdown เมื่อคลิกนอกกล่อง
@@ -79,8 +62,8 @@ export default function ThaiAddressAutocomplete({
     return () => document.removeEventListener("mousedown", h);
   }, [open]);
 
-  const pick = (r: ThaiAddress) => {
-    onChange({ subdistrict: r.district, district: r.amphoe, province: r.province, zipcode: String(r.zipcode) });
+  const pick = (r: ThaiGeo) => {
+    onChange(r);
     setQ(""); setResults([]); setOpen(false);
   };
 
@@ -93,7 +76,7 @@ export default function ThaiAddressAutocomplete({
           <p className="font-semibold text-text-heading">ต.{value.subdistrict} · อ.{value.district}</p>
           <p className="text-text-muted">จ.{value.province} · {value.zipcode}</p>
         </div>
-        <button type="button" onClick={() => onChange(null)} className="flex flex-shrink-0 items-center gap-1 text-xs font-semibold text-yellow-text hover:text-text-heading">
+        <button type="button" onClick={() => onChange(null)} disabled={disabled} className="flex flex-shrink-0 items-center gap-1 text-xs font-semibold text-yellow-text hover:text-text-heading">
           <Pencil size={13} /> แก้ไข
         </button>
       </div>
@@ -106,9 +89,12 @@ export default function ThaiAddressAutocomplete({
         ? <Loader2 className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 animate-spin text-text-muted" size={17} />
         : <Search className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" size={17} />}
       <input
+        id={inputId}
         value={q}
+        disabled={disabled}
         onChange={(e) => setQ(e.target.value)}
-        onFocus={() => results.length > 0 && setOpen(true)}
+        // prefetch DB ตั้งแต่โฟกัส — พิมพ์ตัวแรกเสร็จ index ก็พร้อม (ไม่โหลด 2 MB ให้คนที่ไม่ได้แตะช่องนี้)
+        onFocus={() => { loadIndex().catch(() => { /* ลองใหม่ตอนค้น */ }); if (results.length > 0) setOpen(true); }}
         inputMode="text"
         aria-label="ค้นหาตำบล อำเภอ จังหวัด หรือรหัสไปรษณีย์"
         placeholder="พิมพ์รหัสไปรษณีย์ หรือ ตำบล/อำเภอ/จังหวัด"
@@ -118,14 +104,14 @@ export default function ThaiAddressAutocomplete({
         <div className="absolute z-40 mt-2 max-h-72 w-full overflow-auto rounded-xl border border-border-default bg-white shadow-[var(--shadow-hover)]">
           {results.map((r, i) => (
             <button
-              key={`${r.district}-${r.amphoe}-${r.zipcode}-${i}`}
+              key={`${r.subdistrict}-${r.district}-${r.zipcode}-${i}`}
               type="button"
               onClick={() => pick(r)}
               className="flex w-full items-start gap-2.5 border-b border-border-subtle px-3.5 py-2.5 text-left transition-colors last:border-0 hover:bg-bg-subtle"
             >
               <MapPin size={15} className="mt-0.5 flex-shrink-0 text-yellow-hover" />
               <span className="min-w-0 text-sm">
-                <span className="font-medium text-text-heading">ต.{r.district} » อ.{r.amphoe}</span>
+                <span className="font-medium text-text-heading">ต.{r.subdistrict} » อ.{r.district}</span>
                 <span className="block text-xs text-text-muted">จ.{r.province} · {r.zipcode}</span>
               </span>
             </button>

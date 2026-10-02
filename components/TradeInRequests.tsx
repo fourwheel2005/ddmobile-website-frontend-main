@@ -1,6 +1,9 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
-import { Inbox, Trash2, Copy, Phone, ChevronLeft, ChevronRight } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Inbox, Trash2, Copy, Phone, ChevronLeft, ChevronRight, Images } from "lucide-react";
+import ProtectedImageViewer from "@/components/ProtectedImageViewer";
+import { PHOTO_SLOTS } from "@/lib/serviceRequest";
+import { SERVICES, type ServiceCode } from "@/lib/services";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
 import { getApiError } from "@/lib/errorMessage";
@@ -9,7 +12,7 @@ import { TableSkeleton } from "@/components/Skeletons";
 import StatCard from "@/components/ui/StatCard";
 import {
   DEVICE_TYPES, STORAGES, REGIONS, BATTERY, ACCESSORIES, WARRANTY, BODY, SCREEN,
-  labelOf, problemsLabel,
+  labelOf, problemsLabel, tradeInArea,
   TRADEIN_STATUS_META, TRADEIN_OUTCOMES, nextTradeInStatuses,
 } from "@/lib/tradeIn";
 
@@ -18,10 +21,22 @@ interface TradeInRequest {
   deviceType: string; model: string; storage: string; color: string | null; region: string;
   battery: string; accessories: string; warranty: string; body: string; screen: string; problems: string[];
   name: string; tel: string; zipcode: string;
+  subdistrict: string | null; district: string | null; province: string | null;   // null = คำขอเก่า (มีแค่ zip)
   estimatedPrice: number | null; userEmail: string | null;
   handled: boolean; createdAt: string;
   status: string; assignedTo: string | null; outcomeReason: string | null; version: number;   // S15 CRM
+  serviceType: "SELL" | "BALLOON";                 // V43 — คำขอเก่าทั้งหมด = BALLOON
+  photos: { id: number; slot: string }[];
 }
+
+type ServiceFilter = "" | "SELL" | "BALLOON";
+const SERVICE_FILTERS: { value: ServiceFilter; label: string }[] = [
+  { value: "", label: "ทุกบริการ" },
+  { value: "SELL", label: SERVICES.SELL.label },
+  { value: "BALLOON", label: SERVICES.BALLOON.navLabel },
+];
+const slotLabel = (slot: string) => PHOTO_SLOTS.find((m) => m.slot === slot)?.label ?? "รูปเพิ่มเติม";
+const serviceLabel = (s: string) => SERVICES[(s in SERVICES ? s : "BALLOON") as ServiceCode].label;
 interface PageResult {
   content: TradeInRequest[]; page: number; totalPages: number; totalElements: number;
   last: boolean; pendingCount: number;
@@ -30,7 +45,7 @@ interface PageResult {
 const PAGE_SIZE = 20;
 
 /**
- * คำขอประเมิน "ไอโฟนแลกเงิน" ที่ลูกค้าส่งจากหน้า /trade-in
+ * คำขอ "ขายเครื่อง" (/sell) และ "ผ่อนบอลลูน (บริการแลกเงิน)" (/trade-in) — ประเมินเครื่องของลูกค้า + รูปที่แนบ
  * เก็บคู่ขนานกับแชท LINE — ถ้า deep link ไม่ prefill ข้อความ คิวนี้คือที่เดียวที่ยังตามลูกค้าต่อได้
  */
 export default function TradeInRequests() {
@@ -39,14 +54,21 @@ export default function TradeInRequests() {
   const [page, setPage] = useState(0);
   const [pendingOnly, setPendingOnly] = useState(false);
   const [busyId, setBusyId] = useState<number | null>(null);
+  const [service, setService] = useState<ServiceFilter>("");
+  const [viewing, setViewing] = useState<TradeInRequest | null>(null);   // ดูรูปเครื่อง (โหลดเมื่อเปิดเท่านั้น)
+  // memo — viewer ดึงรูปใหม่เมื่อ array เปลี่ยน identity (ห้ามสร้างใหม่ทุก render)
+  const viewingImages = useMemo(
+    () => (viewing ? viewing.photos.map((p) => ({ path: `/admin/trade-in/photos/${p.id}`, label: slotLabel(p.slot) })) : []),
+    [viewing],
+  );
 
   const load = useCallback(() => {
     setLoading(true);
-    api.get("/admin/trade-in/requests", { params: { page, size: PAGE_SIZE, pendingOnly } })
+    api.get("/admin/trade-in/requests", { params: { page, size: PAGE_SIZE, pendingOnly, service: service || undefined } })
       .then((r) => setData(r.data))
       .catch((e) => toast.error(getApiError(e, "โหลดคำขอไม่สำเร็จ")))
       .finally(() => setLoading(false));
-  }, [page, pendingOnly]);
+  }, [page, pendingOnly, service]);
   useEffect(() => { load(); }, [load]);
 
   // สลับตัวกรอง → กลับหน้าแรกเสมอ (ไม่งั้นค้างหน้า 5 ของชุดเดิมแล้วเห็นตารางว่าง)
@@ -100,7 +122,14 @@ export default function TradeInRequests() {
 
       <div className="card-dd">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h3 className="font-display text-lg font-bold text-text-heading">คิวคำขอประเมิน (ไอโฟนแลกเงิน)</h3>
+          <h3 className="font-display text-lg font-bold text-text-heading">คิวคำขอ ขายเครื่อง / ผ่อนบอลลูน</h3>
+          <div className="flex flex-wrap items-center gap-2">
+          {SERVICE_FILTERS.map((f) => (
+            <button key={f.value} type="button" onClick={() => { setService(f.value); setPage(0); }}
+              className={`rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${service === f.value ? "border-text-heading bg-text-heading text-white" : "border-border-default text-text-body hover:border-yellow"}`}>
+              {f.label}
+            </button>
+          ))}
           <button
             type="button"
             onClick={toggleFilter}
@@ -110,6 +139,7 @@ export default function TradeInRequests() {
           >
             {pendingOnly ? "กำลังดู: ยังไม่ติดต่อ" : "ดูทั้งหมด"}
           </button>
+          </div>
         </div>
 
         {loading ? <TableSkeleton /> : rows.length === 0 ? (
@@ -123,6 +153,7 @@ export default function TradeInRequests() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="flex flex-wrap items-center gap-2 font-bold text-text-heading">
+                      <span className={`badge-dd ${r.serviceType === "SELL" ? "badge-info" : "badge-warning"}`}>{serviceLabel(r.serviceType)}</span>
                       {r.model} {r.storage}
                       <span className={`badge-dd ${TRADEIN_STATUS_META[r.status]?.cls ?? "badge-warning"}`}>{TRADEIN_STATUS_META[r.status]?.label ?? r.status}</span>
                       {r.assignedTo && <span className="text-xs font-normal text-text-muted">· ดูแลโดย {r.assignedTo}</span>}
@@ -130,7 +161,7 @@ export default function TradeInRequests() {
                     </p>
                     {r.outcomeReason && <p className="mt-0.5 text-xs text-text-muted">เหตุผล: {r.outcomeReason}</p>}
                     <p className="mt-1 text-sm text-text-body">
-                      {r.name} · <a href={`tel:${r.tel.replace(/\D/g, "")}`} className="font-semibold text-yellow-text hover:underline">{r.tel}</a> · {r.zipcode}
+                      {r.name} · <a href={`tel:${r.tel.replace(/\D/g, "")}`} className="font-semibold text-yellow-text hover:underline">{r.tel}</a> · {areaOf(r)}
                     </p>
                     <p className="mt-0.5 text-xs text-text-muted">{formatThaiDateTime(r.createdAt)}{r.userEmail ? ` · ${r.userEmail}` : ""}</p>
                   </div>
@@ -169,6 +200,12 @@ export default function TradeInRequests() {
                       {nextTradeInStatuses(r.status).map((s) => <option key={s} value={s}>{TRADEIN_STATUS_META[s]?.label ?? s}</option>)}
                     </select>
                   )}
+                  {r.photos.length > 0 && (
+                    <button type="button" onClick={() => setViewing(r)}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-yellow bg-yellow/10 px-3 py-1.5 text-xs font-bold text-text-heading transition-colors hover:bg-yellow/20">
+                      <Images size={13} /> ดูรูปเครื่อง ({r.photos.length})
+                    </button>
+                  )}
                   <button type="button" onClick={() => copyDetail(r)}
                     className="inline-flex items-center gap-1.5 rounded-full border border-border-default bg-white px-3 py-1.5 text-xs font-bold text-text-heading transition-colors hover:border-yellow">
                     <Copy size={13} /> คัดลอกรายละเอียด
@@ -199,6 +236,9 @@ export default function TradeInRequests() {
           </div>
         )}
       </div>
+      {viewing && (
+        <ProtectedImageViewer title={`รูปเครื่อง ${viewing.model} ${viewing.refCode ?? ""}`} images={viewingImages} onClose={() => setViewing(null)} />
+      )}
     </div>
   );
 }
@@ -215,7 +255,7 @@ function Row({ label, value }: { label: string; value: string }) {
 /** ข้อความสรุปสำหรับคัดลอกไปคุยต่อ (รูปแบบเดียวกับที่ลูกค้าส่งเข้า LINE) */
 function detailText(r: TradeInRequest): string {
   return [
-    `คำขอประเมินไอโฟนแลกเงิน${r.refCode ? ` (${r.refCode})` : ""}`,
+    `คำขอ${serviceLabel(r.serviceType)}${r.refCode ? ` (${r.refCode})` : ""}`,
     `ประเภท: ${labelOf(DEVICE_TYPES, r.deviceType)}`,
     `รุ่น: ${r.model}`,
     `ความจุ: ${labelOf(STORAGES, r.storage)}`,
@@ -229,9 +269,14 @@ function detailText(r: TradeInRequest): string {
     `ปัญหา: ${problemsLabel(r.problems)}`,
     `ชื่อ: ${r.name}`,
     `เบอร์: ${r.tel}`,
-    `รหัสไปรษณีย์: ${r.zipcode}`,
+    `ที่อยู่: ${areaOf(r)}`,
     r.estimatedPrice != null ? `ราคาที่เว็บโชว์: ${baht(r.estimatedPrice)}` : null,
+    r.photos.length > 0 ? `รูปเครื่อง: ${r.photos.length} รูป (ดูในหลังบ้าน)` : null,
   ].filter(Boolean).join("\n");
+}
+
+function areaOf(r: TradeInRequest): string {
+  return tradeInArea({ subdistrict: r.subdistrict ?? "", district: r.district ?? "", province: r.province ?? "", zipcode: r.zipcode });
 }
 
 function formatThaiDateTime(iso: string): string {

@@ -11,6 +11,7 @@ import { Banknote, Smartphone, ArrowRight, ShoppingCart, MessageCircle, TicketPe
 import Reveal from "@/components/Reveal";
 import ThaiAddressAutocomplete, { type ThaiGeo } from "@/components/ThaiAddressAutocomplete";
 import Req from "@/components/ui/Req";
+import { loadPrefill, toGeo } from "@/lib/profile";
 
 import { baht as money } from "@/lib/money";
 import { LINE_URL } from "@/lib/contact";
@@ -81,6 +82,13 @@ export default function CheckoutPage() {
     if (!u) { router.replace("/login?redirect=/checkout"); return; }
     // เติมชื่อ + เบอร์จากโปรไฟล์ให้อัตโนมัติ (แก้ไขทับได้) — เบอร์มาจากตอนสมัครสมาชิก
     try { const user = JSON.parse(u); if (user.name) setName(user.name); if (user.tel) setTel(user.tel); } catch { /* */ }
+    // ที่อยู่จากโปรไฟล์ (สมัคร/หน้าโปรไฟล์) — เติมเฉพาะช่องที่ยังว่าง ไม่ทับที่ลูกค้าพิมพ์แล้ว
+    loadPrefill().then((p) => {
+      const a = p?.address;
+      if (!a) return;
+      setGeo((g) => g ?? toGeo(a));
+      setAddrDetail((d) => d || a.addressLine);
+    });
     // คูปองที่ใช้ได้ของลูกค้า → auto เลือกใบที่ลดมากสุด
     api.get("/coupons/mine").then((r) => {
       const list: Coupon[] = Array.isArray(r.data) ? r.data : [];
@@ -231,7 +239,7 @@ export default function CheckoutPage() {
               {/* ตำบล/อำเภอ/จังหวัด/รหัสไปรษณีย์ — พิมพ์แล้วเลือก เติมให้อัตโนมัติ */}
               <div className="mt-4">
                 <label htmlFor="co-geo" className="label-dd">ตำบล / อำเภอ / จังหวัด / รหัสไปรษณีย์<Req /></label>
-                <ThaiAddressAutocomplete value={geo} onChange={setGeo} />
+                <ThaiAddressAutocomplete inputId="co-geo" value={geo} onChange={setGeo} />
               </div>
               {/* รายละเอียดที่อยู่ (บ้านเลขที่/ถนน) */}
               <div className="mt-4">
