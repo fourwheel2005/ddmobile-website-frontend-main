@@ -8,6 +8,8 @@ export interface CompressOptions {
   maxDim?: number;          // ด้านยาวสุด (px) — default 2000
   quality?: number;         // JPEG quality 0-1 — default 0.82
   skipUnderBytes?: number;  // ไฟล์เล็กกว่านี้ไม่ต้องบีบ — default 600KB
+  /** บังคับผลเป็น JPEG แม้ไฟล์เล็ก/บีบแล้วไม่เล็กลง (เช่น WebP ที่ต้องส่งต่อเข้า LINE ซึ่งไม่รับ WebP) — default false */
+  forceJpeg?: boolean;
 }
 
 export async function compressImage(file: File, opts: CompressOptions = {}): Promise<File> {
@@ -16,7 +18,7 @@ export async function compressImage(file: File, opts: CompressOptions = {}): Pro
   const skipUnder = opts.skipUnderBytes ?? 600 * 1024;
 
   if (!file.type.startsWith("image/")) return file;   // ไม่ใช่รูป (เช่น PDF) → ไม่แตะ
-  if (file.size <= skipUnder) return file;            // เล็กอยู่แล้ว → ข้าม
+  if (file.size <= skipUnder && !opts.forceJpeg) return file;   // เล็กอยู่แล้ว → ข้าม
 
   try {
     const bitmap = await loadBitmap(file);
@@ -33,7 +35,8 @@ export async function compressImage(file: File, opts: CompressOptions = {}): Pro
     if ("close" in bitmap) (bitmap as ImageBitmap).close?.();
 
     const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, "image/jpeg", quality));
-    if (!blob || blob.size >= file.size) return file;  // บีบแล้วไม่เล็กลง → ใช้ของเดิม
+    if (!blob) return file;
+    if (blob.size >= file.size && !opts.forceJpeg) return file;   // บีบแล้วไม่เล็กลง → ใช้ของเดิม
 
     const name = file.name.replace(/\.[^.]+$/, "") + ".jpg";
     return new File([blob], name, { type: "image/jpeg", lastModified: Date.now() });

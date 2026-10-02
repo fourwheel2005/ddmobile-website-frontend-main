@@ -8,6 +8,16 @@
  */
 export const LINE_ID = "@770judgg";
 
+/** ชื่อที่ลูกค้าเห็นในรายชื่อแชท LINE — ใช้บอกลูกค้าว่าต้องเลือกแชทไหนตอนแชร์รูปเข้า LINE */
+export const LINE_OA_NAME = "ไอโฟนผ่อนง่าย";
+
+/**
+ * OA ต่อ webhook ของ backend แล้ว (POST /api/v1/line/webhook) → ตอบรูปเครื่องเข้าแชทให้อัตโนมัติ
+ * เมื่อลูกค้าส่งข้อความจากเว็บ · เปิด (true) หลังตั้ง webhook ใน LINE Developers Console เสร็จ
+ * ไม่งั้นลูกค้าที่กดแชร์รูปเองด้วยจะทำให้รูปซ้ำในแชท
+ */
+export const LINE_AUTO_PHOTOS = process.env.NEXT_PUBLIC_LINE_AUTO_PHOTOS === "true";
+
 /**
  * ลิงก์ย่อ add-friend — ใช้ตอนต้องแปะ/แชร์ลิงก์ให้คนกดเพิ่มเพื่อน
  * ข้อจำกัด: lin.ee เด้งไปหน้า `ti/p/` ซึ่ง "พาข้อความติดไปด้วยไม่ได้" → เวลาต้องส่งรายละเอียดให้ใช้ lineChatUrl()

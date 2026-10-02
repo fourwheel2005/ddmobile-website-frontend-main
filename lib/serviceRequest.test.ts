@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { emptyTradeIn, PROBLEM_NONE, type TradeInForm } from "./tradeIn";
 import {
-  buildServiceMessage, buildSubmitData, buildSubmitFormData, checkImageFile, missingRequiredSlots, newSubmissionKey,
+  buildServiceMessage, buildSubmitData, buildSubmitFormData, checkImageFile, galleryUrl, missingRequiredSlots, newSubmissionKey, shareFilesFor,
   validateServiceRequest, MAX_TOTAL_BYTES,
   type PhotoItem, type PhotoSlot, type ServiceRequestState,
 } from "./serviceRequest";
@@ -96,13 +96,36 @@ describe("buildSubmitData / buildSubmitFormData", () => {
 describe("buildServiceMessage", () => {
   it("มีเลขอ้างอิง + ชื่อบริการ + จำนวนรูป + สถานะบัตร (ไม่มีข้อมูลในบัตร)", () => {
     const s = state({ services: ["SELL", "INSTALLMENT"], installment: { productName: "iPhone 17 Pro", monthly: 2000, months: 12 }, idCard, consent: true });
-    const msg = buildServiceMessage(s, { refCode: "DD-ABCDEF", tradeInId: 1, installmentId: 2, photoCount: 5, idCardAttached: true, duplicate: false }, null);
+    const msg = buildServiceMessage(s, { refCode: "DD-ABCDEF", tradeInId: 1, installmentId: 2, photoCount: 5, idCardAttached: true, duplicate: false, galleryToken: "t" }, null,
+      galleryUrl("https://shop.example", "AbCdEfGhIjKlMnOpQrStUv"));
     expect(msg).toContain("อ้างอิง: DD-ABCDEF");
     expect(msg).toContain("ขายเครื่อง + ผ่อนเครื่อง");
     expect(msg).toContain("แนบรูปเครื่องผ่านเว็บแล้ว 5 รูป");
     expect(msg).toContain("แนบบัตรประชาชนผ่านเว็บแล้ว");
     expect(msg).toContain("x 12 เดือน");
     expect(msg).toContain("ที่อยู่: ต.บางรัก อ.บางรัก จ.กรุงเทพมหานคร 10500");
+    // ลิงก์ดูรูป: บรรทัดเดียวโดด ๆ และเป็น URL เดียวในข้อความ (LINE ทำการ์ดพรีวิวจาก URL แรก)
+    expect(msg).toContain("ดูรูปทั้งหมด: https://shop.example/r/AbCdEfGhIjKlMnOpQrStUv");
+    expect(msg.match(/https?:\/\//g)).toHaveLength(1);
+  });
+  it("ไม่มีรูป → ไม่มีลิงก์ดูรูป", () => {
+    const s = state({ services: ["BALLOON"], photos: [] });
+    const msg = buildServiceMessage(s, { refCode: "DD-B", tradeInId: 1, installmentId: null, photoCount: 0, idCardAttached: false, duplicate: false, galleryToken: null }, null,
+      galleryUrl("https://shop.example", null));
+    expect(msg).not.toContain("ดูรูป");
+    expect(galleryUrl("https://x", null)).toBeNull();
+  });
+});
+
+describe("shareFilesFor", () => {
+  it("ตั้งชื่อ ASCII ตามเลขอ้างอิง+ลำดับ+ช่อง · คงชนิดไฟล์ · ไม่รวมบัตรประชาชน (รับเฉพาะรูปเครื่องที่ส่งมา)", () => {
+    const jpg = new File([new Uint8Array(3)], "รูปของฉัน.jpg", { type: "image/jpeg" });
+    const png = new File([new Uint8Array(3)], "x.png", { type: "image/png" });
+    const out = shareFilesFor([jpg, png], ["FRONT", "EXTRA"], "DD-ABC123");
+    expect(out.map((f) => f.name)).toEqual(["DD-ABC123-1-front.jpg", "DD-ABC123-2-extra.png"]);
+    expect(out.map((f) => f.type)).toEqual(["image/jpeg", "image/png"]);
+    expect(out[0].size).toBe(3);
+    expect(out.every((f) => /^[\x20-\x7e]+$/.test(f.name))).toBe(true);
   });
 });
 

@@ -4,11 +4,16 @@ import toast from "react-hot-toast";
 import api from "@/lib/api";
 import { getApiError } from "@/lib/errorMessage";
 import {
-  buildServiceMessage, buildSubmitFormData, newSubmissionKey, validateServiceRequest,
+  buildServiceMessage, buildSubmitFormData, galleryUrl, newSubmissionKey, validateServiceRequest,
   type ServiceRequestState, type SubmitResult,
 } from "@/lib/serviceRequest";
+import { needsDevice } from "@/lib/services";
 
-export interface SubmitDone { res: SubmitResult; message: string; }
+/**
+ * shareFiles = รูปเครื่องชุดเดียวกับที่อัปโหลด (ไม่รวมบัตรประชาชน) ให้ลูกค้าแชร์เข้าแชท LINE ต่อ
+ * shareLabels = ชื่อช่องของแต่ละรูป (ด้านหน้า/ด้านหลัง/…) เรียงตรงกัน
+ */
+export interface SubmitDone { res: SubmitResult; message: string; shareFiles: File[]; shareLabels: string[]; previews: string[]; }
 
 /**
  * ส่งฟอร์มเลือกบริการ: ตรวจ → อัปโหลด (มี progress) → คืนเลขอ้างอิง + ข้อความ LINE
@@ -38,8 +43,14 @@ export function useServiceSubmit() {
       const { data } = await api.post<SubmitResult>("/service-requests", buildSubmitFormData(state, key.current, estimatedPrice), {
         onUploadProgress: (e) => { if (e.total) setProgress(Math.min(99, Math.round((e.loaded / e.total) * 100))); },
       });
-      const message = buildServiceMessage(state, data, estimatedPrice);
-      setDone({ res: data, message });
+      const message = buildServiceMessage(state, data, estimatedPrice, galleryUrl(window.location.origin, data.galleryToken));
+      const device = needsDevice(state.services);
+      setDone({
+        res: data, message,
+        shareFiles: device ? state.photos.map((p) => p.file) : [],
+        shareLabels: device ? state.photos.map((p) => p.slot) : [],
+        previews: device ? state.photos.map((p) => p.url) : [],   // blob URL เดิมของฟอร์ม (คืนตอนออกจากหน้า)
+      });
       key.current = null;   // ส่งสำเร็จ → ครั้งหน้าคือคำขอใหม่
       navigator.clipboard?.writeText(message).catch(() => { /* มีปุ่มคัดลอกในหน้าสำเร็จ */ });
     } catch (e) {

@@ -165,7 +165,23 @@ export interface SubmitResult {
   photoCount: number;
   idCardAttached: boolean;
   duplicate: boolean;
+  galleryToken: string | null;   // ลิงก์ดูรูปเครื่อง /r/{token} · null = ไม่มีรูป
 }
+
+/**
+ * ไฟล์สำหรับแชร์เข้า LINE (share sheet) — ตั้งชื่อใหม่ให้แอดมินรู้ว่ารูปไหนของคำขอไหน
+ * ชื่อเป็น ASCII ล้วน (แอปปลายทางบางตัวสะดุดกับชื่อไฟล์ภาษาไทย) · ไม่คัดลอกข้อมูลรูปซ้ำ (File อ้าง blob เดิม)
+ */
+export function shareFilesFor(files: File[], slots: string[], refCode: string): File[] {
+  return files.map((f, i) => {
+    const ext = f.type === "image/png" ? "png" : f.type === "image/webp" ? "webp" : "jpg";
+    const slot = (slots[i] ?? "extra").toLowerCase();
+    return new File([f], `${refCode}-${i + 1}-${slot}.${ext}`, { type: f.type || "image/jpeg" });
+  });
+}
+
+/** ลิงก์ดูรูปเครื่อง (โดเมนเดียวกับหน้าเว็บที่ลูกค้าเปิดอยู่) */
+export const galleryUrl = (origin: string, token: string | null) => (token ? `${origin}/r/${token}` : null);
 
 /** บรรทัดเครื่องที่จะผ่อน */
 export function installmentLines(i: InstallmentInterest): string[] {
@@ -187,7 +203,7 @@ export function installmentLines(i: InstallmentInterest): string[] {
  * ข้อความ LINE หลังบันทึกสำเร็จ — เลขอ้างอิงจาก server ให้แอดมินเปิดดูรูป/บัตรในหลังบ้าน
  * (ไม่ใส่ข้อมูลในบัตรประชาชนลงแชท)
  */
-export function buildServiceMessage(s: ServiceRequestState, res: SubmitResult, estimatedPrice: number | null): string {
+export function buildServiceMessage(s: ServiceRequestState, res: SubmitResult, estimatedPrice: number | null, photosUrl: string | null = null): string {
   const names = s.services.map((c) => SERVICES[c].label).join(" + ");
   const lines: (string | null)[] = [
     `📋 ขอใช้บริการ: ${names}`,
@@ -195,7 +211,11 @@ export function buildServiceMessage(s: ServiceRequestState, res: SubmitResult, e
   ];
   if (needsDevice(s.services)) {
     lines.push("", "— ข้อมูลเครื่องของฉัน —", ...deviceLines(s.form));
-    if (res.photoCount > 0) lines.push(`📷 แนบรูปเครื่องผ่านเว็บแล้ว ${res.photoCount} รูป`);
+    if (res.photoCount > 0) {
+      lines.push(`📷 แนบรูปเครื่องผ่านเว็บแล้ว ${res.photoCount} รูป`);
+      // URL บรรทัดเดียวโดด ๆ → LINE แสดงเป็นการ์ดพรีวิวพร้อมรูปแรก (เป็น URL เดียวในข้อความ)
+      if (photosUrl) lines.push(`ดูรูปทั้งหมด: ${photosUrl}`);
+    }
     if (estimatedPrice != null) lines.push(`ราคาประเมินเบื้องต้น (จากเว็บ): ${baht(estimatedPrice)}`);
   }
   if (s.services.includes("INSTALLMENT")) {

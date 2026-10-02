@@ -4,12 +4,14 @@ import { ACCEPTED_IMAGE_TYPES, checkImageFile } from "@/lib/serviceRequest";
 /**
  * เตรียมรูปก่อนอัปโหลด: ย่อ (ด้านยาว ≤ maxDim) + บีบ JPEG → ปกติเหลือ 200–500KB จากรูปมือถือ 3–12MB
  * ทำ "ตอนเลือกรูป" ไม่ใช่ตอนกดส่ง → กดส่งแล้วอัปโหลดได้ทันที
- * ชนิดที่ server ไม่รับ (เช่น HEIC) บังคับแปลงเสมอแม้ไฟล์เล็ก — เบราว์เซอร์ถอดไม่ได้ = แจ้งลูกค้า
+ * ผลเป็น JPEG/PNG เสมอ (WebP/HEIC บังคับแปลง) — รูปชุดนี้ถูกแชร์เข้า LINE ต่อ และ LINE ไม่รับ WebP
+ * เบราว์เซอร์ถอดรหัสไม่ได้ (HEIC บน Chrome) = แจ้งลูกค้า
  */
 export async function prepareImage(file: File, maxDim = 1600): Promise<{ file: File } | { error: string }> {
   if (!file.type.startsWith("image/") && file.type !== "") return { error: "ไฟล์ต้องเป็นรูปภาพ" };
   const supported = ACCEPTED_IMAGE_TYPES.includes(file.type);
-  const out = await compressImage(file, { maxDim, quality: 0.8, skipUnderBytes: supported ? 300 * 1024 : 0 });
+  const keepAsIs = file.type === "image/jpeg" || file.type === "image/png";
+  const out = await compressImage(file, { maxDim, quality: 0.8, skipUnderBytes: keepAsIs ? 300 * 1024 : 0, forceJpeg: !keepAsIs });
   const err = checkImageFile(out);
   if (err) return { error: supported ? err : "รูปชนิดนี้ใช้ไม่ได้ (เช่น HEIC) — ลองถ่ายใหม่หรือเลือกรูป JPG" };
   return { file: out };
