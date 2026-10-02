@@ -8,6 +8,7 @@
 | Tag ก่อนเปลี่ยน (สถานะเดิม) | `pre-members-wall` — มีในทั้ง 2 repo |
 | Tag หลังเปลี่ยน | `members-wall-v1` — มีในทั้ง 2 repo |
 | Migration ใหม่ | `V45__user_terms_accepted.sql` (backend) — เพิ่มคอลัมน์อย่างเดียว |
+| ทดสอบขั้นตอน rollback | 2026-10-03 — รันคำสั่งระดับ 2 ใน clone ทดลอง: revert ไม่ชน, โค้ดกลับตรง `pre-members-wall`, แอปเปิดกับ DB ที่รัน V45 แล้วได้ |
 
 ## เปลี่ยนอะไรไปบ้าง
 
@@ -42,9 +43,10 @@
 ⚠️ **ลำดับสำคัญ: backend ก่อน แล้วค่อย frontend** (ตรงข้ามกับตอน deploy)
 เพราะหน้าเว็บตัวเก่าไม่ส่งช่องยอมรับนโยบาย ถ้า backend ใหม่ยังอยู่ ลูกค้าจะสมัครสมาชิกไม่ได้
 
-⚠️ **ห้ามลบไฟล์ `V45__user_terms_accepted.sql`** — ฐานข้อมูลบันทึกว่ารัน V45 แล้ว ถ้าไฟล์หายจากโค้ด
-Flyway จะไม่ยอมเปิดแอป (validate: applied migration not resolved locally) → เว็บล่มทั้งระบบ
-คอลัมน์ `terms_accepted_at` ปล่อยไว้ได้ ไม่กระทบอะไร และเป็นหลักฐานความยินยอม (PDPA) ของคนที่สมัครช่วงนี้
+⚠️ **เก็บไฟล์ `V45__user_terms_accepted.sql` ไว้เสมอ (อย่าลบ)** — ฐานข้อมูลบันทึกว่ารัน V45 แล้ว
+- ทดสอบจริงแล้ว (2026-10-03): ถ้าลบ แอป **ยังเปิดได้** แต่ Flyway เตือน "Schema has a version (45) that is newer than the latest available migration (44)"
+- อันตรายจริงคือ**ภายหลัง**: ถ้ามีคนสร้าง migration ใหม่ชื่อ `V45__...` (เพราะไฟล์ล่าสุดในโค้ดเหลือ V44) จะชนกับ V45 ที่รันไปแล้ว → ตอนนั้นแอปเปิดไม่ขึ้น
+- คอลัมน์ `terms_accepted_at` ปล่อยไว้ได้ ไม่กระทบอะไร และเป็นหลักฐานความยินยอม (PDPA) ของคนที่สมัครช่วงนี้
 
 ⚠️ **ห้าม `git reset --hard` แล้ว force push บน main** — จะลบ commit อื่นที่ตามมาทีหลังทิ้ง ใช้ `git revert` เท่านั้น
 
@@ -52,8 +54,8 @@ Flyway จะไม่ยอมเปิดแอป (validate: applied migratio
 ```bash
 git checkout main && git pull
 git revert --no-commit members-wall-v1
-# เก็บ migration V45 + บันทึกนี้ไว้ (ดูเหตุผลด้านบน)
-git checkout members-wall-v1 -- src/main/resources/db/migration/V45__user_terms_accepted.sql docs/rollback/members-wall.md
+# เก็บ migration V45 + บันทึกนี้ (ฉบับล่าสุดบน main) ไว้ — ถ้า revert แจ้ง conflict ที่ 2 ไฟล์นี้ คำสั่งนี้แก้ให้เลย
+git checkout HEAD -- src/main/resources/db/migration/V45__user_terms_accepted.sql docs/rollback/members-wall.md
 git commit -m "revert: members-only wall (keep V45 migration + rollback notes)"
 git push origin main
 ```
@@ -63,7 +65,7 @@ git push origin main
 ```bash
 git checkout main && git pull
 git revert --no-commit members-wall-v1
-git checkout members-wall-v1 -- docs/rollback/members-wall.md
+git checkout HEAD -- docs/rollback/members-wall.md
 git commit -m "revert: members-only wall (keep rollback notes)"
 git push origin main
 ```
