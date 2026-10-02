@@ -54,3 +54,26 @@ describe("per-term down payment (Stock FIX-200)", () => {
     expect(cheapestValidTerm([{ months: 1790, monthly: 12 }, { months: 12, monthly: 1790, down: 1 }])).toEqual({ months: 12, monthly: 1790, down: 1 });
   });
 });
+
+describe("FIX-204 — ผ่อนเริ่มบนการ์ดไม่เอาความจุที่ขายหมด", () => {
+  const plans = [
+    { productId: "pm", storage: "256GB", downPayment: 21900, note: null,
+      terms: [{ months: 24, monthly: 2490, down: 21900 }] },
+    // ความจุที่หมด แต่ตั้งแผนถูกกว่า — เดิมจะหลุดขึ้นการ์ดเป็น "ผ่อนเริ่ม ฿1,990"
+    { productId: "pm", storage: "512GB", downPayment: 9900, note: null,
+      terms: [{ months: 24, monthly: 1990, down: 9900 }] },
+  ];
+  const lookup = buildInstLookup(plans, []);
+  it("ใช้เฉพาะความจุที่ยังมีของ", () => {
+    const r = lookup({ id: "pm", type: "MODEL", options: [{ storage: "256GB", quantity: 3 }, { storage: "512GB", quantity: 0 }] });
+    expect(r?.monthly).toBe(2490);
+    expect(r?.down).toBe(21900);
+  });
+  it("ข้อมูลเก่าที่ไม่มี quantity ยังนับทุกความจุเหมือนเดิม", () => {
+    const r = lookup({ id: "pm", type: "MODEL", options: [{ storage: "256GB" }, { storage: "512GB" }] });
+    expect(r?.monthly).toBe(1990);
+  });
+  it("ทุกความจุหมด → ไม่แสดงผ่อนเริ่ม", () => {
+    expect(lookup({ id: "pm", type: "MODEL", options: [{ storage: "256GB", quantity: 0 }] })).toBeNull();
+  });
+});

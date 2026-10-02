@@ -16,7 +16,7 @@ export interface InstallmentSerial {
 }
 export interface InstInfo { down: number | null; monthly: number | null; note: string | null; }
 
-interface CatalogLike { id: string; type: string; options?: ({ storage: string | null } | null)[] | null; }
+interface CatalogLike { id: string; type: string; options?: ({ storage: string | null; quantity?: number | null } | null)[] | null; }
 
 /**
  * สร้างฟังก์ชัน lookup ผ่อน "เริ่มต้น" ของแต่ละสินค้า:
@@ -59,7 +59,10 @@ export function buildInstLookup(plans: InstallmentPlan[], serials: InstallmentSe
     }
     if (it.type === "MODEL") {
       let best: InstInfo | null = null;
-      const storages = new Set((it.options ?? []).map((o) => o?.storage || ""));
+      // ผ่อนเริ่มของการ์ด = เฉพาะความจุที่ยังมีของ (FIX-204) · ไม่มีข้อมูลจำนวน (ข้อมูลเก่า) = ถือว่ามีของ
+      const storages = new Set((it.options ?? [])
+        .filter((o) => !!o && (o.quantity == null || o.quantity > 0))
+        .map((o) => o?.storage || ""));
       storages.forEach((st) => {
         const p = planMap.get(`${it.id}|${st}`);
         if (!p) return;

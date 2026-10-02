@@ -18,6 +18,13 @@ export type SortKey = "recommended" | "price-asc" | "price-desc" | "newest" | "n
 export interface OptionLike {
   storage: string | null;
   color?: string | null;
+  /** คงเหลือของตัวเลือกนี้ — 0 = หมด (ชิปจาง) · ไม่ส่งมา (ข้อมูลเก่า) = ถือว่ามีของ */
+  quantity?: number | null;
+}
+
+/** ตัวเลือกที่ลูกค้าซื้อได้จริง (FIX-204) — ใช้ร่วมทั้งตัวกรอง/ค้นหา/ผ่อนเริ่ม ไม่ให้ความจุที่หมดหลุดเข้ามา */
+export function isAvailableOption(o: { quantity?: number | null } | null | undefined): boolean {
+  return !!o && (o.quantity == null || o.quantity > 0);
 }
 
 /** โครงข้อมูลขั้นต่ำที่ search ต้องใช้ (structural — CatalogItem เข้าได้เลย) */
@@ -67,10 +74,11 @@ export function kindOf(it: { type: string; condition: string }): Cond {
   return it.type === "GROUP" ? "ACCESSORY" : (it.condition === "SECOND_HAND" ? "SECOND_HAND" : "NEW");
 }
 
-/** ความจุทั้งหมดของสินค้าหนึ่งชิ้น: MODEL ใช้จาก options, อื่น ๆ ใช้ storage ของตัวเอง */
+/** ความจุที่ซื้อได้ของสินค้าหนึ่งชิ้น: MODEL ใช้จาก options ที่มีของ, อื่น ๆ ใช้ storage ของตัวเอง */
 export function itemStorages(it: SearchableItem): string[] {
   if (it.type === "MODEL" && it.options && it.options.length > 0) {
-    return dedupe(it.options.map((o) => o?.storage).filter((s): s is string => !!s));
+    // นับเฉพาะความจุที่ยังมีของ (FIX-204) — กันชิปกรอง/ค้นหา "512GB" เจอรุ่นที่ 512GB ขายหมดแล้ว
+    return dedupe(it.options.filter(isAvailableOption).map((o) => o?.storage).filter((s): s is string => !!s));
   }
   return it.storage ? [it.storage] : [];
 }

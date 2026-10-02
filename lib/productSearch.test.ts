@@ -59,6 +59,12 @@ describe("itemStorages", () => {
     expect(itemStorages(make({ storage: "512GB" }))).toEqual(["512GB"]);
     expect(itemStorages(make({ storage: null }))).toEqual([]);
   });
+  it("FIX-204: MODEL ไม่นับความจุที่ขายหมด (quantity 0) แต่ข้อมูลเก่าที่ไม่มี quantity ยังนับ", () => {
+    const it = make({ type: "MODEL", storage: null, options: [
+      { storage: "256GB", quantity: 2 }, { storage: "256GB", quantity: 5 }, { storage: "512GB", quantity: 0 }, { storage: "1TB" },
+    ] });
+    expect(itemStorages(it).sort()).toEqual(["1TB", "256GB"]);
+  });
 });
 
 describe("withinEditDistance", () => {
@@ -180,6 +186,19 @@ describe("deriveFacets", () => {
     const f = deriveFacets(items, "NEW");
     expect(f.grades).toEqual([]);
     expect(f.storages).toEqual(["256GB", "512GB"]);
+  });
+});
+
+describe("FIX-204 — ความจุที่ขายหมดไม่โผล่ในตัวกรอง/ค้นหา", () => {
+  const proMax = make({ id: "pm", type: "MODEL", condition: "NEW", productName: "iPhone 18 Pro Max", storage: null, options: [
+    { storage: "256GB", color: "Black", quantity: 2 }, { storage: "512GB", color: "Burgundy", quantity: 0 },
+  ] });
+  it("ชิปความจุมีแค่ 256GB", () => {
+    expect(deriveFacets([proMax], "NEW").storages).toEqual(["256GB"]);
+  });
+  it("กรอง 512GB ไม่เจอรุ่นที่ 512GB หมด · กรอง 256GB ยังเจอ", () => {
+    expect(matchesFilters(proMax, withFilters({ storages: ["512GB"] }), "NEW")).toBe(false);
+    expect(matchesFilters(proMax, withFilters({ storages: ["256GB"] }), "NEW")).toBe(true);
   });
 });
 
