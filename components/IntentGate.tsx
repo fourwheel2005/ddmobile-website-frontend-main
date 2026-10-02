@@ -28,11 +28,15 @@ const OPTIONS: Option[] = [
   { key: "trade", label: "เทิร์นเก่าแลกใหม่",  desc: "นำเครื่องเดิมมาแลกรุ่นใหม่",   icon: Repeat,    action: { type: "line" } },
 ];
 
+/** ส่งเมื่อป๊อปอัพปิด (ข้าม/เลือก) — ส่วนอื่นที่ต้องรอให้ผู้ใช้เห็นหน้าจริงก่อน (เช่น motion ของ hero) ฟังได้ */
+export const INTENT_SEEN_EVENT = "dd:intent-seen";
+
 export function markIntentSeen() {
   try { localStorage.setItem(SEEN_KEY, "1"); } catch { /* โหมดส่วนตัว/บล็อก storage → เงียบ */ }
+  window.dispatchEvent(new Event(INTENT_SEEN_EVENT));
 }
 
-function isSeen(): boolean {
+export function isIntentSeen(): boolean {
   try { return localStorage.getItem(SEEN_KEY) === "1"; } catch { return true; }   // บล็อก storage → ถือว่าเห็นแล้ว ไม่รบกวน
 }
 
@@ -47,7 +51,7 @@ export default function IntentGate() {
   useEffect(() => { const f = requestAnimationFrame(() => setMounted(true)); return () => cancelAnimationFrame(f); }, []);
 
   // open เป็น derived state (ไม่ setState ใน effect) — โชว์ครั้งแรกสุดนอกหน้า admin
-  const open = mounted && !closed && !pathname.startsWith("/admin") && !isSeen();
+  const open = mounted && !closed && !pathname.startsWith("/admin") && !isIntentSeen();
 
   const dismiss = () => { markIntentSeen(); setClosed(true); };
   useEscapeKey(open, dismiss);
