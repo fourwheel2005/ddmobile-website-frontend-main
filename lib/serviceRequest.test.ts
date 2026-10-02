@@ -44,11 +44,12 @@ describe("validateServiceRequest — ต้องตรงกับ backend Serv
     expect(validateServiceRequest({ ...withModel, idCard })).toMatch(/ยินยอม/);
     expect(validateServiceRequest({ ...withModel, idCard, consent: true })).toBeNull();
   });
-  it("ผ่อนเครื่องต้องล็อกอิน · ขายเครื่อง/บอลลูนไม่ต้อง", () => {
+  it("ทุกบริการต้องล็อกอิน (เว็บเฉพาะสมาชิก)", () => {
     const inst = state({ services: ["INSTALLMENT"], photos: [], installment: { productName: "x" }, idCard, consent: true, loggedIn: false });
     expect(validateServiceRequest(inst)).toMatch(/เข้าสู่ระบบ/);
-    expect(validateServiceRequest(state({ loggedIn: false }))).toBeNull();
-    expect(validateServiceRequest(state({ services: ["BALLOON"], photos: [], loggedIn: false }))).toBeNull();
+    expect(validateServiceRequest(state({ loggedIn: false }))).toMatch(/เข้าสู่ระบบ/);
+    expect(validateServiceRequest(state({ services: ["BALLOON"], photos: [], loggedIn: false }))).toMatch(/เข้าสู่ระบบ/);
+    expect(validateServiceRequest(state({ services: ["BALLOON"], photos: [] }))).toBeNull();
   });
   it("ไม่เลือกบริการ / ขาย+บอลลูน → error", () => {
     expect(validateServiceRequest(state({ services: [] }))).toMatch(/อย่างน้อย 1/);

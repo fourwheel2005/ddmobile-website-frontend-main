@@ -30,6 +30,7 @@ import SalesChart, { type DailySales } from "@/components/ui/SalesChart";
 import { confirmDialog } from "@/components/ui/confirmDialog";
 import { TableSkeleton, StatCardSkeleton } from "@/components/Skeletons";
 import { useEscapeKey } from "@/lib/useEscapeKey";
+import { clearSession } from "@/lib/session";
 
 
 interface WebOrderItem { productName: string; condition: string; quantity: number; lineTotal: number; }
@@ -103,8 +104,7 @@ export default function AdminDashboard() {
         user = JSON.parse(userStr);
       } catch {
         // ข้อมูล user เพี้ยน → เคลียร์แล้วให้ล็อกอินใหม่ (กัน parse error ทำหน้าแอดมินขาว)
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
+        clearSession();   // token + user + cookie กำแพงสมาชิก
         window.location.href = "/login";
         return false;
       }
@@ -144,8 +144,7 @@ export default function AdminDashboard() {
         console.error("Fetch Data Error:", error);
         if ([401, 403].includes(getApiStatus(error) ?? 0)) {
           toast.error("เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่");
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
+          clearSession();   // token + user + cookie กำแพงสมาชิก
           window.location.href = "/login";
         }
       } finally {
@@ -161,8 +160,7 @@ export default function AdminDashboard() {
   const handleLogout = () => {
     api.post("/auth/logout").catch(() => { /* เคลียร์ cookie ฝั่ง server */ });
     localStorage.removeItem("dd_cart");   // ล้างตะกร้าตอนออกจากระบบ (กันค้างข้ามบัญชี)
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    clearSession();   // token + user + cookie กำแพงสมาชิก
     window.location.href = "/login";
   };
 

@@ -14,6 +14,7 @@ import { useCart } from '@/context/CartContext';
 import NotificationBell from '@/components/NotificationBell';
 import IntentGate from '@/components/IntentGate';
 import { SERVICES } from '@/lib/services';
+import { clearSession, syncSessionCookie } from '@/lib/session';
 
 interface UserData {
   email: string;
@@ -42,6 +43,7 @@ export default function Navbar() {
 
   useEffect(() => {
     const checkAuthStatus = () => {
+      syncSessionCookie();   // ล็อกอินค้างไว้ก่อนมีกำแพงสมาชิก → ได้ cookie โดยไม่ต้องล็อกอินใหม่
       const storedUser = localStorage.getItem('user');
       if (!storedUser) { setUserData(null); return; }
       try {
@@ -61,8 +63,7 @@ export default function Navbar() {
     api.post('/auth/logout').catch(() => { /* เคลียร์ฝั่ง server (cookie) — ล้มก็ไม่เป็นไร */ });
     clear();                              // ล้างตะกร้าตอนออกจากระบบ (กันตะกร้าค้างให้บัญชีถัดไป)
     localStorage.removeItem('dd_cart');   // ล้าง storage ทันที เผื่อ effect ยังไม่ flush ก่อน reload
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
+    clearSession();                       // token + user + cookie กำแพงสมาชิก
     setUserData(null);
     setIsProfileOpen(false);
     toast.success("ออกจากระบบเรียบร้อยแล้ว");

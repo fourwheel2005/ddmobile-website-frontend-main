@@ -7,6 +7,7 @@
  *                          null      = sync แล้ว ผู้ใช้ไม่มีที่อยู่
  */
 import api from "@/lib/api";
+import { writeSessionCookie } from "@/lib/session";
 import type { ThaiGeo } from "@/lib/thaiAddress";
 
 export interface UserAddress extends ThaiGeo {
@@ -79,6 +80,7 @@ export function patchStoredUser(patch: Partial<StoredUser>): StoredUser | null {
   const next = { ...prev, ...patch };
   try {
     localStorage.setItem("user", JSON.stringify(next));
+    writeSessionCookie(next);   // ข้อมูลครบ/ไม่ครบเปลี่ยน → กำแพงต้องรู้ทันที
     window.dispatchEvent(new Event("storage"));
   } catch { /* storage เต็ม/ถูกบล็อก → ใช้ค่าในหน่วยความจำต่อ */ }
   return next;

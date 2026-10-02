@@ -2,10 +2,11 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, HelpCircle, Loader2, LogIn, Send, Wallet } from "lucide-react";
+import { Check, HelpCircle, Loader2, LogIn, Send, ShieldCheck, Wallet } from "lucide-react";
 import api from "@/lib/api";
 import { baht } from "@/lib/money";
 import { loadPrefill, toGeo } from "@/lib/profile";
+import { isProfileComplete } from "@/lib/session";
 import { SERVICES, SERVICE_ORDER, needsDevice, toggleService, type ServiceCode } from "@/lib/services";
 import {
   ACCESSORIES, BATTERY, BODY, COLORS, DEVICE_TYPES, PROBLEMS, PROBLEM_NONE, REGIONS, SCREEN, STORAGES, WARRANTY,
@@ -48,6 +49,7 @@ export default function ServiceRequestForm({ initialServices, lockedServices, pr
   const [profileGeo, setProfileGeo] = useState<ThaiGeo | null>(null);
   // null = ยังไม่รู้ (ก่อนอ่าน localStorage — หน้า static อ่านตอน render ไม่ได้ ไม่งั้น hydration ไม่ตรง)
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
+  const [profileComplete, setProfileComplete] = useState(false);   // ชื่อ + เบอร์ + ที่อยู่ครบ (กติกาสมาชิก)
   const { submit, progress, done, reset, resetKey } = useServiceSubmit();
 
   const set = (patch: Partial<TradeInForm>) => setForm((f) => ({ ...f, ...patch }));
@@ -71,6 +73,7 @@ export default function ServiceRequestForm({ initialServices, lockedServices, pr
     loadPrefill().then((u) => {
       if (!alive) return;
       setLoggedIn(!!u);
+      setProfileComplete(isProfileComplete(u));
       if (!u) return;
       const a = toGeo(u.address);
       setProfileGeo(a);
@@ -117,6 +120,14 @@ export default function ServiceRequestForm({ initialServices, lockedServices, pr
   if (done) {
     return <SubmitSuccess done={done} onNew={lockedServices ? undefined : reset} />;
   }
+
+  // ทุกบริการเฉพาะสมาชิกที่ข้อมูลครบ — หน้าแนะนำบริการเปิดให้ดู แต่ฟอร์มแสดงเมื่อพร้อมเท่านั้น
+  // (ไม่ให้กรอก/อัปรูปไปก่อนแล้วค่อยมาเจอว่าส่งไม่ได้)
+  if (loggedIn === null) {
+    return <div className="card-dd flex justify-center py-10"><Loader2 className="animate-spin text-text-muted" /></div>;
+  }
+  if (!loggedIn) return <MemberGate kind="login" />;
+  if (!profileComplete) return <MemberGate kind="complete" />;
 
   let step = 0;
   const next = () => ++step;
@@ -207,11 +218,6 @@ export default function ServiceRequestForm({ initialServices, lockedServices, pr
       {/* ===== ผ่อนเครื่อง ===== */}
       {services.includes("INSTALLMENT") && (
         <FormCard step={next()} title="ผ่อนเครื่อง — เอกสารประกอบ">
-          {loggedIn === null ? (
-            <div className="flex justify-center py-6"><Loader2 className="animate-spin text-text-muted" /></div>
-          ) : !loggedIn ? (
-            <LoginRequired otherServices={services.filter((s) => s !== "INSTALLMENT").length > 0} />
-          ) : (<>
           {presetInstallment ? (
             <div className="rounded-xl border border-border-default bg-bg-subtle p-3.5 text-sm">
               <p className="mb-1 font-bold text-text-heading">เครื่องที่ต้องการผ่อน</p>
@@ -234,7 +240,6 @@ export default function ServiceRequestForm({ initialServices, lockedServices, pr
             <IdCardUpload value={idCard} onChange={setIdCard} />
           </Field>
           <IdCardConsent checked={consent} onChange={setConsent} />
-          </>)}
         </FormCard>
       )}
 
@@ -279,22 +284,26 @@ export default function ServiceRequestForm({ initialServices, lockedServices, pr
 }
 
 /**
- * ผ่อนเครื่องต้องล็อกอินก่อนแนบบัตรประชาชน — พากลับมาหน้าเดิม (รวม ?s=) หลังล็อกอิน
- * ไม่ให้กรอก/แนบบัตรก่อนแล้วค่อยมาเจอว่าส่งไม่ได้
+ * กำแพงสมาชิกของฟอร์มบริการ — พากลับมาหน้าเดิม (รวม ?s=) หลังล็อกอิน/เติมข้อมูล
+ * login = ยังไม่เป็นสมาชิก · complete = เป็นสมาชิกแล้วแต่ชื่อ/เบอร์/ที่อยู่ยังไม่ครบ
  */
-function LoginRequired({ otherServices }: { otherServices: boolean }) {
+function MemberGate({ kind }: { kind: "login" | "complete" }) {
   const router = useRouter();
-  const go = () => router.push(`/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+  const back = () => encodeURIComponent(window.location.pathname + window.location.search);
+  const go = () => router.push(kind === "login" ? `/login?redirect=${back()}` : `/profile?complete=1&redirect=${back()}`);
   return (
-    <div className="rounded-xl border border-yellow/50 bg-yellow/10 p-4 text-center">
-      <LogIn size={26} className="mx-auto text-yellow-hover" />
-      <p className="mt-2 font-bold text-text-heading">เข้าสู่ระบบก่อนส่งคำขอผ่อน</p>
-      <p className="mt-1 text-sm text-text-muted">
-        เพื่อความปลอดภัยของข้อมูลบัตรประชาชน คำขอผ่อนต้องผูกกับบัญชีของคุณ
-        {otherServices && " · ถ้ายังไม่สะดวก เอาติ๊ก \"ผ่อนเครื่อง\" ออก แล้วส่งบริการอื่นก่อนได้"}
+    <div className="card-dd text-center">
+      {kind === "login" ? <LogIn size={30} className="mx-auto text-yellow-hover" /> : <ShieldCheck size={30} className="mx-auto text-yellow-hover" />}
+      <p className="mt-3 text-lg font-bold text-text-heading">
+        {kind === "login" ? "สมัครสมาชิกฟรี เพื่อส่งคำขอ" : "กรอกข้อมูลสมาชิกให้ครบก่อนส่งคำขอ"}
       </p>
-      <button type="button" onClick={go} className="btn-primary mt-3 w-full sm:w-auto sm:px-8">
-        <LogIn size={18} /> เข้าสู่ระบบ / สมัครสมาชิก
+      <p className="mx-auto mt-1 max-w-md text-sm text-text-muted">
+        {kind === "login"
+          ? "บริการทั้งหมดสำหรับสมาชิก — สมัครไม่ถึง 1 นาที แล้วกลับมาทำรายการต่อที่หน้านี้ได้ทันที"
+          : "ชื่อ เบอร์โทร และที่อยู่ ใช้ติดต่อกลับและเติมให้อัตโนมัติในฟอร์ม — บันทึกแล้วกลับมาที่หน้านี้ทันที"}
+      </p>
+      <button type="button" onClick={go} className="btn-primary mx-auto mt-4 w-full sm:w-auto sm:px-10">
+        {kind === "login" ? <><LogIn size={18} /> สมัครสมาชิก / เข้าสู่ระบบ</> : <><ShieldCheck size={18} /> กรอกข้อมูลให้ครบ</>}
       </button>
     </div>
   );

@@ -57,7 +57,7 @@ export interface ServiceRequestState {
   installment: InstallmentInterest;
   idCard: File | null;
   consent: boolean;
-  /** ผ่อนเครื่อง (แนบบัตรประชาชน) ต้องล็อกอิน — ขายเครื่อง/บอลลูนไม่บังคับ (server ตรวจซ้ำ → 401) */
+  /** ทุกบริการเฉพาะสมาชิก (server ตรวจซ้ำ → 401) */
   loggedIn: boolean;
 }
 
@@ -78,6 +78,7 @@ export function checkImageFile(file: File): string | null {
 
 /** ตรวจทั้งฟอร์มตามบริการที่เลือก — คืน error แรกที่เจอ (null = ส่งได้) */
 export function validateServiceRequest(s: ServiceRequestState): string | null {
+  if (!s.loggedIn) return "กรุณาเข้าสู่ระบบก่อนส่งคำขอ";
   if (s.services.length === 0) return "กรุณาเลือกบริการที่ต้องการอย่างน้อย 1 อย่าง";
   if (s.services.includes("SELL") && s.services.includes("BALLOON")) {
     return "เลือกได้อย่างใดอย่างหนึ่งระหว่าง ขายเครื่อง กับ ผ่อนบอลลูน";
@@ -99,7 +100,6 @@ export function validateServiceRequest(s: ServiceRequestState): string | null {
     + (s.services.includes("INSTALLMENT") && s.idCard ? s.idCard.size : 0);
   if (total > MAX_TOTAL_BYTES) return "รูปรวมกันใหญ่เกินไป — ลองลบรูปเพิ่มเติมบางรูป หรือถ่ายใหม่";
   if (s.services.includes("INSTALLMENT")) {
-    if (!s.loggedIn) return "ผ่อนเครื่อง: กรุณาเข้าสู่ระบบก่อนส่งคำขอ";
     if (!s.installment.productName.trim()) return "ผ่อนเครื่อง: กรุณาระบุรุ่นที่ต้องการผ่อน";
     if (!s.idCard) return "ผ่อนเครื่อง: กรุณาแนบรูปบัตรประชาชน";
     if (!s.consent) return "กรุณายืนยันการยินยอมให้ใช้ข้อมูลเพื่อพิจารณาการผ่อน";
