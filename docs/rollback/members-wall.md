@@ -50,6 +50,9 @@
 
 ⚠️ **ห้าม `git reset --hard` แล้ว force push บน main** — จะลบ commit อื่นที่ตามมาทีหลังทิ้ง ใช้ `git revert` เท่านั้น
 
+> ระหว่าง `git revert` จะเห็น `CONFLICT (modify/delete): docs/rollback/members-wall.md` — **ปกติ ไม่ต้องตกใจ**
+> (บันทึกนี้ถูกแก้หลัง tag) คำสั่ง `git checkout HEAD -- ...` บรรทัดถัดไปแก้ให้ แล้ว commit ต่อได้เลย
+
 ### 2.1 Backend (`ddmobilewebsite`)
 ```bash
 git checkout main && git pull
