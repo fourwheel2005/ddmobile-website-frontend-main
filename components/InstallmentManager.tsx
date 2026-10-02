@@ -8,12 +8,28 @@ import api from "@/lib/api";
 import { getCatalog } from "@/lib/catalog";
 
 interface Term { months: number | string; monthly: number | string; }
-interface Plan { id: number; productId: string; modelName: string | null; storage: string; downPayment: number | null; terms: { months: number; monthly: number }[]; note: string | null; active: boolean; }
-interface SerialPlan { id: number; serialId: string; label: string | null; downPayment: number | null; months: number | null; monthly: number | null; terms: { months: number; monthly: number }[]; note: string | null; active: boolean; }
+interface Plan { id: number; productId: string; modelName: string | null; storage: string; downPayment: number | null; terms: { months: number; monthly: number }[]; note: string | null; active: boolean; shadowedByStock?: boolean; }
+interface SerialPlan { id: number; serialId: string; label: string | null; downPayment: number | null; months: number | null; monthly: number | null; terms: { months: number; monthly: number }[]; note: string | null; active: boolean; shadowedByStock?: boolean; }
 interface VariantOption { storage: string | null; }
 interface CatalogItem { id: string; type: string; productName: string; sku: string; storage: string | null; conditionLabel: string; options: VariantOption[] | null; }
 
 import { baht } from "@/lib/money";
+
+/** ข้อความจาก backend (เช่น 409 "รุ่นนี้ตั้งราคาผ่อนใน Stock แล้ว") — ไม่มีก็ใช้ข้อความ fallback */
+function serverMessage(e: unknown, fallback: string): string {
+  const err = e as { response?: { status?: number; data?: { message?: string } } } | undefined;
+  return err?.response?.data?.message || fallback;
+}
+const isStockConflict = (e: unknown) => (e as { response?: { status?: number } } | undefined)?.response?.status === 409;
+
+/** ป้ายบอกว่าแถว overlay นี้ถูก Stock ทับ — เว็บใช้ราคาจาก Stock ไม่ใช่ค่านี้ (WEB-FIX-001) */
+function ShadowBadge() {
+  return (
+    <span className="ml-2 inline-block rounded-full bg-warning-bg px-2 py-0.5 text-[11px] font-semibold text-warning-text" title="Stock ตั้งราคารุ่นนี้แล้ว เว็บใช้ราคาจาก Stock — แถวนี้ไม่มีผล">
+      Stock ทับอยู่
+    </span>
+  );
+}
 
 /* ============================ ตารางผ่อนจากโปสเตอร์ (พรีเซ็ต — เฉพาะ "มือ 1") ============================ */
 /* แอดมินกดนำเข้าได้เลย แล้วแก้ทีหลังได้
@@ -163,7 +179,7 @@ function ModelTab({ plans, models, reload }: { plans: Plan[]; models: CatalogIte
   const importAll = async () => {
     if (!(await confirmDialog({ title: "นำเข้าราคาผ่อนตามโปสเตอร์?", message: "ใส่ให้ทุกรุ่น+ความจุที่มีในคลัง — ของเดิมที่ตรงกันจะถูกทับ" }))) return;
     setImporting(true);
-    let ok = 0; const skipped: string[] = [];
+    let ok = 0; const skipped: string[] = []; const stockPriced: string[] = [];
     try {
       for (const m of models) {
         const sts = storagesFor(m.id);
@@ -171,15 +187,20 @@ function ModelTab({ plans, models, reload }: { plans: Plan[]; models: CatalogIte
         for (const st of list) {
           const promo = matchPromo(m.productName, st);
           if (!promo) { skipped.push(`${m.productName} ${st}`.trim()); continue; }
-          await api.post("/admin/installment/plans", {
-            productId: m.id, modelName: m.productName, storage: st,
-            downPayment: promo.down, terms: promo.terms.map(([months, monthly]) => ({ months, monthly })),
-            note: null, active: true,
-          });
-          ok++;
+          try {
+            await api.post("/admin/installment/plans", {
+              productId: m.id, modelName: m.productName, storage: st,
+              downPayment: promo.down, terms: promo.terms.map(([months, monthly]) => ({ months, monthly })),
+              note: null, active: true,
+            });
+            ok++;
+          } catch (e) {
+            if (!isStockConflict(e)) throw e;
+            stockPriced.push(`${m.productName} ${st}`.trim());   // Stock ตั้งราคาแล้ว → ไม่ทับ
+          }
         }
       }
-      toast.success(`นำเข้า ${ok} รายการสำเร็จ${skipped.length ? ` · ข้าม ${skipped.length} (ไม่อยู่ในโปสเตอร์)` : ""}`, { duration: 5000 });
+      toast.success(`นำเข้า ${ok} รายการสำเร็จ${skipped.length ? ` · ข้าม ${skipped.length} (ไม่อยู่ในโปสเตอร์)` : ""}${stockPriced.length ? ` · ข้าม ${stockPriced.length} (Stock ตั้งราคาแล้ว ใช้ของ Stock)` : ""}`, { duration: 6000 });
       reload();
     } catch {
       toast.error("นำเข้าไม่สำเร็จบางส่วน");
@@ -226,8 +247,8 @@ function ModelTab({ plans, models, reload }: { plans: Plan[]; models: CatalogIte
       toast.success("บันทึกตารางผ่อนแล้ว");
       setForm(empty); setTerms([{ months: 12, monthly: "" }]);
       reload();
-    } catch {
-      toast.error("บันทึกไม่สำเร็จ");
+    } catch (e) {
+      toast.error(serverMessage(e, "บันทึกไม่สำเร็จ"), { duration: 6000 });
     } finally { setSaving(false); }
   };
 
@@ -243,6 +264,7 @@ function ModelTab({ plans, models, reload }: { plans: Plan[]; models: CatalogIte
       <div className="rounded-2xl border border-border-default bg-white p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h3 className="font-bold text-text-heading">เพิ่ม / แก้ตารางผ่อน (มือ 1)</h3>
+          <p className="mt-1 text-xs text-warning-text">ราคาหลักตั้งที่ระบบ Stock (ตารางผ่อนมือ 1) — ตารางนี้ใช้เฉพาะรุ่นที่ Stock ยังไม่ตั้ง แถวที่ขึ้น "Stock ทับอยู่" ไม่มีผลบนเว็บ</p>
           <div className="flex flex-wrap gap-2">
             <button onClick={clearAll} disabled={importing} className="inline-flex items-center gap-2 rounded-xl border border-error-text/40 px-3 py-2 text-sm font-semibold text-error-text transition-colors hover:bg-error-bg disabled:opacity-50">
               <Trash2 size={15} /> ล้างทั้งหมด
@@ -310,7 +332,7 @@ function ModelTab({ plans, models, reload }: { plans: Plan[]; models: CatalogIte
               <tr><td colSpan={6} className="py-8 text-center text-text-muted">ยังไม่มีตารางผ่อน</td></tr>
             ) : plans.map((p) => (
               <tr key={p.id}>
-                <td className="font-medium text-text-heading">{p.modelName || p.productId}</td>
+                <td className="font-medium text-text-heading">{p.modelName || p.productId}{p.shadowedByStock && <ShadowBadge />}</td>
                 <td>{p.storage || "ทุกความจุ"}</td>
                 <td className="font-display tabular-nums">{baht(p.downPayment)}</td>
                 <td className="text-xs text-text-muted">{p.terms.map((t) => `${t.months}ด.${baht(t.monthly)}`).join(" · ") || "-"}</td>
@@ -369,8 +391,8 @@ function SerialTab({ serials, units, reload }: { serials: SerialPlan[]; units: C
       toast.success("บันทึกราคาผ่อนพิเศษแล้ว");
       setForm(empty); setTerms([{ months: 12, monthly: "" }]);
       reload();
-    } catch {
-      toast.error("บันทึกไม่สำเร็จ");
+    } catch (e) {
+      toast.error(serverMessage(e, "บันทึกไม่สำเร็จ"), { duration: 6000 });
     } finally { setSaving(false); }
   };
 
@@ -483,7 +505,7 @@ function SerialTab({ serials, units, reload }: { serials: SerialPlan[]; units: C
               <tr><td colSpan={5} className="py-8 text-center text-text-muted">ยังไม่มีราคาพิเศษรายเครื่อง</td></tr>
             ) : serials.map((s) => (
               <tr key={s.id}>
-                <td className="font-medium text-text-heading">{s.label || s.serialId}</td>
+                <td className="font-medium text-text-heading">{s.label || s.serialId}{s.shadowedByStock && <ShadowBadge />}</td>
                 <td className="font-display tabular-nums">{baht(s.downPayment)}</td>
                 <td className="text-xs text-text-muted">{termText(s)}</td>
                 <td className="text-xs">{s.note || "-"}</td>
