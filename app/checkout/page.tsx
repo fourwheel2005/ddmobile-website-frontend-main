@@ -15,6 +15,7 @@ import { loadPrefill, toGeo } from "@/lib/profile";
 
 import { baht as money } from "@/lib/money";
 import { LINE_URL } from "@/lib/contact";
+import { WEB_CHECKOUT } from "@/lib/commerce";
 
 interface Coupon { code: string; percent: number; expiresAt: string | null; }
 
@@ -37,6 +38,17 @@ interface ServerQuote {
  * การผ่อน + นัดรับที่ร้าน ยกเลิกจากเว็บแล้ว — ลูกค้าที่ต้องการผ่อนให้ทักไลน์ (ปุ่มในหน้าสินค้า)
  */
 export default function CheckoutPage() {
+  // ปิดการสั่งบนเว็บ (ค่าคงที่ตอน build → ไม่กระทบลำดับ hooks) — ส่งไปหน้าส่งรายการเข้า LINE
+  return WEB_CHECKOUT ? <WebCheckout /> : <CheckoutClosed />;
+}
+
+function CheckoutClosed() {
+  const router = useRouter();
+  useEffect(() => { router.replace("/cart"); }, [router]);
+  return <div className="page-wrapper min-h-screen bg-bg-base" />;
+}
+
+function WebCheckout() {
   const { items, total, clear } = useCart();
   const router = useRouter();
 

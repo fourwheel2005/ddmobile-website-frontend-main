@@ -10,8 +10,11 @@ import { promoForItem, type PublicPromotion } from "@/lib/promo";
 import dynamic from "next/dynamic";
 import {
   Smartphone, ShieldCheck, CheckCircle2, XCircle,
-  ArrowLeft, ChevronRight, Sparkles, RotateCcw, BatteryMedium, Hash, ShoppingCart, Zap, IdCard, CreditCard
+  ArrowLeft, ChevronRight, Sparkles, RotateCcw, BatteryMedium, Hash, ShoppingCart, Zap, IdCard, CreditCard, MessageCircle
 } from "lucide-react";
+import { WEB_CHECKOUT, bestCoupon, buildBuyMessage, buyStatus, intentForCondition, type BuyStatus, type Buyer, type Coupon } from "@/lib/commerce";
+import { lineChatUrl } from "@/lib/contact";
+import { readStoredUser } from "@/lib/profile";
 import toast from "react-hot-toast";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import CountUp from "@/components/CountUp";
@@ -91,6 +94,18 @@ function ProductDetailContent() {
   const [installment, setInstallment] = useState<InstallmentInfo | null>(null);
   const [promos, setPromos] = useState<PublicPromotion[]>([]);
   const [installmentReq, setInstallmentReq] = useState<InstallmentInterest | null>(null);   // เปิดฟอร์มผ่อน (snapshot เครื่อง+แผน)
+  // ซื้อผ่าน LINE: คูปองที่ลดมากสุด + ชื่อ/เบอร์ผู้ซื้อ แนบไปในข้อความ (เดิมคูปองเห็น/ใช้ได้ที่หน้า checkout หน้าเดียว)
+  const [coupon, setCoupon] = useState<Coupon | null>(null);
+  const [buyer, setBuyer] = useState<Buyer | null>(null);
+  useEffect(() => {
+    if (WEB_CHECKOUT) return;
+    let alive = true;
+    const f = requestAnimationFrame(() => { const u = readStoredUser(); if (alive && u) setBuyer({ name: u.name, tel: u.tel }); });
+    api.get<Coupon[]>("/coupons/mine")
+      .then((r) => { if (alive) setCoupon(bestCoupon(Array.isArray(r.data) ? r.data : [])); })
+      .catch(() => { /* ไม่มีคูปอง/ผิดพลาด → ส่งข้อความโดยไม่มีโค้ด */ });
+    return () => { alive = false; cancelAnimationFrame(f); };
+  }, []);
 
   useEffect(() => {
     api.get("/promotions/active").then((r) => setPromos(Array.isArray(r.data) ? r.data : [])).catch(() => { /* ไม่มีโปร */ });
@@ -276,6 +291,26 @@ function ProductDetailContent() {
   }
   // โปร flash sale ของตัวที่เลือกอยู่ (แสดงผลเท่านั้น — server คิดจริงตอนสร้างออเดอร์)
   const flash = item.sold ? null : promoForItem(promos, { id: item.id, variantId: effVariantId, category: item.category }, effPrice);
+
+  // ซื้อผ่าน LINE — สถานะยึดตัวเลือกที่เลือกอยู่ (effQty/effPrice) ชุดเดียวกับเงื่อนไขปุ่มเดิม (canBuy)
+  const status: BuyStatus = buyStatus(!!item.sold, effQty, effPrice);
+  const buyMessage = buildBuyMessage({
+    status, productName: item.productName, color: effColor, storage: effStorage, conditionLabel: item.conditionLabel,
+    code: isUnit && item.imei ? item.imei : item.sku || null,
+    price: effPrice, promo: flash, coupon, buyer,
+    url: `${window.location.origin}/products/${encodeURIComponent(item.id)}${isModel ? `?variant=${encodeURIComponent(effVariantId)}` : ""}`,
+  });
+  // กดแล้ว: คัดลอกข้อความสำรอง (เดสก์ท็อปไม่มีแอป LINE ข้อความจะหาย) + นับสถิติดีมานด์ — ไม่ขวางการเปิด LINE
+  const onBuyViaLine = () => {
+    navigator.clipboard?.writeText(buyMessage).catch(() => { /* ไม่เป็นไร */ });
+    api.post("/intent", { service: intentForCondition(item.condition) }).catch(() => {});
+  };
+  const BUY_LABEL: Record<BuyStatus, { title: string; sub: string; short: string }> = {
+    available: { title: "ซื้อเครื่องนี้ · ทักแอดมินทาง LINE", sub: "แอดมินยืนยันสต็อก ราคา และนัดรับ/จัดส่งให้ในแชท", short: "ซื้อ · ทัก LINE" },
+    out: { title: "สอบถาม / สั่งจอง ทาง LINE", sub: "สินค้าหมดชั่วคราว — แอดมินเช็คของเข้าให้", short: "สั่งจอง · LINE" },
+    sold: { title: "สอบถามเครื่องอื่นทาง LINE", sub: "เครื่องนี้ขายแล้ว — แอดมินหาเครื่องที่ใกล้เคียงให้", short: "ถามรุ่นอื่น · LINE" },
+    "ask-price": { title: "สอบถามราคาทาง LINE", sub: "แอดมินแจ้งราคาและโปรโมชันล่าสุดให้", short: "ถามราคา · LINE" },
+  };
   // มือสองที่ไม่มีวันประกัน → "ยังไม่ได้ระบุ" (ไม่ default เป็น "ตรวจเช็คแล้ว" ที่ดูเหมือนตรวจ — plan S13)
   const warranty = item.warrantyExpire
     ? `ประกันถึง ${new Date(item.warrantyExpire).toLocaleDateString("th-TH")}`
@@ -519,22 +554,37 @@ function ProductDetailContent() {
             </div>
 
             <div className="mt-8 space-y-3">
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <button disabled={!canBuy} onClick={addToCart} className="btn-secondary flex-1 py-3.5 text-base disabled:opacity-40">
-                  <ShoppingCart size={20} /> เพิ่มลงตะกร้า
-                </button>
-                <button disabled={!canBuy} onClick={buyNow} className="btn-primary flex-1 py-3.5 text-base disabled:opacity-40">
-                  <Zap size={20} /> {item.sold ? "ขายแล้ว" : item.quantity > 0 ? (item.minPrice == null ? "สอบถามราคา" : "ซื้อเลย") : "สินค้าหมด"}
-                </button>
-              </div>
+              {WEB_CHECKOUT ? (
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <button disabled={!canBuy} onClick={addToCart} className="btn-secondary flex-1 py-3.5 text-base disabled:opacity-40">
+                    <ShoppingCart size={20} /> เพิ่มลงตะกร้า
+                  </button>
+                  <button disabled={!canBuy} onClick={buyNow} className="btn-primary flex-1 py-3.5 text-base disabled:opacity-40">
+                    <Zap size={20} /> {item.sold ? "ขายแล้ว" : item.quantity > 0 ? (item.minPrice == null ? "สอบถามราคา" : "ซื้อเลย") : "สินค้าหมด"}
+                  </button>
+                </div>
+              ) : (
+                /* ปิดการสั่งบนเว็บ — ปิดการขายในแชท LINE พร้อมรายละเอียดเครื่อง/โปร/คูปอง/ผู้ซื้อ */
+                <a href={lineChatUrl(buyMessage)} target="_blank" rel="noopener noreferrer" onClick={onBuyViaLine}
+                  className="line-cta group flex w-full items-center gap-3 rounded-full bg-line px-5 py-3.5 text-white shadow-[var(--shadow-line)] transition-transform hover:-translate-y-0.5">
+                  <MessageCircle size={24} className="flex-shrink-0" />
+                  <span className="flex flex-col text-left leading-tight">
+                    <span className="text-base font-bold">{BUY_LABEL[status].title}</span>
+                    <span className="text-[11px] font-medium text-white/85">{BUY_LABEL[status].sub}</span>
+                  </span>
+                  <ChevronRight size={20} className="ml-auto flex-shrink-0 transition-transform group-hover:translate-x-1" />
+                </a>
+              )}
               {/* ผ่อน (ยังไม่มีตารางผ่อน) → ฟอร์มแนบบัตรประชาชน แล้วส่งเข้า LINE · มีตารางผ่อน = ปุ่มอยู่ใน InstallmentBox */}
               {!item.sold && !installment && !isAccessory && (
                 <button type="button" onClick={() => setInstallmentReq(installmentSnapshot(null))}
-                  className="line-cta group flex w-full items-center gap-3 rounded-full bg-line px-5 py-3.5 text-white shadow-[var(--shadow-line)] transition-transform hover:-translate-y-0.5">
-                  <IdCard size={24} className="flex-shrink-0" />
+                  className={`group flex w-full items-center gap-3 rounded-full px-5 py-3.5 transition-transform hover:-translate-y-0.5 ${WEB_CHECKOUT
+                    ? "line-cta bg-line text-white shadow-[var(--shadow-line)]"
+                    : "border-2 border-line bg-white text-text-heading"}`}>
+                  <IdCard size={24} className={`flex-shrink-0 ${WEB_CHECKOUT ? "" : "text-line"}`} />
                   <span className="flex flex-col text-left leading-tight">
                     <span className="text-base font-bold">ยืนยันผ่อนเครื่องนี้</span>
-                    <span className="text-[11px] font-medium text-white/85">แนบบัตรประชาชนใบเดียว · อนุมัติไวใน 1 วัน · ไม่ต้องใช้บัตรเครดิต</span>
+                    <span className={`text-[11px] font-medium ${WEB_CHECKOUT ? "text-white/85" : "text-text-muted"}`}>แนบบัตรประชาชนใบเดียว · อนุมัติไวใน 1 วัน · ไม่ต้องใช้บัตรเครดิต</span>
                   </span>
                   <ChevronRight size={20} className="ml-auto flex-shrink-0 transition-transform group-hover:translate-x-1" />
                 </button>
@@ -560,14 +610,24 @@ function ProductDetailContent() {
               ผ่อนเริ่ม <span className="text-success-text">{baht(bestInstallmentTerm.monthly)}/ด.</span>
             </p>
           )}
-          <button disabled={!canBuy} onClick={addToCart} aria-label="เพิ่มลงตะกร้า" className="btn-secondary ml-auto px-3 py-2.5 disabled:opacity-40">
-            <ShoppingCart size={18} />
-          </button>
+          {WEB_CHECKOUT && (
+            <button disabled={!canBuy} onClick={addToCart} aria-label="เพิ่มลงตะกร้า" className="btn-secondary ml-auto px-3 py-2.5 disabled:opacity-40">
+              <ShoppingCart size={18} />
+            </button>
+          )}
         </div>
         <div className={`grid gap-2 ${bestInstallmentTerm ? "grid-cols-2" : "grid-cols-1"}`}>
-          <button disabled={!canBuy} onClick={buyNow} className="btn-secondary border-text-heading bg-white py-3 text-sm font-bold disabled:opacity-40">
-            <Zap size={17} /> {item.sold ? "ขายแล้ว" : item.quantity > 0 ? "ซื้อสด" : "สินค้าหมด"}
-          </button>
+          {WEB_CHECKOUT ? (
+            <button disabled={!canBuy} onClick={buyNow} className="btn-secondary border-text-heading bg-white py-3 text-sm font-bold disabled:opacity-40">
+              <Zap size={17} /> {item.sold ? "ขายแล้ว" : item.quantity > 0 ? "ซื้อสด" : "สินค้าหมด"}
+            </button>
+          ) : (
+            <a href={lineChatUrl(buyMessage)} target="_blank" rel="noopener noreferrer" onClick={onBuyViaLine}
+              className={`inline-flex items-center justify-center gap-1.5 rounded-full py-3 text-sm font-bold ${bestInstallmentTerm
+                ? "border border-line bg-white text-line" : "bg-line text-white shadow-[var(--shadow-line)]"}`}>
+              <MessageCircle size={17} /> {BUY_LABEL[status].short}
+            </a>
+          )}
           {/* พาไปกล่องผ่อนก่อน — ให้เลือกแผน/งวดเองแล้วค่อยยืนยัน (ไม่ข้ามไปส่งด้วยแผนที่ไม่ได้เลือก) */}
           {bestInstallmentTerm && (
             <button type="button" onClick={() => document.getElementById("installment-box")?.scrollIntoView({ behavior: "smooth", block: "start" })}

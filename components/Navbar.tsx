@@ -15,6 +15,7 @@ import NotificationBell from '@/components/NotificationBell';
 import IntentGate from '@/components/IntentGate';
 import { SERVICES } from '@/lib/services';
 import { clearSession, syncSessionCookie } from '@/lib/session';
+import { WEB_CHECKOUT } from '@/lib/commerce';
 
 interface UserData {
   email: string;
@@ -129,12 +130,15 @@ export default function Navbar() {
 
             {userData && <NotificationBell />}
 
-            <Link href="/cart" aria-label="ตะกร้าสินค้า" className="relative rounded-full p-2 text-text-muted transition-colors hover:bg-bg-subtle hover:text-text-heading">
-              <ShoppingCart size={20} />
-              {count > 0 && (
-                <span key={count} className="dd-pop absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-yellow px-1 text-[11px] font-bold text-[#1a1a1a]">{count}</span>
-              )}
-            </Link>
+            {/* ปิดการสั่งบนเว็บ → โชว์เฉพาะคนที่ยังมีของค้างในตะกร้า (ส่งรายการเดิมเข้า LINE ได้ ของไม่หาย) */}
+            {(WEB_CHECKOUT || count > 0) && (
+              <Link href="/cart" aria-label="ตะกร้าสินค้า" className="relative rounded-full p-2 text-text-muted transition-colors hover:bg-bg-subtle hover:text-text-heading">
+                <ShoppingCart size={20} />
+                {count > 0 && (
+                  <span key={count} className="dd-pop absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-yellow px-1 text-[11px] font-bold text-[#1a1a1a]">{count}</span>
+                )}
+              </Link>
+            )}
 
             {userData ? (
               <div className="relative" ref={profileRef}>

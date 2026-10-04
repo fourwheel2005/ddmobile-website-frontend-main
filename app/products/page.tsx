@@ -14,6 +14,7 @@ import { ProductGridSkeleton } from "@/components/Skeletons";
 import Tilt from "@/components/Tilt";
 import ProductFilterPanel from "@/components/ProductFilterPanel";
 import { useCart } from "@/context/CartContext";
+import { WEB_CHECKOUT } from "@/lib/commerce";
 import { buildInstLookup, type InstallmentPlan, type InstallmentSerial } from "@/lib/installment";
 import { promoForItem, type PublicPromotion } from "@/lib/promo";
 import { searchProducts, deriveFacets, emptyFacet, kindOf, type ProductFilters } from "@/lib/productSearch";
@@ -293,6 +294,9 @@ function ProductsContent() {
                   </p>
                   {it.sold ? null : it.type === "MODEL" ? (
                     <span className="flex h-8 flex-shrink-0 items-center rounded-full bg-bg-tinted px-3 text-[11px] font-semibold text-text-body">เลือกแบบ →</span>
+                  ) : !WEB_CHECKOUT ? (
+                    /* ปิดการสั่งบนเว็บ — การ์ดพาไปหน้าเครื่อง (มีปุ่มซื้อผ่าน LINE + ผ่อน) */
+                    <span className="flex h-8 flex-shrink-0 items-center rounded-full bg-bg-tinted px-3 text-[11px] font-semibold text-text-body">ดูเครื่อง →</span>
                   ) : it.minPrice != null && it.quantity > 0 ? (
                     <button onClick={(e) => quickAdd(e, it)} aria-label="เพิ่มลงตะกร้า" className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-yellow text-on-yellow transition-transform hover:scale-110">
                       <ShoppingCart size={15} />
