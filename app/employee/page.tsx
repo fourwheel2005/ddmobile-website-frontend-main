@@ -7,6 +7,7 @@ import toast from "react-hot-toast";
 import { getApiError, getApiStatus } from "@/lib/errorMessage";
 import { confirmDialog } from "@/components/ui/confirmDialog";
 import { useEscapeKey } from "@/lib/useEscapeKey";
+import { hasAdminAccess } from "@/lib/roles";
 import {
   opsApi, visibleQueues, slaLabel, nextFulfillStatuses, FULFILL_LABEL, ACTION_META,
   type OpsIdentity, type WorkOrder, type Assigned, type QueueMeta,
@@ -56,9 +57,9 @@ export default function EmployeeWorkbench() {
       try {
         const me = await opsApi.me();
         setIdentity(me);
-        const canView = me.role === "ROLE_ADMIN" || me.permissions.includes("ORDER_VIEW");
+        const canView = hasAdminAccess(me.role) || me.permissions.includes("ORDER_VIEW");
         if (!canView) { setDenied(true); return; }
-        if (me.role === "ROLE_ADMIN") {
+        if (hasAdminAccess(me.role)) {
           api.get("/admin/slip-verifier-health").then((r) => setSlipHealth(r.data)).catch(() => { /* ไม่ใช่แอดมิน/ปิดไว้ */ });
         }
       } catch (e) {

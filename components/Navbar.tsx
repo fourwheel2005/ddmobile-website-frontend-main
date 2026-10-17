@@ -16,6 +16,7 @@ import IntentGate from '@/components/IntentGate';
 import { SERVICES } from '@/lib/services';
 import { clearSession, syncSessionCookie } from '@/lib/session';
 import { WEB_CHECKOUT } from '@/lib/commerce';
+import { hasAdminAccess } from '@/lib/roles';
 
 interface UserData {
   email: string;
@@ -117,7 +118,7 @@ export default function Navbar() {
 
           {/* Account zone */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {userData?.role === "ROLE_ADMIN" && (
+            {hasAdminAccess(userData?.role) && (
               <Link href="/admin" className="btn-ghost hidden md:inline-flex">
                 <LayoutDashboard size={16} className="text-yellow-hover" /> หลังบ้าน
               </Link>
@@ -170,7 +171,7 @@ export default function Navbar() {
                         <p className="truncate text-sm font-semibold text-text-heading">{userData.name || "ลูกค้าทั่วไป"}</p>
                         <p className="truncate text-xs text-text-muted">{userData.email}</p>
                       </div>
-                      {userData.role === "ROLE_ADMIN" && (
+                      {hasAdminAccess(userData.role) && (
                         <Link href="/admin" onClick={() => setIsProfileOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-text-body transition-colors hover:bg-bg-subtle md:hidden">
                           <LayoutDashboard size={16} className="text-yellow-hover" /> หลังบ้าน
                         </Link>

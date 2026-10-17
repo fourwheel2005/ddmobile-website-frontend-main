@@ -11,6 +11,7 @@ import ThaiAddressAutocomplete, { type ThaiGeo } from "@/components/ThaiAddressA
 import { addressFromLogin, toAddressPayload, type StoredUser } from "@/lib/profile";
 import { COMPLETE_PROFILE_PATH, safeRedirect } from "@/lib/accessGate";
 import { isProfileComplete, syncSessionCookie, writeSessionCookie } from "@/lib/session";
+import { homeForRole } from "@/lib/roles";
 
 // เบอร์โทรไทย 9–10 หลักขึ้นต้น 0 (คั่นด้วย -/เว้นวรรคได้) — รูปแบบเดียวกับหน้า checkout และ backend
 const TEL_RE = /^0\d{1,2}[-\s]?\d{3}[-\s]?\d{3,4}$/;
@@ -70,7 +71,7 @@ function LoginForm() {
     localStorage.setItem("user", JSON.stringify(user));
     localStorage.setItem(HAS_ACCOUNT_KEY, "1");
     writeSessionCookie(user);
-    const target = redirectTo ?? (role === "ROLE_ADMIN" ? "/admin" : role === "ROLE_EMPLOYEE" ? "/employee" : "/products");
+    const target = redirectTo ?? homeForRole(role);   // พนักงานได้สิทธิ์เท่าแอดมิน → /admin (lib/roles.ts)
     window.location.href = isProfileComplete(user)
       ? target
       : `${COMPLETE_PROFILE_PATH}?complete=1&redirect=${encodeURIComponent(target)}`;

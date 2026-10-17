@@ -31,6 +31,7 @@ import { confirmDialog } from "@/components/ui/confirmDialog";
 import { TableSkeleton, StatCardSkeleton } from "@/components/Skeletons";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { clearSession } from "@/lib/session";
+import { hasAdminAccess } from "@/lib/roles";
 
 
 interface WebOrderItem { productName: string; condition: string; quantity: number; lineTotal: number; }
@@ -108,7 +109,7 @@ export default function AdminDashboard() {
         window.location.href = "/login";
         return false;
       }
-      if (user.role !== "ROLE_ADMIN") {
+      if (!hasAdminAccess(user.role)) {   // แอดมิน + พนักงาน (โหมดเท่าแอดมิน) · backend ตรวจสิทธิ์จริงทุกคำขอ
         toast.error("คุณไม่มีสิทธิ์เข้าถึงหน้าผู้ดูแลระบบ!");
         window.location.href = "/";
         return false;

@@ -6,6 +6,7 @@ import { confirmDialog } from "@/components/ui/confirmDialog";
 import { TableSkeleton } from "@/components/Skeletons";
 import api from "@/lib/api";
 import { getApiError } from "@/lib/errorMessage";
+import { EMPLOYEE_FULL_ADMIN } from "@/lib/roles";
 
 interface Employee {
   id: number;
@@ -97,7 +98,7 @@ export default function EmployeeManager() {
           <label className="text-sm">
             <span className="mb-1 block font-medium text-text-muted">สิทธิ์</span>
             <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className="input-dd">
-              <option value="ROLE_EMPLOYEE">พนักงาน (ROLE_EMPLOYEE)</option>
+              <option value="ROLE_EMPLOYEE">{EMPLOYEE_FULL_ADMIN ? "พนักงาน (สิทธิ์เท่าแอดมิน)" : "พนักงาน (ROLE_EMPLOYEE)"}</option>
               <option value="ROLE_ADMIN">แอดมิน (ROLE_ADMIN)</option>
             </select>
           </label>
