@@ -44,13 +44,11 @@ export function cheapestValidTerm<T extends { months: number; monthly: number }>
 
 /* ============================ ลูกค้าเพิ่มเงินดาวน์เอง ============================ */
 
-/** ดาวน์ได้สูงสุด = 50% ของราคาเครื่อง (มากกว่านี้ซื้อสดคุ้มกว่า · ยอดจัดไม่เล็กจนไม่คุ้มทำสัญญา) */
+/** ดาวน์ได้สูงสุด = 50% ของราคาเครื่อง (มากกว่านี้ซื้อสดคุ้มกว่า) */
 export const MAX_DOWN_RATIO = 0.5;
 
 /** เพิ่มดาวน์ได้น้อยกว่านี้ = ไม่โชว์ปุ่ม (เพดานชิดดาวน์ของแผน เช่น ดาวน์ 16,900 · เพดาน 16,950) */
 export const MIN_DOWN_ROOM = 500;
-
-const ceil10 = (v: number) => Math.ceil(v / 10 - 1e-9) * 10;
 
 /**
  * ช่วงดาวน์ที่ลูกค้าเลือกได้ — ต่ำสุด = ดาวน์ของแผน · สูงสุด = 50% ของราคา (ปัดลงหลักสิบ)
@@ -90,19 +88,25 @@ export function quickDowns(range: { min: number; max: number }): number[] {
 }
 
 /**
- * ค่างวดใหม่เมื่อดาวน์เพิ่ม — ลด "ยอดจัด + ดอก" ตามสัดส่วนยอดจัดที่ลดลง (อัตราเดียวกับแผนเดิมของงวดนั้น)
+ * ค่างวดใหม่เมื่อดาวน์เพิ่ม — **ดอกเท่าเดิม ห้ามลด**: เงินที่ดาวน์เพิ่มไปหักออกจากค่างวด เฉลี่ยเท่ากันทุกงวด
  *
- *   ค่างวดใหม่ = ค่างวดเดิม × (ราคา − ดาวน์ใหม่) ÷ (ราคา − ดาวน์เดิม)   → ปัดขึ้นหลักสิบ
+ *   ค่างวดใหม่ = ค่างวดเดิม − (ดาวน์ที่เพิ่ม ÷ จำนวนงวด)   → ปัดขึ้นเป็นบาทเต็ม
  *
- * ดาวน์เท่าเดิม = ค่างวดเดิมเป๊ะ (ไม่ปัด) · ผลไม่มีทางมากกว่าค่างวดเดิม
+ * ยอดผ่อนจบ (ดาวน์ + ค่างวด × งวด) จึง "ไม่น้อยกว่าเดิม" เสมอ — หารลงตัว = เท่าเดิมเป๊ะ ·
+ * หารไม่ลงตัว = เกินเดิมไม่ถึงงวดละ 1 บาท (ปัดขึ้น ไม่ปัดลง เพื่อไม่ให้ดอกหายแม้แต่บาทเดียว)
+ * ดาวน์เท่าเดิม/น้อยกว่า = ค่างวดเดิมเป๊ะ · คิดด้วยจำนวนเต็ม (ไม่มี floating point เพี้ยน)
  */
-export function monthlyForDown(monthly: number, price: number, baseDown: number, down: number): number {
-  if (down <= baseDown) return monthly;
-  const financedBase = price - baseDown;
-  const financedNew = price - down;
-  if (!(financedBase > 0) || !(financedNew > 0)) return monthly;
-  return Math.min(monthly, ceil10((monthly * financedNew) / financedBase));
+export function monthlyForDown(monthly: number, months: number, baseDown: number, down: number): number {
+  const extra = Math.round(down) - Math.round(baseDown);
+  if (!(extra > 0) || !(months >= 1) || !Number.isFinite(monthly)) return monthly;
+  const next = Number.isInteger(monthly)
+    ? monthly - Math.floor(extra / months)          // = ceil(monthly − extra/months) แบบจำนวนเต็มล้วน
+    : Math.ceil(monthly - extra / months);
+  return Math.max(1, Math.min(monthly, next));
 }
+
+/** ยอดผ่อนจบทั้งสัญญา = ดาวน์ + ค่างวด × จำนวนงวด */
+export const contractTotal = (down: number, monthly: number, months: number) => down + monthly * months;
 
 export function buildInstLookup(plans: InstallmentPlan[], serials: InstallmentSerial[]) {
   const planMap = new Map<string, InstallmentPlan>();

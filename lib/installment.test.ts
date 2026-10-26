@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { minValidMonthly, buildInstLookup, type InstallmentSerial, cheapestValidTerm, downRange, effectiveDown, monthlyForDown, stepDown, quickDowns } from "./installment";
+import { minValidMonthly, buildInstLookup, type InstallmentSerial, cheapestValidTerm, downRange, effectiveDown, monthlyForDown, contractTotal, stepDown, quickDowns } from "./installment";
 
 describe("minValidMonthly — กันข้อมูลกรอกสลับช่อง", () => {
   it("terms ปกติ → คืนค่างวดต่ำสุด", () => {
@@ -82,37 +82,58 @@ describe("ลูกค้าเพิ่มเงินดาวน์เอง"
   // เคสจริงจากหน้าเครื่อง: iPhone 15 128GB ราคา 23,900 · ดาวน์ 3,990 · 10/12/18 ด.
   const P = 23900, D = 3990;
 
-  it("ตัวอย่างจากหน้าเว็บ: ดาวน์ 5,000 → ค่างวดลดตามสัดส่วนยอดจัด (ปัดขึ้นหลักสิบ)", () => {
-    expect(monthlyForDown(2890, P, D, 5000)).toBe(2750);   // 2890 × 18900/19910 = 2743.4
-    expect(monthlyForDown(2590, P, D, 5000)).toBe(2460);   // 2458.6
-    expect(monthlyForDown(1890, P, D, 5000)).toBe(1800);   // 1794.1
+  it("ตัวอย่างจากหน้าเว็บ: ดาวน์ 5,000 (เพิ่ม 1,010) → หักเฉลี่ยเข้างวด ปัดขึ้นบาทเต็ม", () => {
+    expect(monthlyForDown(2890, 10, D, 5000)).toBe(2789);   // 2890 − 101
+    expect(monthlyForDown(2590, 12, D, 5000)).toBe(2506);   // 2590 − 84.17 = 2505.83 → 2506
+    expect(monthlyForDown(1890, 18, D, 5000)).toBe(1834);   // 1890 − 56.11 = 1833.89 → 1834
   });
 
-  it("ยอดรวมที่ลูกค้าจ่ายลดลง (ดอกลดตามยอดจัด) ไม่ใช่แค่ย้ายเงินจากงวดมาดาวน์", () => {
-    const before = D + 2890 * 10;
-    const after = 5000 + monthlyForDown(2890, P, D, 5000) * 10;
-    expect(before).toBe(32890);
-    expect(after).toBe(32500);
+  it("ดอกเท่าเดิม: ผ่อนจบเท่าเดิมเป๊ะเมื่อหารลงตัว", () => {
+    expect(contractTotal(D, 2890, 10)).toBe(32890);
+    expect(contractTotal(5000, monthlyForDown(2890, 10, D, 5000), 10)).toBe(32890);
+    expect(contractTotal(5190, monthlyForDown(2590, 12, D, 5190), 12)).toBe(contractTotal(D, 2590, 12));   // เพิ่ม 1,200 ÷ 12 = 100 ลงตัว
+    // ไม่ลงตัว (เพิ่ม 1,000 ÷ 12) → เกินเดิม 4 บาท (ปัดขึ้น) ไม่ใช่ขาด
+    expect(contractTotal(4990, monthlyForDown(2590, 12, D, 4990), 12) - contractTotal(D, 2590, 12)).toBe(4);
   });
 
-  it("ดาวน์เท่าเดิม/น้อยกว่า → ค่างวดเดิมเป๊ะ (ไม่ปัดค่าที่ร้านตั้งเลขไม่ลงหลักสิบ)", () => {
-    expect(monthlyForDown(2895, P, D, D)).toBe(2895);
-    expect(monthlyForDown(2895, P, D, 1000)).toBe(2895);
+  it("ห้ามลดดอกเด็ดขาด: ทุกงวด × ทุกยอดดาวน์ ผ่อนจบไม่น้อยกว่าเดิม และเกินไม่ถึงงวดละ 1 บาท", () => {
+    const plans = [[2890, 10], [2590, 12], [1890, 18], [1690, 24], [2895, 7], [3333, 9]];
+    for (const [monthly, months] of plans) {
+      const before = contractTotal(D, monthly, months);
+      for (let d = D; d <= 11950; d += 37) {
+        const m = monthlyForDown(monthly, months, D, d);
+        const after = contractTotal(d, m, months);
+        expect(after, `${monthly}x${months} ดาวน์ ${d}`).toBeGreaterThanOrEqual(before);
+        expect(after - before, `${monthly}x${months} ดาวน์ ${d}`).toBeLessThan(months);
+        expect(Number.isInteger(m)).toBe(true);
+      }
+    }
   });
 
-  it("ปัดขึ้นแล้วไม่มีทางแพงกว่าค่างวดเดิม", () => {
-    expect(monthlyForDown(2895, P, D, D + 1)).toBe(2895);   // 2894.85 → ceil10 = 2900 → บีบเหลือ 2895
+  it("ดาวน์เท่าเดิม/น้อยกว่า → ค่างวดเดิมเป๊ะ", () => {
+    expect(monthlyForDown(2895, 10, D, D)).toBe(2895);
+    expect(monthlyForDown(2895, 10, D, 1000)).toBe(2895);
   });
 
-  it("ลงตัวพอดีหลักสิบ ไม่ปัดเกิน (กัน floating point)", () => {
-    // 3000 × 9000/10000 = 2700 พอดี
-    expect(monthlyForDown(3000, 12000, 2000, 3000)).toBe(2700);
+  it("เพิ่มดาวน์ไม่กี่บาท (น้อยกว่าจำนวนงวด) → ค่างวดไม่ลด (ไม่ให้ดอกหาย)", () => {
+    expect(monthlyForDown(2890, 10, D, D + 9)).toBe(2890);
+    expect(monthlyForDown(2890, 10, D, D + 10)).toBe(2889);
+  });
+
+  it("ค่างวดทศนิยมจากระบบ (เช่น 2890.5) ก็ไม่ลดดอก", () => {
+    const m = monthlyForDown(2890.5, 10, D, 5000);
+    expect(5000 + m * 10).toBeGreaterThanOrEqual(D + 2890.5 * 10);
+  });
+
+  it("ข้อมูลเพี้ยน (งวด 0) → ค่างวดเดิม · ค่างวดไม่ต่ำกว่า 1 บาท", () => {
+    expect(monthlyForDown(2890, 0, D, 5000)).toBe(2890);
+    expect(monthlyForDown(100, 2, 0, 1000)).toBe(1);
   });
 
   it("ยิ่งดาวน์มาก ค่างวดยิ่งลด (monotonic)", () => {
     let prev = Infinity;
     for (let d = D; d <= 11950; d += 250) {
-      const m = monthlyForDown(2890, P, D, d);
+      const m = monthlyForDown(2890, 10, D, d);
       expect(m).toBeLessThanOrEqual(prev);
       prev = m;
     }

@@ -2,7 +2,7 @@
 import { useId, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Sparkles, CreditCard, FileText, CheckCircle2, IdCard, ArrowRight, Plus, Minus, ChevronUp, Pencil, TrendingDown } from "lucide-react";
-import { downRange, effectiveDown, monthlyForDown, quickDowns, stepDown } from "@/lib/installment";
+import { contractTotal, downRange, effectiveDown, monthlyForDown, quickDowns, stepDown } from "@/lib/installment";
 
 /** down = ดาวน์เฉพาะงวดนี้ (ร้านตั้งจาก Stock FIX-200) · null/ไม่มี = ใช้ดาวน์ของแผน */
 export interface InstallmentTerm { months: number; monthly: number; down?: number | null; }
@@ -40,7 +40,8 @@ const fmt = (n: number) => n.toLocaleString("th-TH");
  * (ลิงก์ LINE แนบรูปบัตรไม่ได้ จึงต้องอัปโหลดเข้าระบบร้านก่อน)
  *
  * เพิ่มดาวน์เอง: ลูกค้ากรอกยอดดาวน์ที่ต้องการ (ดาวน์ของแผน – 50% ของราคา) → ค่างวดทุกช่วงคำนวณใหม่ทันที
- * ด้วยอัตราเดิมของแผน (lib/installment.ts#monthlyForDown) · ต้องมีราคาเครื่อง (price) ถึงจะเปิดให้เพิ่มดาวน์
+ * ดอกเท่าเดิม ห้ามลด: ส่วนที่ดาวน์เพิ่มหักเฉลี่ยออกจากค่างวด ยอดผ่อนจบไม่น้อยกว่าเดิม (lib/installment.ts#monthlyForDown)
+ * · ต้องมีราคาเครื่อง (price) ถึงจะเปิดให้เพิ่มดาวน์ (ใช้หาเพดาน 50%)
  */
 export default function InstallmentBox({ info, price, onConfirm }: {
   info: InstallmentInfo;
@@ -75,7 +76,7 @@ export default function InstallmentBox({ info, price, onConfirm }: {
     const base = baseDownFor(t);
     if (!t || base == null || price == null) return { down: base, monthly: t?.monthly ?? null };
     const d = effectiveDown(desired, rangeFor(t), base);
-    return { down: d, monthly: monthlyForDown(t.monthly, price, base, d) };
+    return { down: d, monthly: monthlyForDown(t.monthly, t.months, base, d) };
   };
 
   const baseDown = baseDownFor(term);
@@ -85,8 +86,8 @@ export default function InstallmentBox({ info, price, onConfirm }: {
   const monthly = quote.monthly;
   const extra = baseDown != null && down != null ? down - baseDown : 0;
   const perMonthSaved = term && monthly != null ? term.monthly - monthly : 0;
-  const totalSaved = term && baseDown != null && down != null && monthly != null
-    ? (baseDown + term.monthly * term.months) - (down + monthly * term.months) : 0;
+  // ยอดผ่อนจบ (ดาวน์ + ค่างวด × งวด) — ดอกเท่าเดิม จึงเท่าแผนร้าน (หารไม่ลงตัวเกินไม่กี่บาทจากการปัดขึ้น)
+  const total = term && down != null && monthly != null ? contractTotal(down, monthly, term.months) : null;
 
   const planLabel = (p: InstallmentPlanOption, i: number) =>
     p.label?.trim() || (p.down != null ? `ดาวน์ ${baht(p.down)}` : `แผน ${i + 1}`);
@@ -285,8 +286,8 @@ export default function InstallmentBox({ info, price, onConfirm }: {
                 })()}
 
                 <p id={`${inputId}-hint`} aria-live="polite" className={`mt-3 text-center text-xs ${draftHint ? "font-semibold text-price" : "text-text-muted"}`}>
-                  {draftHint ?? (totalSaved > 0
-                    ? <>จ่ายรวมทั้งสัญญาน้อยลง <span className="font-bold text-success-text">{baht(totalSaved)}</span> เมื่อเทียบกับดาวน์ปกติ</>
+                  {draftHint ?? (extra > 0 && total != null
+                    ? <>ดาวน์เพิ่ม <span className="font-bold text-text-heading">{baht(extra)}</span> หักเฉลี่ยออกจากค่างวด · ดอกเท่าเดิม · ผ่อนจบรวม <span className="font-bold text-text-heading">{baht(total)}</span></>
                     : "ยิ่งดาวน์มาก ค่างวดยิ่งเบา — คำนวณให้ทันทีทุกจำนวนงวด")}
                 </p>
               </div>
