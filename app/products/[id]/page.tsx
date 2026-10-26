@@ -527,7 +527,7 @@ function ProductDetailContent() {
 
             {/* กล่องผ่อน + ดึงเข้า LINE (แสดงเมื่อแอดมินตั้งตารางผ่อนไว้) */}
             {installment && (
-              <InstallmentBox info={installment} onConfirm={(sel) => setInstallmentReq(installmentSnapshot(sel))} />
+              <InstallmentBox info={installment} price={effPrice} onConfirm={(sel) => setInstallmentReq(installmentSnapshot(sel))} />
             )}
 
             <div className="mt-6 space-y-3">

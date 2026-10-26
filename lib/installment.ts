@@ -42,6 +42,68 @@ export function cheapestValidTerm<T extends { months: number; monthly: number }>
   return best;
 }
 
+/* ============================ ลูกค้าเพิ่มเงินดาวน์เอง ============================ */
+
+/** ดาวน์ได้สูงสุด = 50% ของราคาเครื่อง (มากกว่านี้ซื้อสดคุ้มกว่า · ยอดจัดไม่เล็กจนไม่คุ้มทำสัญญา) */
+export const MAX_DOWN_RATIO = 0.5;
+
+/** เพิ่มดาวน์ได้น้อยกว่านี้ = ไม่โชว์ปุ่ม (เพดานชิดดาวน์ของแผน เช่น ดาวน์ 16,900 · เพดาน 16,950) */
+export const MIN_DOWN_ROOM = 500;
+
+const ceil10 = (v: number) => Math.ceil(v / 10 - 1e-9) * 10;
+
+/**
+ * ช่วงดาวน์ที่ลูกค้าเลือกได้ — ต่ำสุด = ดาวน์ของแผน · สูงสุด = 50% ของราคา (ปัดลงหลักสิบ)
+ * null = เพิ่มดาวน์ไม่ได้ (ไม่มีราคา/ดาวน์ · ดาวน์ของแผนชิด/เกินเพดานอยู่แล้ว · ยอดจัดไม่เหลือ)
+ */
+export function downRange(price: number | null | undefined, baseDown: number | null | undefined): { min: number; max: number } | null {
+  if (price == null || baseDown == null || !Number.isFinite(price) || !Number.isFinite(baseDown)) return null;
+  if (price <= 0 || baseDown < 0 || baseDown >= price) return null;
+  const max = Math.floor((price * MAX_DOWN_RATIO) / 10) * 10;
+  return max - baseDown >= MIN_DOWN_ROOM ? { min: baseDown, max } : null;
+}
+
+/** ดาวน์ที่ใช้จริง: ไม่ระบุ = ดาวน์ของแผน · บีบให้อยู่ในช่วงเสมอ (ปัดเป็นบาทเต็ม) */
+export function effectiveDown(desired: number | null | undefined, range: { min: number; max: number } | null, baseDown: number): number {
+  if (!range || desired == null || !Number.isFinite(desired)) return baseDown;
+  return Math.min(range.max, Math.max(range.min, Math.round(desired)));
+}
+
+/** ปุ่ม − / + : ขยับทีละ 500 แล้ว "เข้าเลขกลม" (3,990 → 4,500 → 5,000) · บีบในช่วงเสมอ */
+export function stepDown(down: number, dir: 1 | -1, range: { min: number; max: number }): number {
+  const STEP = 500;
+  const next = dir > 0 ? Math.ceil((down + STEP / 2) / STEP) * STEP : Math.floor((down - STEP / 2) / STEP) * STEP;
+  return Math.min(range.max, Math.max(range.min, next));
+}
+
+/**
+ * ยอดดาวน์ลัด (ปุ่มเลือกเร็ว) — ดาวน์ปกติ · 2 ค่ากลมระหว่างทาง · สูงสุด
+ * ช่วงแคบจนค่ากลางซ้ำ/ชนขอบ → ตัดทิ้ง (เหลือ 2–4 ปุ่ม จัดกริดเท่ากันได้เสมอ)
+ */
+export function quickDowns(range: { min: number; max: number }): number[] {
+  const span = range.max - range.min;
+  const unit = span >= 6000 ? 1000 : 500;
+  const mids = [1, 2].map((k) => Math.round((range.min + (span * k) / 3) / unit) * unit);
+  // ค่ากลางต้องห่างขอบอย่างน้อยครึ่งหน่วย (กันปุ่ม 4,990 กับ 5,000 ติดกัน)
+  const gap = unit / 2;
+  return Array.from(new Set([range.min, ...mids.filter((v) => v >= range.min + gap && v <= range.max - gap), range.max]));
+}
+
+/**
+ * ค่างวดใหม่เมื่อดาวน์เพิ่ม — ลด "ยอดจัด + ดอก" ตามสัดส่วนยอดจัดที่ลดลง (อัตราเดียวกับแผนเดิมของงวดนั้น)
+ *
+ *   ค่างวดใหม่ = ค่างวดเดิม × (ราคา − ดาวน์ใหม่) ÷ (ราคา − ดาวน์เดิม)   → ปัดขึ้นหลักสิบ
+ *
+ * ดาวน์เท่าเดิม = ค่างวดเดิมเป๊ะ (ไม่ปัด) · ผลไม่มีทางมากกว่าค่างวดเดิม
+ */
+export function monthlyForDown(monthly: number, price: number, baseDown: number, down: number): number {
+  if (down <= baseDown) return monthly;
+  const financedBase = price - baseDown;
+  const financedNew = price - down;
+  if (!(financedBase > 0) || !(financedNew > 0)) return monthly;
+  return Math.min(monthly, ceil10((monthly * financedNew) / financedBase));
+}
+
 export function buildInstLookup(plans: InstallmentPlan[], serials: InstallmentSerial[]) {
   const planMap = new Map<string, InstallmentPlan>();
   plans.forEach((p) => planMap.set(`${p.productId}|${p.storage || ""}`, p));
