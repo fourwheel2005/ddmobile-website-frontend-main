@@ -1,24 +1,92 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { resolveHeroPhoneView } from "./HeroPhone";
+import {
+  DUO_FRAMES, VIEW_FRAME, frameAfterDrag, frameSrc, loadOrder, nearestLoaded, nearestView, pickFrameSize, settleView, stepView,
+} from "./HeroPhone";
 
-describe("resolveHeroPhoneView", () => {
-  it("switches to the front view after a deliberate left swipe", () => {
-    expect(resolveHeroPhoneView("back", -42, 0)).toBe("front");
+describe("ท่าของเครื่อง (ด้านหลัง · พับ · กาง)", () => {
+  it("เฟรมหลัก: หลัง = 0 · พับ = 53 · กาง = เฟรมสุดท้าย", () => {
+    expect(VIEW_FRAME).toEqual({ back: 0, folded: 53, open: DUO_FRAMES - 1 });
   });
 
-  it("switches to the back view after a deliberate right swipe", () => {
-    expect(resolveHeroPhoneView("front", 42, 0)).toBe("back");
+  it("หาท่าที่ใกล้ที่สุด", () => {
+    expect(nearestView(0)).toBe("back");
+    expect(nearestView(26)).toBe("back");
+    expect(nearestView(27)).toBe("folded");
+    expect(nearestView(70)).toBe("folded");
+    expect(nearestView(72)).toBe("open");
+    expect(nearestView(89)).toBe("open");
   });
 
-  it("uses velocity for a fast short swipe", () => {
-    expect(resolveHeroPhoneView("back", -10, -420)).toBe("front");
-    expect(resolveHeroPhoneView("front", 10, 420)).toBe("back");
+  it("ปุ่มลูกศร: เดินทีละท่า สุดทางแล้วอยู่ที่เดิม", () => {
+    expect(stepView("back", 1)).toBe("folded");
+    expect(stepView("folded", 1)).toBe("open");
+    expect(stepView("open", 1)).toBe("open");
+    expect(stepView("open", -1)).toBe("folded");
+    expect(stepView("back", -1)).toBe("back");
+  });
+});
+
+describe("ลากหมุน", () => {
+  it("ลากซ้าย = เดินหน้า (หมุนเข้าจอ/กาง) · ลากขวา = ถอยไปด้านหลัง", () => {
+    expect(frameAfterDrag(0, -230, 460)).toBeCloseTo(32);
+    expect(frameAfterDrag(89, 230, 460)).toBeCloseTo(57);
   });
 
-  it("keeps the current view for an accidental short drag", () => {
-    expect(resolveHeroPhoneView("front", 41, 419)).toBe("front");
-    expect(resolveHeroPhoneView("back", -41, -419)).toBe("back");
+  it("ไม่ลากเกินต้น/ท้ายเรื่อง และไม่พังเมื่อยังไม่รู้ความกว้างเวที", () => {
+    expect(frameAfterDrag(10, 5000, 460)).toBe(0);
+    expect(frameAfterDrag(80, -5000, 460)).toBe(DUO_FRAMES - 1);
+    expect(frameAfterDrag(40, -100, 0)).toBe(40);
+  });
+
+  it("ปล่อยช้า ๆ → เข้าท่าที่ใกล้สุด", () => {
+    expect(settleView(20, 0)).toBe("back");
+    expect(settleView(48, 100)).toBe("folded");
+    expect(settleView(80, -100)).toBe("open");
+  });
+
+  it("สะบัดเร็ว → ไปท่าถัดไปตามทิศ (จากท่าที่เพิ่งผ่าน)", () => {
+    expect(settleView(5, -420)).toBe("folded");    // เพิ่งออกจากด้านหลัง สะบัดซ้าย → พับ
+    expect(settleView(58, -500)).toBe("open");
+    expect(settleView(84, 500)).toBe("folded");    // จากกาง สะบัดขวา → พับ
+    expect(settleView(48, 500)).toBe("back");
+  });
+
+  it("สะบัดสวนทางกับที่เพิ่งลากมา → กลับเข้าท่าที่ใกล้สุด ไม่ข้ามท่า", () => {
+    expect(settleView(50, -500)).toBe("folded");   // ยังไม่ถึงพับ สะบัดซ้าย → แค่เข้าพับ
+    expect(settleView(3, 500)).toBe("back");
+  });
+});
+
+describe("โหลดเฟรม", () => {
+  it("ท่าหลักโหลดก่อน และครบทุกเฟรมไม่ซ้ำ", () => {
+    const o = loadOrder();
+    expect(o.slice(0, 3)).toEqual([89, 0, 53]);
+    expect(new Set(o).size).toBe(DUO_FRAMES);
+    expect(Math.min(...o)).toBe(0);
+    expect(Math.max(...o)).toBe(DUO_FRAMES - 1);
+  });
+
+  it("เฟรมยังโหลดไม่ถึง → ใช้เฟรมที่โหลดแล้วซึ่งใกล้สุด", () => {
+    const loaded = Array(DUO_FRAMES).fill(false);
+    expect(nearestLoaded(40, loaded)).toBeNull();
+    loaded[32] = true; loaded[53] = true;
+    expect(nearestLoaded(40, loaded)).toBe(32);
+    expect(nearestLoaded(47.6, loaded)).toBe(53);
+    loaded[40] = true;
+    expect(nearestLoaded(40.2, loaded)).toBe(40);
+  });
+
+  it("เลือกชุดภาพตามพิกเซลจริงบนจอ", () => {
+    expect(pickFrameSize(358 * 2, false)).toBe(800);    // มือถือ 390px (DPR ถูกจำกัดที่ 2)
+    expect(pickFrameSize(500 * 2, false)).toBe(1100);   // จอคอม retina
+    expect(pickFrameSize(500, false)).toBe(640);        // จอคอม DPR 1
+    expect(pickFrameSize(1000, true)).toBe(640);        // ประหยัดเน็ต
+  });
+
+  it("path ของเฟรม", () => {
+    expect(frameSrc(7, 1100)).toBe("/images/hero-duo/1100/f07.webp");
+    expect(frameSrc(89, 640)).toBe("/images/hero-duo/640/f89.webp");
   });
 });
 

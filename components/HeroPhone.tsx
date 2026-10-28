@@ -1,35 +1,56 @@
 "use client";
 
 import {
+  animate,
   motion,
-  useMotionTemplate,
   useMotionValue,
+  useMotionValueEvent,
   useReducedMotion,
   useSpring,
   useTransform,
+  type AnimationPlaybackControls,
   type PanInfo,
-  type TargetAndTransition,
-  type Transition,
 } from "framer-motion";
 import { CreditCard, MoveHorizontal, ShieldCheck, Truck, Zap } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { INTENT_SEEN_EVENT, isIntentSeen } from "@/components/IntentGate";
 
-export type HeroPhoneView = "back" | "front";
+/*
+ * Hero: iPhone Duo (Star White) — ลำดับภาพ 90 เฟรมที่เรนเดอร์จากโมเดล 3D
+ *
+ * ที่มา: "Apple iPhone Duo Fold Star White 2026 (Animated)" โดย AakashMansukhani (Sketchfab, Free Standard license
+ * — ใช้เชิงพาณิชย์ได้ ไม่ต้องให้เครดิต) https://sketchfab.com/3d-models/240492141edd4594ae13082a7fcbbb29
+ * เว็บเสิร์ฟแค่ภาพเรนเดอร์ (public/images/hero-duo) ไม่มีไฟล์โมเดลบนเว็บ
+ *
+ * เฟรม 0–53 = เครื่องพับ หมุนจากด้านหลัง (ชุดกล้อง) ผ่านขอบบานพับ มาที่จอนอก
+ * เฟรม 53–89 = กางออกเป็นจอใหญ่ หมุนเข้าหน้าตรง (เฟรมสุดท้ายสมมาตรพอดี)
+ * กล้องหมุนรอบจุดกึ่งกลางจริงของตัวเครื่อง (วัดจากภาพ) + จัดกลางแนวนอนทุกเฟรม → เครื่องอยู่กลางเวทีตลอด
+ */
+
+export type HeroDuoView = "back" | "folded" | "open";
 /** pending = ก่อนตัดสินใจ (SSR/ก่อน hydrate) · intro = motion เปิดตัว · idle = โต้ตอบได้ปกติ */
 export type HeroIntroPhase = "pending" | "intro" | "idle";
 
-const SWIPE_OFFSET_PX = 42;
-const SWIPE_VELOCITY_PX = 420;
+export const DUO_FRAMES = 90;
+export const VIEW_FRAME: Record<HeroDuoView, number> = { back: 0, folded: 53, open: DUO_FRAMES - 1 };
+const VIEWS: HeroDuoView[] = ["back", "folded", "open"];
+const VIEW_LABEL: Record<HeroDuoView, string> = { back: "ด้านหลัง", folded: "พับ", open: "กาง" };
+/** ขนาดภาพเฟรม (กว้าง × สูง) — สัดส่วนเดียวกันทุกชุด */
+const FRAME_ASPECT = 1100 / 932;
+
+const FLICK_VELOCITY_PX = 420;
+/** ลากครบความกว้างเวที = เดินหน้า/ถอยหลังกี่เฟรม (เกินครึ่งเรื่องนิดหน่อย — ลากสองครั้งจากหลังถึงกาง) */
+const FRAMES_PER_STAGE_WIDTH = 64;
 
 /** ความยาว motion เปิดตัวทั้งหมด (วินาที) */
 export const HERO_INTRO_SECONDS = 5.5;
-/** ช่วงที่เครื่องเข้าเวทีและจัดวาง (ที่เหลือคือป้าย/ปุ่มทยอยขึ้นแล้วนิ่ง) */
+/** ช่วงที่เครื่องหมุน+กาง (ที่เหลือคือป้าย/ปุ่มทยอยขึ้นแล้วนิ่ง) */
 const PHONES_SECONDS = 3.6;
-/** ป้ายข้อดีเริ่มขึ้น / ปุ่มเลือกมุมขึ้น (วินาทีจากเริ่ม intro) */
 const CHIPS_AT_SECONDS = PHONES_SECONDS;
 const CONTROLS_AT_SECONDS = 4.4;
+/** รอโหลดเฟรมได้นานสุดเท่านี้ ไม่ทันก็ข้าม intro (ไม่ให้ลูกค้ารอ) */
+const INTRO_LOAD_TIMEOUT_MS = 3000;
 export const HERO_INTRO_STORAGE_KEY = "dd-hero-intro-v1";
 
 let introClaimedThisDocument = false;
@@ -50,82 +71,169 @@ export function claimHeroIntro(storage: Pick<Storage, "getItem" | "setItem"> | n
   return true;
 }
 
-export function resolveHeroPhoneView(
-  currentView: HeroPhoneView,
-  offsetX: number,
-  velocityX: number,
-): HeroPhoneView {
-  if (offsetX <= -SWIPE_OFFSET_PX || velocityX <= -SWIPE_VELOCITY_PX) return "front";
-  if (offsetX >= SWIPE_OFFSET_PX || velocityX >= SWIPE_VELOCITY_PX) return "back";
-  return currentView;
+// ---------- ตรรกะเฟรม (pure — ทดสอบได้) ----------
+
+const clampFrame = (f: number) => Math.min(DUO_FRAMES - 1, Math.max(0, f));
+
+/** ท่าที่ใกล้ที่สุดกับเฟรมนี้ */
+export function nearestView(frame: number): HeroDuoView {
+  return VIEWS.reduce((best, v) => (Math.abs(VIEW_FRAME[v] - frame) < Math.abs(VIEW_FRAME[best] - frame) ? v : best), VIEWS[0]);
 }
 
-// ---------- ท่าทางของเครื่อง (ค่าเดียวกับเวอร์ชันเดิม — หลัง intro จบหน้าตาเหมือนเดิม) ----------
+/** ท่าถัดไป/ก่อนหน้า (ปุ่มลูกศร) — สุดทางแล้วอยู่ที่เดิม */
+export function stepView(view: HeroDuoView, dir: 1 | -1): HeroDuoView {
+  const i = VIEWS.indexOf(view) + dir;
+  return VIEWS[Math.min(VIEWS.length - 1, Math.max(0, i))];
+}
 
-const BRIGHT = "brightness(1)";
-const BACK_ACTIVE = { x: "-79%", y: "-56%", scale: 1.02, rotateY: -7, rotateZ: -1, opacity: 1, zIndex: 2, filter: BRIGHT };
-const BACK_REST = { x: "-92%", y: "-54%", scale: 0.89, rotateY: 7, rotateZ: -2.5, opacity: 0.76, zIndex: 1, filter: BRIGHT };
-const FRONT_ACTIVE = { x: "-21%", y: "-56%", scale: 1.02, rotateY: 7, rotateZ: 1, opacity: 1, zIndex: 2, filter: BRIGHT };
-const FRONT_REST = { x: "-8%", y: "-54%", scale: 0.89, rotateY: -7, rotateZ: 2.5, opacity: 0.76, zIndex: 1, filter: BRIGHT };
+/** ลากซ้าย = เดินหน้า (หมุนเข้าหาจอ แล้วกาง) · ลากขวา = ถอยกลับไปด้านหลัง */
+export function frameAfterDrag(startFrame: number, offsetX: number, stageWidth: number): number {
+  if (!(stageWidth > 0)) return clampFrame(startFrame);
+  return clampFrame(startFrame - (offsetX / stageWidth) * FRAMES_PER_STAGE_WIDTH);
+}
 
-const EASE_OUT: [number, number, number, number] = [0.16, 1, 0.3, 1];
+/** ปล่อยนิ้ว → เข้าท่าที่ใกล้สุด · สะบัดเร็ว = ไปท่าถัดไปตามทิศที่สะบัด (จากท่าที่ใกล้สุดตอนปล่อย) */
+export function settleView(frame: number, velocityX: number): HeroDuoView {
+  const near = nearestView(frame);
+  if (velocityX <= -FLICK_VELOCITY_PX && frame >= VIEW_FRAME[near]) return stepView(near, 1);
+  if (velocityX >= FLICK_VELOCITY_PX && frame <= VIEW_FRAME[near]) return stepView(near, -1);
+  return near;
+}
+
+export type FrameSize = 640 | 800 | 1100;
+
+export function frameSrc(n: number, size: FrameSize): string {
+  return `/images/hero-duo/${size}/f${String(n).padStart(2, "0")}.webp`;
+}
+
+/**
+ * ชุดภาพตามจำนวนพิกเซลจริงบนจอ (กว้างเวที × DPR) — ขยายได้ไม่เกิน ~1.15 เท่าก่อนขยับชุดใหญ่
+ * มือถือทั่วไป (358px × 2 = 716) → 800 · จอคอม (500 × 2) → 1100 · ประหยัดเน็ต → 640 เสมอ
+ */
+export function pickFrameSize(devicePx: number, saveData: boolean): FrameSize {
+  if (saveData || devicePx <= 700) return 640;
+  if (devicePx <= 900) return 800;
+  return 1100;
+}
+
+/** ลำดับโหลด: ท่าหลัก 3 ท่าก่อน แล้วไล่เติมแบบหยาบ→ละเอียด (โหลดไม่ครบก็ยังลากดูได้ทั่วทั้งเรื่อง) */
+export function loadOrder(): number[] {
+  const order: number[] = [VIEW_FRAME.open, VIEW_FRAME.back, VIEW_FRAME.folded];
+  for (const step of [16, 8, 4, 2, 1]) {
+    for (let i = 0; i < DUO_FRAMES; i += step) if (!order.includes(i)) order.push(i);
+  }
+  return order;
+}
+
+/** เฟรมที่โหลดแล้วซึ่งใกล้เป้าหมายที่สุด (ยังไม่มีเลย = null) */
+export function nearestLoaded(target: number, loaded: readonly boolean[]): number | null {
+  const t = Math.round(clampFrame(target));
+  for (let d = 0; d < DUO_FRAMES; d++) {
+    if (loaded[t - d]) return t - d;
+    if (loaded[t + d]) return t + d;
+  }
+  return null;
+}
+
+// ---------- จุดขาย (คำอ้างที่หน้าเว็บประกาศอยู่แล้ว — ห้ามเพิ่มคำอ้างใหม่ที่ไม่มีหลักฐาน) ----------
+
+// 2 แถว (บน/ล่าง) × ซ้าย-ขวา ล้อมมุมเครื่องจากด้านนอก — ไม่ทับตัวเครื่องไม่ว่าจะพับหรือกาง
+const CHIPS: { side: "left" | "right"; icon: ReactNode; label: string }[] = [
+  { side: "left", icon: <ShieldCheck size={13} className="text-info-text" />, label: "เครื่องแท้แกะกล่อง" },
+  { side: "right", icon: <Zap size={13} className="text-yellow-hover" />, label: "อนุมัติไวใน 24 ชม." },
+  { side: "left", icon: <CreditCard size={13} className="text-success-text" />, label: "ไม่ต้องมีบัตร" },
+  { side: "right", icon: <Truck size={13} className="text-yellow-hover" />, label: "ส่งด่วนทั่วไทย" },
+];
 
 /*
  * Storyboard (5.5 วิ)
- * 0.0–1.0  แสงฟุ้งสว่างขึ้น · ด้านหลังลอยขึ้นกลางเวที
- * 1.0–2.4  หมุนช้าโชว์ชุดกล้อง · แสงกวาดผ่านตัวเครื่อง
- * 2.4–3.6  ด้านหลังถอยไปซ้าย · ด้านหน้าสไลด์เข้าพร้อมจอสว่าง
+ * 0.0–0.6  แสงฟุ้งสว่างขึ้น · เครื่องพับ (ด้านหลัง) ลอยขึ้นกลางเวที
+ * 0.3–2.1  หมุนช้าโชว์ชุดกล้อง → ขอบบานพับ → จอนอก
+ * 2.1–3.6  กางออกเป็นจอใหญ่ หมุนเข้าหน้าตรง
  * 3.6–4.4  ป้ายข้อดีทยอยขึ้น สลับซ้าย-ขวา
- * 4.4–5.5  ปุ่มเลือกมุมขึ้น แล้วทุกอย่างนิ่ง → โต้ตอบได้
+ * 4.4–5.5  ปุ่มเลือกท่าขึ้น แล้วทุกอย่างนิ่ง → โต้ตอบได้
  */
-const BACK_INTRO: TargetAndTransition = {
-  x: ["-50%", "-50%", "-52%", BACK_REST.x],
-  y: ["-28%", "-56%", "-57%", BACK_REST.y],
-  scale: [0.92, 1.06, 1.06, BACK_REST.scale],
-  rotateY: [-32, -24, 12, BACK_REST.rotateY],
-  rotateZ: [0, 0, -1, BACK_REST.rotateZ],
-  opacity: [0, 1, 1, BACK_REST.opacity],
-  zIndex: 1,
-  filter: BRIGHT,
-  transition: { duration: PHONES_SECONDS, times: [0, 0.28, 0.67, 1], ease: ["easeOut", "easeInOut", "easeInOut"] },
-};
-// คีย์เฟรมแรกซ้ำ = "รอ" อยู่นอกเวทีจนถึง 2.4 วิ (ไม่พึ่ง delay ที่ framer อาจแสดงท่าเดิมระหว่างรอ)
-const FRONT_INTRO: TargetAndTransition = {
-  x: ["40%", "40%", FRONT_ACTIVE.x],
-  y: ["-54%", "-54%", FRONT_ACTIVE.y],
-  scale: [0.94, 0.94, FRONT_ACTIVE.scale],
-  rotateY: [28, 28, FRONT_ACTIVE.rotateY],
-  rotateZ: [4, 4, FRONT_ACTIVE.rotateZ],
-  opacity: [0, 0, FRONT_ACTIVE.opacity],
-  zIndex: 2,
-  filter: ["brightness(0.35)", "brightness(0.35)", BRIGHT],
-  transition: {
-    duration: PHONES_SECONDS,
-    times: [0, 0.667, 1],
-    ease: ["linear", EASE_OUT],
-    // จอสว่างตามหลังการเคลื่อนเล็กน้อย = ความรู้สึก "เปิดเครื่อง"
-    filter: { duration: PHONES_SECONDS, times: [0, 0.75, 1], ease: ["linear", "easeOut"] },
-  },
-};
-
-/** จุดขายที่หน้าเว็บประกาศอยู่แล้ว (steps/features ใน app/page.tsx) — ห้ามเพิ่มคำอ้างใหม่ที่ไม่มีหลักฐาน */
-const CHIPS: { side: "left" | "right"; className: string; icon: ReactNode; label: string }[] = [
-  { side: "left", className: "left-0 top-[15%]", icon: <ShieldCheck size={13} className="text-info-text" />, label: "เครื่องแท้แกะกล่อง" },
-  { side: "right", className: "right-0 top-[15%]", icon: <Zap size={13} className="text-yellow-hover" />, label: "อนุมัติไวใน 24 ชม." },
-  { side: "left", className: "bottom-[30%] left-0", icon: <CreditCard size={13} className="text-success-text" />, label: "ไม่ต้องมีบัตร" },
-  { side: "right", className: "bottom-[30%] right-0", icon: <Truck size={13} className="text-yellow-hover" />, label: "ส่งด่วนทั่วไทย" },
-];
+const INTRO_KEYS = { frames: [VIEW_FRAME.back, VIEW_FRAME.back, VIEW_FRAME.folded, VIEW_FRAME.open], times: [0, 0.08, 0.58, 1] };
 
 export default function HeroPhone() {
   const reduceMotion = !!useReducedMotion();
   const [phase, setPhase] = useState<HeroIntroPhase>("pending");
   /** ขั้นของ intro: 0 = เครื่อง · 1 = ป้ายขึ้น · 2 = ปุ่มขึ้น (ข้าม intro → idle แสดงทุกอย่างทันที) */
   const [introStage, setIntroStage] = useState(0);
-  const [activeView, setActiveView] = useState<HeroPhoneView>("front");
+  const [view, setView] = useState<HeroDuoView>("open");
   const decided = useRef<boolean | null>(null);
 
-  // ตัดสินหลัง hydrate (SSR เห็น pending เสมอ → ไม่มี hydration mismatch)
-  // ref กัน StrictMode เรียก effect ซ้ำแล้วไปใช้ "สิทธิ์เล่นครั้งแรก" ทิ้ง
+  // ---------- เฟรม: โหลด + วาดบน canvas ----------
+  const frame = useMotionValue<number>(VIEW_FRAME.open);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const images = useRef<(HTMLImageElement | null)[]>(Array(DUO_FRAMES).fill(null));
+  const loaded = useRef<boolean[]>(Array(DUO_FRAMES).fill(false));
+  const [loadedCount, setLoadedCount] = useState(0);
+  const [drawn, setDrawn] = useState(false);
+  const drawnIndex = useRef(-1);
+  const tween = useRef<AnimationPlaybackControls | null>(null);
+
+  const draw = useCallback((force = false) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const idx = nearestLoaded(frame.get(), loaded.current);
+    if (idx == null || (!force && idx === drawnIndex.current)) return;
+    const img = images.current[idx];
+    const ctx = canvas.getContext("2d");
+    if (!img || !ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    drawnIndex.current = idx;
+    setDrawn(true);
+  }, [frame]);
+
+  useMotionValueEvent(frame, "change", () => draw());
+
+  // canvas ตามขนาดเวทีจริง × DPR (สูงสุด 2 — เกินกว่านี้ตาแยกไม่ออก แต่กินแรงเครื่อง)
+  useEffect(() => {
+    const stage = stageRef.current, canvas = canvasRef.current;
+    if (!stage || !canvas) return;
+    const fit = () => {
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const w = Math.round(stage.clientWidth * dpr);
+      const h = Math.round(w / FRAME_ASPECT);
+      if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; draw(true); }
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(stage);
+    return () => ro.disconnect();
+  }, [draw]);
+
+  // โหลดเฟรม (ชุดเล็กเมื่อจอเล็ก/ประหยัดเน็ต) — ท่าหลักก่อน แล้วเติมหยาบ→ละเอียด
+  useEffect(() => {
+    let cancelled = false;
+    const conn = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+    const size = pickFrameSize((stageRef.current?.clientWidth ?? 460) * Math.min(2, window.devicePixelRatio || 1), !!conn?.saveData);
+    const queue = loadOrder();
+    let next = 0;
+    const worker = async () => {
+      while (!cancelled && next < queue.length) {
+        const n = queue[next++];
+        const img = new window.Image();
+        img.decoding = "async";
+        img.src = frameSrc(n, size);
+        try { await img.decode(); } catch { continue; }   // เฟรมไหนพังข้ามไป — ใช้เฟรมใกล้เคียงแทน
+        if (cancelled) return;
+        images.current[n] = img;
+        loaded.current[n] = true;
+        setLoadedCount((c) => c + 1);
+        if (Math.abs(n - frame.get()) < 1.5 || drawnIndex.current < 0) draw(true);
+      }
+    };
+    void Promise.all([worker(), worker(), worker(), worker()]);   // 4 สายพร้อมกัน
+    return () => { cancelled = true; };
+  }, [draw, frame]);
+
+  const allLoaded = loadedCount >= DUO_FRAMES;
+
+  // ---------- ตัดสินว่าจะเล่น intro ไหม (หลัง hydrate — SSR เห็น pending เสมอ) ----------
   useEffect(() => {
     if (reduceMotion) {
       setPhase("idle");
@@ -137,6 +245,7 @@ export default function HeroPhone() {
         try { storage = window.sessionStorage; } catch { /* บาง browser โยน SecurityError ตอนแตะ storage */ }
         decided.current = claimHeroIntro(storage);
       }
+      if (decided.current) { frame.set(VIEW_FRAME.back); setView("back"); }
       setPhase(decided.current ? "intro" : "idle");
     };
     // ป๊อปอัพ "สนใจบริการไหน" (IntentGate) จะเปิดทับครั้งแรกสุด → รอให้ปิดก่อน ไม่งั้น intro เล่นอยู่หลังฉากมืด
@@ -146,22 +255,52 @@ export default function HeroPhone() {
     }
     window.addEventListener(INTENT_SEEN_EVENT, start, { once: true });
     return () => window.removeEventListener(INTENT_SEEN_EVENT, start);
-  }, [reduceMotion]);
+  }, [reduceMotion, frame]);
+
+  // intro: รอเฟรมครบ (ไม่เกิน 3 วิ ไม่ทันก็ข้าม) แล้วเล่นหมุน+กาง · ป้าย/ปุ่มทยอยตามเวลาเดิม
+  const [introRunning, setIntroRunning] = useState(false);
+  useEffect(() => {
+    if (phase !== "intro" || introRunning) return;
+    if (allLoaded) { setIntroRunning(true); return; }
+    const t = window.setTimeout(() => { frame.set(VIEW_FRAME.open); setView("open"); setPhase("idle"); }, INTRO_LOAD_TIMEOUT_MS);
+    return () => window.clearTimeout(t);
+  }, [phase, allLoaded, introRunning, frame]);
 
   useEffect(() => {
-    if (phase !== "intro") return;
+    if (!introRunning || phase !== "intro") return;
     setIntroStage(0);
+    tween.current?.stop();
+    tween.current = animate(frame, INTRO_KEYS.frames, {
+      duration: PHONES_SECONDS,
+      times: INTRO_KEYS.times,
+      ease: ["linear", [0.45, 0, 0.25, 1], [0.6, 0, 0.2, 1]],
+    });
     const timers = [
+      window.setTimeout(() => setView("open"), PHONES_SECONDS * 1000),
       window.setTimeout(() => setIntroStage(1), CHIPS_AT_SECONDS * 1000),
       window.setTimeout(() => setIntroStage(2), CONTROLS_AT_SECONDS * 1000),
       window.setTimeout(() => setPhase("idle"), HERO_INTRO_SECONDS * 1000),
     ];
     return () => timers.forEach((t) => window.clearTimeout(t));
-  }, [phase]);
+  }, [introRunning, phase, frame]);
+
+  /** ไปท่าที่เลือก — ระยะไกลใช้เวลานานขึ้น (หมุนครบเรื่อง ~1.3 วิ) */
+  const goTo = useCallback((v: HeroDuoView) => {
+    setView(v);
+    tween.current?.stop();
+    const target = VIEW_FRAME[v];
+    if (reduceMotion) { frame.set(target); return; }
+    const dist = Math.abs(target - frame.get()) / (DUO_FRAMES - 1);
+    tween.current = animate(frame, target, { duration: 0.35 + dist * 0.95, ease: [0.45, 0, 0.2, 1] });
+  }, [frame, reduceMotion]);
 
   // แตะ/โฟกัส/กดคีย์ระหว่าง intro → ข้ามไปสถานะโต้ตอบได้ทันที (ไม่บังคับดูจนจบ)
   const skipIntro = () => {
-    if (phase === "intro") setPhase("idle");
+    if (phase !== "intro") return;
+    tween.current?.stop();
+    frame.set(VIEW_FRAME.open);
+    setView("open");
+    setPhase("idle");
   };
 
   const intro = phase === "intro";
@@ -169,16 +308,18 @@ export default function HeroPhone() {
   const chipsShown = phase === "idle" || (intro && introStage >= 1);
   const controlsShown = phase === "idle" || (intro && introStage >= 2);
 
-  // ----- เอียงตามเมาส์ + แสงสะท้อน (เหมือนเดิม) -----
+  // ---------- เอียงตามเมาส์ (เบา ๆ ให้มีมิติ) ----------
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
   const springX = useSpring(mouseX, { stiffness: 120, damping: 18 });
   const springY = useSpring(mouseY, { stiffness: 120, damping: 18 });
-  const rotateY = useTransform(springX, [-0.5, 0.5], [7, -7]);
-  const rotateX = useTransform(springY, [-0.5, 0.5], [-5, 5]);
-  const glareX = useTransform(springX, [-0.5, 0.5], [32, 68]);
-  const glareY = useTransform(springY, [-0.5, 0.5], [35, 65]);
-  const glareBackground = useMotionTemplate`radial-gradient(circle at ${glareX}% ${glareY}%, rgba(255,255,255,0.38), transparent 52%)`;
+  const rotateY = useTransform(springX, [-0.5, 0.5], [5, -5]);
+  const rotateX = useTransform(springY, [-0.5, 0.5], [-4, 4]);
+
+  // เงาใต้เครื่อง: กว้างตามท่า (พับแคบ · กางกว้าง) และอยู่ใต้ขอบล่างจริงของเครื่องในแต่ละเฟรม
+  // (ขอบล่างวัดจากภาพเรนเดอร์ — ช่วงกางฝั่งที่หมุนเข้าหากล้องจะยื่นต่ำลง)
+  const shadowWidth = useTransform(frame, [0, VIEW_FRAME.folded, 70, VIEW_FRAME.open], ["38%", "38%", "60%", "78%"]);
+  const shadowTop = useTransform(frame, [0, 20, 40, 53, 62, 70, 78, 86, 89], ["86.5%", "90%", "89.5%", "86.8%", "88.2%", "96.5%", "92.4%", "84.4%", "83.5%"]);
 
   const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
     if (!animated) return;
@@ -191,31 +332,33 @@ export default function HeroPhone() {
     mouseY.set(0);
   };
 
-  const handleDragEnd = (_event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    setActiveView((view) => resolveHeroPhoneView(view, info.offset.x, info.velocity.x));
+  // ---------- ลากหมุน (แนวนอน · แนวตั้งยังเลื่อนหน้าได้) ----------
+  const dragStart = useRef(0);
+  const handlePanStart = () => {
+    if (phase !== "idle") return;
+    tween.current?.stop();
+    dragStart.current = frame.get();
+  };
+  const handlePan = (_e: PointerEvent, info: PanInfo) => {
+    if (phase !== "idle") return;
+    frame.set(frameAfterDrag(dragStart.current, info.offset.x, stageRef.current?.clientWidth ?? 0));
+  };
+  const handlePanEnd = (_e: PointerEvent, info: PanInfo) => {
+    if (phase !== "idle") return;
+    goTo(settleView(frame.get(), info.velocity.x));
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "ArrowLeft" || event.key === "Home") {
-      event.preventDefault();
-      setActiveView("back");
-    }
-    if (event.key === "ArrowRight" || event.key === "End") {
-      event.preventDefault();
-      setActiveView("front");
-    }
+    if (event.key === "ArrowLeft") { event.preventDefault(); goTo(stepView(view, -1)); }
+    if (event.key === "ArrowRight") { event.preventDefault(); goTo(stepView(view, 1)); }
+    if (event.key === "Home") { event.preventDefault(); goTo("back"); }
+    if (event.key === "End") { event.preventDefault(); goTo("open"); }
   };
-
-  const poseTransition: Transition = reduceMotion
-    ? { duration: 0 }
-    : { type: "spring", stiffness: 190, damping: 22, mass: 0.8 };
-  const backPose = activeView === "back" ? BACK_ACTIVE : BACK_REST;
-  const frontPose = activeView === "front" ? FRONT_ACTIVE : FRONT_REST;
 
   return (
     <div
-      className="relative flex min-h-[410px] min-w-0 items-center justify-center overflow-hidden md:min-h-[470px]"
-      style={{ perspective: 1100 }}
+      className="relative flex min-w-0 flex-col items-center overflow-hidden py-2"
+      style={{ perspective: 1200 }}
       data-hero-phase={phase}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
@@ -223,157 +366,117 @@ export default function HeroPhone() {
       onFocusCapture={skipIntro}
       onKeyDownCapture={skipIntro}
     >
-      {/* แสงฟุ้งหลังเครื่อง — จังหวะแรกของ intro */}
+      {/* แสงฟุ้งหลังเครื่อง (โทนทรายอุ่นตามวอลเปเปอร์) — จังหวะแรกของ intro */}
       <motion.div
         aria-hidden="true"
-        className="absolute h-[72%] w-[54%] rounded-[46%] bg-[radial-gradient(ellipse_at_center,rgba(255,151,76,0.24)_0%,rgba(255,196,64,0.10)_44%,transparent_72%)] blur-2xl md:h-[76%] md:w-[58%]"
+        className="pointer-events-none absolute left-1/2 top-[44%] h-[64%] w-[72%] -translate-x-1/2 -translate-y-1/2 rounded-[46%] bg-[radial-gradient(ellipse_at_center,rgba(214,186,140,0.30)_0%,rgba(255,212,0,0.10)_40%,transparent_68%)] blur-2xl"
         initial={{ opacity: 0, scale: 0.8 }}
         animate={phase === "pending" ? { opacity: 0, scale: 0.8 } : { opacity: 1, scale: 1 }}
         transition={intro ? { duration: 1.2, ease: "easeOut" } : { duration: reduceMotion ? 0 : 0.6 }}
       />
 
-      {CHIPS.map((chip, index) => (
-        <Chip
-          key={chip.label}
-          className={chip.className}
-          side={chip.side}
-          show={chipsShown}
-          delay={intro ? index * 0.2 : 0.2 + index * 0.08}
-          reduceMotion={reduceMotion}
-        >
-          {chip.icon} {chip.label}
-        </Chip>
-      ))}
+      <ChipRow chips={CHIPS.slice(0, 2)} offset={0} show={chipsShown} intro={intro} reduceMotion={reduceMotion} />
 
       <motion.div
-        className="relative z-10 h-[330px] w-[min(94vw,410px)] outline-none [touch-action:pan-y] focus-visible:rounded-[3rem] focus-visible:ring-2 focus-visible:ring-yellow focus-visible:ring-offset-4 md:h-[390px] md:w-[430px]"
+        ref={stageRef}
+        className="relative z-10 -mt-1 -mb-[9%] aspect-[1100/932] w-[min(92vw,440px)] cursor-grab select-none outline-none [touch-action:pan-y] active:cursor-grabbing focus-visible:rounded-[2rem] focus-visible:ring-2 focus-visible:ring-yellow focus-visible:ring-offset-4 md:w-[min(100%,500px)]"
         style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
         role="group"
         tabIndex={0}
-        aria-label="ภาพ iPhone 17 Pro Max สีส้ม แบบสองมุม ใช้ปุ่มลูกศรซ้ายและขวาเพื่อเปลี่ยนมุม"
+        aria-roledescription="ภาพหมุนได้"
+        aria-label="iPhone Duo สี Star White ลากซ้าย–ขวาหรือใช้ปุ่มลูกศรเพื่อหมุนดูด้านหลัง พับ และกางเครื่อง"
         onKeyDown={handleKeyDown}
+        onPanStart={handlePanStart}
+        onPan={handlePan}
+        onPanEnd={handlePanEnd}
         initial={{ opacity: 0, y: 24 }}
         animate={phase === "pending" ? { opacity: 0, y: 24 } : { opacity: 1, y: 0 }}
-        // intro: เวทีโผล่ทันที เครื่องแต่ละตัวคุม opacity เอง · idle (เคยดูแล้ว): fade-in สั้นแบบเดิม
-        transition={{ duration: intro || reduceMotion ? 0 : 0.6, ease: "easeOut" }}
+        transition={{ duration: reduceMotion ? 0 : intro ? 0.6 : 0.5, ease: "easeOut" }}
       >
         <motion.div
-          className="absolute inset-0 cursor-grab select-none active:cursor-grabbing"
-          drag={animated ? "x" : false}
-          dragConstraints={{ left: 0, right: 0 }}
-          dragElastic={0.18}
-          dragMomentum={false}
-          onDragEnd={handleDragEnd}
-          whileDrag={{ scale: 0.985 }}
+          className="absolute inset-0"
+          animate={animated ? { y: [0, -8, 0] } : { y: 0 }}
+          transition={animated ? { duration: 6, repeat: Infinity, ease: "easeInOut" } : { duration: 0.4 }}
         >
-          <motion.div
-            className="absolute inset-0"
-            animate={animated ? { y: [0, -9, 0] } : { y: 0 }}
-            transition={animated ? { duration: 6, repeat: Infinity, ease: "easeInOut" } : { duration: 0.4 }}
-          >
-            <motion.div
-              className="absolute left-1/2 top-1/2"
-              data-hero-device="back"
-              initial={false}
-              animate={intro ? BACK_INTRO : backPose}
-              transition={poseTransition}
-            >
-              <Image
-                src="/images/iphone-17-promax-orange-back.webp"
-                alt={activeView === "back" ? "iPhone 17 Pro Max สีส้ม มุมด้านหลัง" : ""}
-                width={307}
-                height={879}
-                priority
-                draggable={false}
-                sizes="(max-width: 768px) 34vw, 180px"
-                className="h-[292px] w-auto object-contain drop-shadow-[0_24px_22px_rgba(83,43,14,0.25)] md:h-[350px]"
-              />
-            </motion.div>
-
-            <motion.div
-              className="absolute left-1/2 top-1/2"
-              data-hero-device="front"
-              initial={false}
-              animate={intro ? FRONT_INTRO : frontPose}
-              transition={poseTransition}
-            >
-              <Image
-                src="/images/iphone-17-promax-orange-front.webp"
-                alt={activeView === "front" ? "iPhone 17 Pro Max สีส้ม มุมด้านหน้า" : ""}
-                width={316}
-                height={868}
-                priority
-                draggable={false}
-                sizes="(max-width: 768px) 35vw, 185px"
-                className="h-[288px] w-auto object-contain drop-shadow-[0_24px_22px_rgba(83,43,14,0.25)] md:h-[346px]"
-              />
-            </motion.div>
-          </motion.div>
-
-          {/* แสงกวาดผ่านตัวเครื่อง (intro 1.0–2.4 วิ) */}
-          {intro && (
-            <motion.span
-              aria-hidden="true"
-              data-hero-sweep
-              className="pointer-events-none absolute inset-y-[6%] left-1/2 w-[34%] -skew-x-12 bg-gradient-to-r from-transparent via-white/55 to-transparent mix-blend-soft-light blur-sm"
-              initial={{ x: "-180%", opacity: 0 }}
-              animate={{ x: ["-180%", "80%"], opacity: [0, 1, 1, 0] }}
-              transition={{
-                delay: 1.0,
-                duration: 1.4,
-                ease: "easeInOut",
-                opacity: { delay: 1.0, duration: 1.4, times: [0, 0.2, 0.8, 1] },
-              }}
+          {/* ภาพนิ่งท่ากาง (LCP) — ระหว่างรอเฟรมแรกขึ้น canvas · intro เริ่มจากด้านหลังจึงไม่โชว์ภาพนี้ */}
+          {!drawn && phase !== "intro" && (
+            <Image
+              src={frameSrc(VIEW_FRAME.open, 1100)}
+              alt=""
+              fill
+              priority
+              unoptimized
+              draggable={false}
+              sizes="(max-width: 768px) 92vw, 500px"
+              className="object-contain"
             />
           )}
-
-          {animated && (
-            <motion.span
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-[7%] rounded-[45%] mix-blend-screen"
-              style={{ background: glareBackground }}
-            />
-          )}
+          <canvas
+            ref={canvasRef}
+            aria-hidden="true"
+            className="absolute inset-0 h-full w-full drop-shadow-[0_26px_24px_rgba(30,30,40,0.18)]"
+          />
         </motion.div>
 
+        {/* เงาใต้เครื่อง — กว้างตามท่า (พับแคบ · กางกว้าง) */}
         <motion.div
           aria-hidden="true"
-          className="absolute bottom-4 left-1/2 h-4 w-[48%] -translate-x-1/2 rounded-[50%] bg-orange-950/25 blur-md"
-          initial={{ opacity: 0, scaleX: 0.6 }}
-          animate={
-            animated
-              ? { scaleX: [1, 0.88, 1], opacity: [0.2, 0.12, 0.2] }
-              : phase === "pending"
-                ? { opacity: 0, scaleX: 0.6 }
-                : { opacity: 0.2, scaleX: 1 }
-          }
-          transition={
-            animated
-              ? { duration: 6, repeat: Infinity, ease: "easeInOut" }
-              : { duration: intro ? 1.0 : 0, ease: "easeOut" }
-          }
+          className="absolute left-1/2 h-4 -translate-x-1/2 rounded-[50%] bg-slate-900/20 blur-md"
+          style={{ width: shadowWidth, top: shadowTop }}
+          initial={{ opacity: 0 }}
+          animate={phase === "pending" ? { opacity: 0 } : animated ? { opacity: [0.9, 0.55, 0.9] } : { opacity: 0.9 }}
+          transition={animated ? { duration: 6, repeat: Infinity, ease: "easeInOut" } : { duration: intro ? 1.0 : 0 }}
         />
       </motion.div>
 
+      <ChipRow chips={CHIPS.slice(2, 4)} offset={2} show={chipsShown} intro={intro} reduceMotion={reduceMotion} />
+
       <motion.div
-        className="absolute bottom-2 z-20 flex flex-col items-center gap-2 md:bottom-3"
+        className="relative z-20 mt-3 flex flex-col items-center gap-2"
         initial={{ opacity: 0, y: 8 }}
         animate={controlsShown ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
         transition={{ duration: reduceMotion ? 0 : 0.5, ease: "easeOut" }}
       >
         <p className="flex items-center gap-1.5 text-xs font-medium text-text-muted">
           <MoveHorizontal size={15} aria-hidden="true" />
-          ลากซ้าย–ขวาเพื่อเปลี่ยนมุม
+          ลากซ้าย–ขวาเพื่อหมุนและกางเครื่อง
         </p>
-        <div className="flex rounded-full border border-border-default bg-white/90 p-1 shadow-sm backdrop-blur">
-          <ViewButton active={activeView === "back"} label="ด้านหลัง" onClick={() => setActiveView("back")} />
-          <ViewButton active={activeView === "front"} label="ด้านหน้า" onClick={() => setActiveView("front")} />
+        <div className="grid grid-cols-3 rounded-full border border-border-default bg-white/90 p-1 shadow-sm backdrop-blur">
+          {VIEWS.map((v) => (
+            <ViewButton key={v} active={view === v} label={VIEW_LABEL[v]} onClick={() => goTo(v)} />
+          ))}
         </div>
       </motion.div>
 
       <span className="sr-only" aria-live="polite">
-        กำลังแสดงมุม{activeView === "front" ? "ด้านหน้า" : "ด้านหลัง"}
+        กำลังแสดง{view === "back" ? "ด้านหลัง" : view === "folded" ? "เครื่องตอนพับ" : "เครื่องตอนกาง"}
       </span>
+    </div>
+  );
+}
+
+/** แถวป้าย ซ้าย-ขวา (ซ่อนบนมือถือ — จอแคบให้เครื่องเต็มความกว้าง) */
+function ChipRow({ chips, offset, show, intro, reduceMotion }: {
+  chips: typeof CHIPS;
+  offset: number;
+  show: boolean;
+  intro: boolean;
+  reduceMotion: boolean;
+}) {
+  return (
+    <div className="relative z-20 hidden w-full grid-cols-2 sm:grid" aria-hidden="true">
+      {chips.map((chip, i) => (
+        <Chip
+          key={chip.label}
+          className={chip.side === "left" ? "justify-self-start" : "justify-self-end"}
+          side={chip.side}
+          show={show}
+          delay={intro ? (offset + i) * 0.2 : 0.2 + (offset + i) * 0.08}
+          reduceMotion={reduceMotion}
+        >
+          {chip.icon} {chip.label}
+        </Chip>
+      ))}
     </div>
   );
 }
@@ -384,7 +487,7 @@ function ViewButton({ active, label, onClick }: { active: boolean; label: string
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`min-h-11 rounded-full px-4 text-xs font-semibold transition-colors ${
+      className={`min-h-11 min-w-[4.5rem] rounded-full px-4 text-xs font-semibold transition-colors ${
         active ? "bg-text-heading text-white" : "text-text-muted hover:bg-bg-subtle hover:text-text-heading"
       }`}
     >
@@ -414,7 +517,7 @@ function Chip({
     <motion.div
       aria-hidden="true"
       data-hero-chip={side}
-      className={`absolute z-20 hidden items-center gap-1.5 rounded-xl border border-border-default bg-white/95 px-3 py-1.5 text-xs font-semibold text-text-heading shadow-lg backdrop-blur sm:flex ${className}`}
+      className={`flex items-center gap-1.5 rounded-xl border border-border-default bg-white/95 px-3 py-1.5 text-xs font-semibold text-text-heading shadow-lg backdrop-blur ${className}`}
       initial={hidden}
       animate={show ? { opacity: 1, scale: 1, x: 0 } : hidden}
       transition={reduceMotion ? { duration: 0 } : { duration: 0.5, delay, ease: [0.22, 1, 0.36, 1] }}
