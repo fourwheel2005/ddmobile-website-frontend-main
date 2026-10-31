@@ -47,10 +47,13 @@ export const emptyGallery = (): StoreGallery => ({
   photos: { STORE: [], TEAM: [], TECHNICIAN: [], DIRECTIONS: [] },
 });
 
-/** ข้อมูลหน้าเกี่ยวกับเรา (server component) — cache 60 วินาที · ล่ม = ว่าง (หน้าเว็บยังแสดงส่วนอื่นได้) */
+/**
+ * ข้อมูลหน้าเกี่ยวกับเรา (server component) — ดึงสดทุกครั้ง: แอดมินอัป/ซ่อน/ลบรูปแล้วต้องเห็นบนเว็บทันที
+ * (เดิม ISR 60 วิ: คนแรกหลังหมดอายุยังได้หน้าเก่า → ดูเหมือนรูปไม่ขึ้น) · ล่ม = ว่าง (หน้าเว็บยังแสดงส่วนอื่นได้)
+ */
 export async function loadStoreGallery(): Promise<StoreGallery> {
   try {
-    const res = await fetch(`${STORE_API}/store-gallery`, { next: { revalidate: 60 } });
+    const res = await fetch(`${STORE_API}/store-gallery`, { cache: "no-store" });
     if (!res.ok) return emptyGallery();
     const g = (await res.json()) as StoreGallery;
     return { profile: g.profile ?? emptyGallery().profile, photos: { ...emptyGallery().photos, ...g.photos } };
