@@ -77,6 +77,28 @@ describe("buildCartMessage — ตะกร้าเดิมส่งเข้�
   });
 });
 
+/**
+ * สัญญากับ backend `WebChatMessage.topicOf` — LINE webhook แยกเรื่องจากบรรทัดแรกของข้อความ แล้วทำการ์ดให้แอดมิน
+ * แก้หัวข้อความที่นี่ = ต้องแก้ฝั่ง backend + WebChatMessageTest คู่กัน (ไม่งั้นการ์ด LINE เงียบหาย)
+ */
+describe("หัวข้อความตรงกับที่ backend ใช้แยกเรื่อง (การ์ด LINE)", () => {
+  const firstLine = (m: string) => m.split("\n")[0];
+  const b = { productName: "iPhone 17", price: 29900 };
+  it("ซื้อ / สั่งจอง / หาเครื่องใกล้เคียง / ถามราคา / ตะกร้า", () => {
+    expect(firstLine(buildBuyMessage({ ...b, status: "available" }))).toMatch(/^🛒 สนใจซื้อเครื่องนี้/);
+    expect(firstLine(buildBuyMessage({ ...b, status: "out" }))).toMatch(/^📦 สนใจเครื่องนี้/);
+    expect(firstLine(buildBuyMessage({ ...b, status: "sold" }))).toMatch(/^🔎 สนใจรุ่นนี้/);
+    expect(firstLine(buildBuyMessage({ ...b, status: "ask-price", price: null }))).toMatch(/^💬 สอบถามราคาเครื่องนี้/);
+    const cart = buildCartMessage([{ catalogId: "1", type: "UNIT", productName: "iPhone 15", variantId: "v", condition: "NEW",
+      conditionLabel: "มือ 1", sku: "", color: null, storage: null, imageUrl: null, unitPrice: 100, maxStock: 1, quantity: 1 }]);
+    expect(firstLine(cart)).toMatch(/^🛒 สนใจซื้อ \d+ รายการ/);
+  });
+  it("แต่ละบรรทัดรายละเอียดเป็นรูป \"หัวข้อ: ค่า\" (backend แตกเป็นแถวบนการ์ด)", () => {
+    const m = buildBuyMessage({ ...b, status: "available", color: "Pink", storage: "128GB", buyer: { name: "ก", tel: "0812345678" } });
+    for (const label of ["รุ่น", "สเปก", "ราคา", "ชื่อ", "เบอร์"]) expect(m).toMatch(new RegExp(`^${label}: .+$`, "m"));
+  });
+});
+
 describe("intentForCondition", () => {
   it("มือ 1 = NEW · อื่น ๆ = USED (สถิติบริการที่ลูกค้าสนใจ)", () => {
     expect(intentForCondition("NEW")).toBe("NEW");

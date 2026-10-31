@@ -59,6 +59,11 @@ export default function SubmitSuccess({ done, onNew }: { done: SubmitDone; onNew
           className="line-cta mt-2.5 flex w-full items-center justify-center gap-2 rounded-full bg-line py-3.5 text-base font-bold text-white shadow-[var(--shadow-line)] transition-transform hover:-translate-y-0.5">
           <MessageCircle size={20} /> เปิดแชท LINE ส่งข้อมูลให้แอดมิน
         </a>
+        {res.installmentId != null && (
+          <p className="mt-2 text-xs text-text-muted">
+            กดส่งข้อความในแชทให้เรียบร้อย — ระบบจะตอบยืนยันทันที และแจ้งผลการพิจารณาในแชท LINE นี้
+          </p>
+        )}
       </div>
 
       {/* ขั้นที่ 2 — รูปเครื่อง (ไม่รวมบัตรประชาชน: ไม่ส่งข้อมูลอ่อนไหวเข้าแชท) */}

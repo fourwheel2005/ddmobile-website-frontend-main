@@ -32,6 +32,7 @@ import { TableSkeleton, StatCardSkeleton } from "@/components/Skeletons";
 import { useEscapeKey } from "@/lib/useEscapeKey";
 import { clearSession } from "@/lib/session";
 import { hasAdminAccess } from "@/lib/roles";
+import { menuFromSearch } from "@/lib/adminMenu";
 
 
 interface WebOrderItem { productName: string; condition: string; quantity: number; lineTotal: number; }
@@ -86,6 +87,12 @@ export default function AdminDashboard() {
   const [orderLimit, setOrderLimit] = useState(20);     // โหลดเพิ่มทีละ 20 (เลิกโชว์ทั้งก้อน)
 
   // Stock real-time (ผ่าน DD BFF — ไม่ต้อง login stock แยก)
+  // ลิงก์ตรงจากการ์ด LINE (/admin?menu=installments) → เปิดเมนูนั้นเลย
+  useEffect(() => {
+    const menu = menuFromSearch(window.location.search);
+    if (menu) setActiveMenu(menu);
+  }, []);
+
   const [stockSummary, setStockSummary] = useState<StockSummary | null>(null);
   const [stockLow, setStockLow] = useState<StockLowItem[]>([]);
   const [salesBills, setSalesBills] = useState<SalesBillLite[]>([]);   // บิลขายจริงจาก Stock → KPI + กราฟ

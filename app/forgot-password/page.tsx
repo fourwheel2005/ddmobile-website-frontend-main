@@ -5,6 +5,7 @@ import { ArrowLeft, KeyRound, MailCheck, MessageCircle } from "lucide-react";
 import api from "@/lib/api";
 import { getApiError, getApiStatus } from "@/lib/errorMessage";
 import { lineChatUrl } from "@/lib/contact";
+import { ACCOUNT_HELP_MESSAGE } from "@/lib/passwordReset";
 
 /** ส่งอีกครั้งได้หลังกี่วินาที (backend จำกัด 3 ครั้ง/ชม./บัญชีอีกชั้น) */
 const RESEND_COOLDOWN = 60;
@@ -113,7 +114,7 @@ export default function ForgotPasswordPage() {
           <p>
             จำอีเมลที่สมัครไม่ได้ หรือเข้าอีเมลไม่ได้?{" "}
             <a
-              href={lineChatUrl("สวัสดีครับ/ค่ะ ลืมรหัสผ่านเข้าเว็บ และเข้าอีเมลที่สมัครไม่ได้ ขอให้แอดมินช่วยหน่อย")}
+              href={lineChatUrl(ACCOUNT_HELP_MESSAGE)}
               target="_blank" rel="noopener noreferrer"
               className="inline-flex items-center gap-1 font-semibold text-success-text hover:underline"
             >

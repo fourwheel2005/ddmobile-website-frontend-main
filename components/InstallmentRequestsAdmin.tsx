@@ -20,6 +20,7 @@ interface InstallmentRequest {
   hasIdCard: boolean; idCardPurgedAt: string | null; consentAt: string;
   status: string; statusChangedAt: string | null; handledBy: string | null; adminNote: string | null;
   version: number; createdAt: string;
+  lineLinked: boolean; decisionReason: string | null; customerNotifiedAt: string | null;
 }
 interface PageResult {
   content: InstallmentRequest[]; page: number; totalPages: number; totalElements: number; last: boolean; pendingCount: number;
@@ -33,6 +34,16 @@ const STATUS: Record<string, { label: string; cls: string; next: string[] }> = {
   REJECTED: { label: "ไม่อนุมัติ", cls: "badge-error", next: ["ARCHIVED"] },
   ARCHIVED: { label: "พับเก็บ", cls: "bg-bg-subtle text-text-muted", next: [] },
 };
+/** เหตุผลตอนไม่อนุมัติ — ต้องตรงกับ backend InstallmentRequestService.REASON_* (เลือกข้อความสุภาพที่ส่งให้ลูกค้า) */
+const REJECT_REASONS: Record<string, string> = {
+  CRITERIA: "ไม่ผ่านเกณฑ์พิจารณา",
+  STOCK: "เครื่องหมด / ไม่พร้อมขาย",
+  CONTACT: "ติดต่อไม่ได้ / ข้อมูลไม่ครบ",
+};
+/** ตัวเลือกในเมนูเปลี่ยนสถานะ — "ไม่อนุมัติ" แตกเป็นรายเหตุผล (value = REJECTED:เหตุผล) */
+const statusOptions = (next: string[]) => next.flatMap((s) => s === "REJECTED"
+  ? Object.entries(REJECT_REASONS).map(([code, label]) => ({ value: `REJECTED:${code}`, label: `ไม่อนุมัติ — ${label}` }))
+  : [{ value: s, label: STATUS[s].label }]);
 const FILTERS = [{ value: "", label: "ที่ยังเปิดอยู่" }, ...Object.entries(STATUS).map(([value, m]) => ({ value, label: m.label }))];
 const PAGE_SIZE = 20;
 
@@ -58,12 +69,15 @@ export default function InstallmentRequestsAdmin({ onPendingCount }: { onPending
   useEffect(() => { load(); }, [load]);
 
   // อัปเดตแถวเดียวจาก response (ไม่โหลดทั้งหน้าใหม่) · version ใหม่จาก server กัน 409 รอบถัดไป
-  const update = async (r: InstallmentRequest, body: { status: string; adminNote?: string | null }) => {
+  const update = async (r: InstallmentRequest, body: { status: string; adminNote?: string | null; reason?: string }) => {
     setBusyId(r.id);
     try {
       const { data: updated } = await api.post<InstallmentRequest>(`/admin/installment-requests/${r.id}/status`, { ...body, expectedVersion: r.version });
       setData((d) => d && { ...d, content: d.content.map((x) => (x.id === r.id ? updated : x)) });
-      toast.success("บันทึกแล้ว");
+      const decided = (body.status === "APPROVED" || body.status === "REJECTED") && r.status !== body.status;
+      toast.success(!decided ? "บันทึกแล้ว"
+        : updated.customerNotifiedAt ? "บันทึกแล้ว · ส่งผลให้ลูกค้าทาง LINE แล้ว"
+        : `บันทึกแล้ว · ลูกค้ายังไม่ได้ทัก LINE — โทรแจ้ง ${r.tel}`);
       if (r.status === "NEW" && updated.status !== "NEW") load();   // pendingCount เปลี่ยน
     } catch (e) {
       toast.error(getApiError(e, "บันทึกไม่สำเร็จ"));
@@ -71,6 +85,17 @@ export default function InstallmentRequestsAdmin({ onPendingCount }: { onPending
     } finally {
       setBusyId(null);
     }
+  };
+
+  /** อนุมัติ/ไม่อนุมัติ = ระบบส่งข้อความแจ้งลูกค้าทันที (ย้อนไม่ได้) → ถามยืนยันก่อน */
+  const changeStatus = (r: InstallmentRequest, value: string) => {
+    const [status, reason] = value.split(":");
+    if (status === "APPROVED" || status === "REJECTED") {
+      const what = status === "APPROVED" ? "อนุมัติ" : `ไม่อนุมัติ (${REJECT_REASONS[reason]})`;
+      const channel = r.lineLinked ? "ทาง LINE และแจ้งเตือนในเว็บ" : "ทางแจ้งเตือนในเว็บ (ลูกค้ายังไม่ได้ทัก LINE — ควรโทรแจ้งด้วย)";
+      if (!window.confirm(`${what} คำขอ ${r.refCode}?\n\nระบบจะส่งข้อความแจ้งผลให้ลูกค้า${channel}`)) return;
+    }
+    void update(r, reason ? { status, reason } : { status });
   };
 
   const editNote = (r: InstallmentRequest) => {
@@ -119,7 +144,10 @@ export default function InstallmentRequestsAdmin({ onPendingCount }: { onPending
                     <div className="min-w-0">
                       <p className="flex flex-wrap items-center gap-2 font-bold text-text-heading">
                         {r.productName}
-                        <span className={`badge-dd ${meta.cls}`}>{meta.label}</span>
+                        <span className={`badge-dd ${meta.cls}`}>
+                          {meta.label}{r.status === "REJECTED" && r.decisionReason ? ` · ${REJECT_REASONS[r.decisionReason] ?? r.decisionReason}` : ""}
+                        </span>
+                        {r.lineLinked && <span className="badge-dd bg-success-bg text-success-text" title="ลูกค้าทักแชท LINE จากเว็บแล้ว — ระบบส่งผลการพิจารณาเข้า LINE ให้อัตโนมัติ">LINE ✓</span>}
                         <span className="font-mono text-xs font-normal text-text-muted">{r.refCode}</span>
                       </p>
                       <p className="mt-0.5 text-xs text-text-muted">
@@ -132,6 +160,11 @@ export default function InstallmentRequestsAdmin({ onPendingCount }: { onPending
                       <p className="mt-0.5 text-xs text-text-muted">
                         {fmt(r.createdAt)}{r.userEmail ? ` · ${r.userEmail}` : ""}{r.handledBy ? ` · ดูแลโดย ${r.handledBy}` : ""}
                       </p>
+                      {(r.status === "APPROVED" || r.status === "REJECTED") && (
+                        <p className={`mt-0.5 text-xs font-medium ${r.customerNotifiedAt ? "text-success-text" : "text-warning-text"}`}>
+                          {r.customerNotifiedAt ? `แจ้งผลลูกค้าทาง LINE แล้ว ${fmt(r.customerNotifiedAt)}` : "ยังไม่ได้แจ้งผลทาง LINE — โทรแจ้งลูกค้า"}
+                        </p>
+                      )}
                     </div>
                     <div className="text-right text-sm">
                       {r.price != null && <p className="font-bold text-price">{baht(r.price)}</p>}
@@ -155,10 +188,10 @@ export default function InstallmentRequestsAdmin({ onPendingCount }: { onPending
                     )}
                     {meta.next.length > 0 && (
                       <select aria-label="เปลี่ยนสถานะ" disabled={busyId === r.id} value=""
-                        onChange={(e) => { const t = e.target.value; if (t) void update(r, { status: t }); }}
+                        onChange={(e) => { const t = e.target.value; if (t) changeStatus(r, t); }}
                         className="input-dd min-h-0 w-auto py-1.5 text-xs">
                         <option value="">{busyId === r.id ? "กำลังบันทึก…" : "เปลี่ยนสถานะ →"}</option>
-                        {meta.next.map((s) => <option key={s} value={s}>{STATUS[s].label}</option>)}
+                        {statusOptions(meta.next).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                       </select>
                     )}
                     <button type="button" onClick={() => editNote(r)} disabled={busyId === r.id}

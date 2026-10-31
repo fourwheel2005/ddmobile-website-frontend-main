@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { passwordProblem, tokenFromHash } from "./passwordReset";
+import { ACCOUNT_HELP_MESSAGE, passwordProblem, tokenFromHash } from "./passwordReset";
 
 const TOKEN = "AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_AbCd"; // 42 ตัว base64url
 
@@ -36,5 +36,13 @@ describe("passwordProblem — กติการหัสใหม่ (ตรง
   });
   it("สองช่องไม่ตรงกัน", () => {
     expect(passwordProblem("abcdefgh", "abcdefgx")).toMatch(/ไม่ตรงกัน/);
+  });
+});
+
+describe("ACCOUNT_HELP_MESSAGE — backend แยกเรื่อง \"ช่วยเหลือบัญชี\" ได้", () => {
+  it("ขึ้นต้นด้วย สวัสดี และมีคำว่า ลืมรหัสผ่าน", () => {
+    expect(ACCOUNT_HELP_MESSAGE.startsWith("สวัสดี")).toBe(true);
+    expect(ACCOUNT_HELP_MESSAGE).toContain("ลืมรหัสผ่าน");
+    expect(ACCOUNT_HELP_MESSAGE).not.toContain("\n");
   });
 });
