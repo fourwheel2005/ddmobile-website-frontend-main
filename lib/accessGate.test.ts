@@ -3,7 +3,7 @@ import { gate, isPublicPath, membersWallEnabled, safeRedirect } from "./accessGa
 
 describe("gate — กำแพงสมาชิก", () => {
   it("หน้าสาธารณะ: หน้าแรก + แนะนำบริการ + ล็อกอิน/นโยบาย/ติดต่อ เข้าได้โดยไม่ล็อกอิน", () => {
-    for (const p of ["/", "/login", "/privacy", "/contact", "/sell", "/trade-in", "/services", "/installments"]) {
+    for (const p of ["/", "/login", "/forgot-password", "/reset-password", "/privacy", "/contact", "/sell", "/trade-in", "/services", "/installments"]) {
       expect(gate(p, "", undefined)).toEqual({ type: "allow" });
     }
   });

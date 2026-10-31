@@ -199,7 +199,14 @@ function LoginForm() {
             <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="example@gmail.com" required autoComplete="email" className="input-dd" />
           </div>
           <div>
-            <label htmlFor="password" className="label-dd">รหัสผ่าน (Password){!isLogin && <Req />}</label>
+            <div className="flex items-baseline justify-between gap-2">
+              <label htmlFor="password" className="label-dd">รหัสผ่าน (Password){!isLogin && <Req />}</label>
+              {isLogin && (
+                <Link href="/forgot-password" className="text-xs font-semibold text-yellow-text underline-offset-2 hover:underline">
+                  ลืมรหัสผ่าน?
+                </Link>
+              )}
+            </div>
             <div className="relative">
               <input
                 id="password"
