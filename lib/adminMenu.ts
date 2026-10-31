@@ -5,6 +5,7 @@
 export const ADMIN_MENU_SLUGS: Record<string, string> = {
   installments: "คำขอผ่อนสินค้า",
   "trade-in": "คำขอขาย/บอลลูน",
+  reviews: "รีวิวลูกค้า",
 };
 
 /** ชื่อเมนูจาก query string (?menu=installments) · ไม่รู้จัก/ไม่มี = null (อยู่หน้าเดิม) */

@@ -5,6 +5,7 @@ describe("menuFromSearch — ลิงก์จากการ์ด LINE เข
   it("slug ที่รู้จัก → ชื่อเมนู", () => {
     expect(menuFromSearch("?menu=installments")).toBe("คำขอผ่อนสินค้า");
     expect(menuFromSearch("?menu=trade-in&x=1")).toBe("คำขอขาย/บอลลูน");
+    expect(menuFromSearch("?menu=reviews")).toBe("รีวิวลูกค้า");
   });
   it("ไม่มี / ไม่รู้จัก / ชื่อ property ของ object → null", () => {
     expect(menuFromSearch("")).toBeNull();

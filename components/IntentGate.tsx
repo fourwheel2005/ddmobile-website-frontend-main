@@ -51,7 +51,8 @@ export default function IntentGate() {
   useEffect(() => { const f = requestAnimationFrame(() => setMounted(true)); return () => cancelAnimationFrame(f); }, []);
 
   // open เป็น derived state (ไม่ setState ใน effect) — โชว์ครั้งแรกสุดนอกหน้า admin
-  const open = mounted && !closed && !pathname.startsWith("/admin") && !isIntentSeen();
+  // และไม่ทับป๊อปอัพเขียนรีวิวของลิงก์ขอรีวิว (/review/{token} — ลูกค้ามาเพื่อรีวิว ไม่ใช่เลือกบริการ)
+  const open = mounted && !closed && !pathname.startsWith("/admin") && !pathname.startsWith("/review/") && !isIntentSeen();
 
   const dismiss = () => { markIntentSeen(); setClosed(true); };
   useEscapeKey(open, dismiss);

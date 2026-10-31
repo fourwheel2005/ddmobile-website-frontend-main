@@ -1,16 +1,19 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Star, MessageSquareReply, Trash2, X, Loader2, ThumbsUp } from "lucide-react";
+import { Star, MessageSquareReply, Trash2, X, Loader2, ThumbsUp, Link2, ExternalLink } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "@/lib/api";
 import { getApiError } from "@/lib/errorMessage";
 import { confirmDialog } from "@/components/ui/confirmDialog";
 import { TableSkeleton } from "@/components/Skeletons";
+import ReviewInviteAdmin from "@/components/ReviewInviteAdmin";
+import { channelLabel, tagLabel } from "@/lib/reviews";
 
 interface AdminReview {
-  id: number; orderId: number; customerName: string; customerEmail: string;
+  id: number; orderId: number | null; customerName: string; customerEmail: string | null;
   rating: number; comment: string | null; productName: string | null; variantLabel: string | null;
   images: string[]; helpfulCount: number; adminReply: string | null; createdAt: string | null;
+  channel?: string; tags?: string[];
 }
 
 const Stars = ({ n }: { n: number }) => (
@@ -19,8 +22,29 @@ const Stars = ({ n }: { n: number }) => (
   </span>
 );
 
-/** จัดการรีวิวลูกค้า: ดูทั้งหมด · ตอบกลับ (Seller Response) · ลบรีวิวไม่เหมาะสม */
+/** เมนูรีวิว: แท็บ "รีวิวทั้งหมด" (ตอบกลับ/ลบ) | "ลิงก์ขอรีวิว" (ลูกค้าที่ซื้อนอกเว็บ) */
 export default function ReviewAdmin() {
+  const [tab, setTab] = useState<"reviews" | "links">("reviews");
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border-default bg-white p-3">
+        <div className="grid flex-1 grid-cols-2 gap-1 rounded-xl bg-bg-subtle p-1 sm:max-w-sm">
+          {([["reviews", "รีวิวทั้งหมด", Star], ["links", "ลิงก์ขอรีวิว", Link2]] as const).map(([key, label, Icon]) => (
+            <button key={key} type="button" onClick={() => setTab(key)} aria-pressed={tab === key}
+                    className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${tab === key ? "bg-white text-text-heading shadow-sm" : "text-text-muted hover:text-text-heading"}`}>
+              <Icon size={15} className={tab === key ? "text-yellow-hover" : ""} /> {label}
+            </button>
+          ))}
+        </div>
+        <a href="/reviews" target="_blank" rel="noopener noreferrer" className="btn-ghost ml-auto text-sm"><ExternalLink size={14} /> ดูหน้ารีวิว</a>
+      </div>
+      {tab === "reviews" ? <ReviewList /> : <ReviewInviteAdmin />}
+    </div>
+  );
+}
+
+/** จัดการรีวิวลูกค้า: ดูทั้งหมด · ตอบกลับ (Seller Response) · ลบรีวิวไม่เหมาะสม */
+function ReviewList() {
   const [list, setList] = useState<AdminReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [replying, setReplying] = useState<AdminReview | null>(null);
@@ -75,7 +99,9 @@ export default function ReviewAdmin() {
                 <tr key={r.id}>
                   <td>
                     <p className="font-semibold text-text-heading">{r.customerName}</p>
-                    <p className="text-xs text-text-muted">#{r.orderId} · {r.createdAt ? new Date(r.createdAt).toLocaleDateString("th-TH") : ""}</p>
+                    <p className="text-xs text-text-muted">
+                      {r.orderId != null ? `#${r.orderId}` : `${channelLabel(r.channel)} · ลิงก์รีวิว`} · {r.createdAt ? new Date(r.createdAt).toLocaleDateString("th-TH") : ""}
+                    </p>
                   </td>
                   <td><p className="max-w-[160px] truncate text-sm">{r.productName ?? "-"}</p><p className="text-xs text-text-muted">{r.variantLabel}</p></td>
                   <td><Stars n={r.rating} /></td>
@@ -88,6 +114,9 @@ export default function ReviewAdmin() {
                           <img key={src} src={src} alt="รูปรีวิว" className="h-9 w-9 rounded border border-border-default object-cover" />
                         ))}
                       </div>
+                    )}
+                    {(r.tags?.length ?? 0) > 0 && (
+                      <p className="mt-1 text-[11px] text-text-muted">{r.tags!.map(tagLabel).filter(Boolean).join(" · ")}</p>
                     )}
                     {r.adminReply && <p className="mt-1 line-clamp-1 text-xs text-success-text">ตอบแล้ว: {r.adminReply}</p>}
                   </td>

@@ -1,10 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Star, Quote } from "lucide-react";
+import Link from "next/link";
+import { Star, Quote, BadgeCheck, ArrowRight } from "lucide-react";
 import api from "@/lib/api";
 import Reveal from "@/components/Reveal";
+import { verifiedLabel } from "@/lib/reviews";
 
-interface Review { id: number; displayName: string; rating: number; comment: string | null; productName: string | null; images?: string[]; createdAt: string | null; }
+interface Review { id: number; displayName: string; rating: number; comment: string | null; productName: string | null; images?: string[]; createdAt: string | null; channel?: string | null; }
 interface Summary { average: number; count: number; reviews: Review[]; }
 
 const Stars = ({ n, size = 15 }: { n: number; size?: number }) => (
@@ -33,16 +35,17 @@ export default function ReviewsSection() {
         <Reveal>
           <div className="mb-8 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
             <div>
-              <p className="section-label">จากลูกค้าที่ซื้อและรับเครื่องแล้วเท่านั้น</p>
+              <p className="section-label">จากลูกค้าที่ซื้อจริงเท่านั้น · หน้าร้าน เว็บไซต์ และโซเชียล</p>
               <h2 className="text-2xl font-bold text-text-heading md:text-3xl">รีวิวจากลูกค้าจริง</h2>
             </div>
-            <div className="flex items-center gap-3 rounded-2xl border border-border-default bg-white px-5 py-3">
+            <Link href="/reviews" className="group flex items-center gap-3 rounded-2xl border border-border-default bg-white px-5 py-3 transition-colors hover:border-yellow">
               <span className="font-display text-4xl font-bold text-text-heading">{data.average.toFixed(1)}</span>
               <span className="flex flex-col">
                 <Stars n={Math.round(data.average)} />
                 <span className="text-xs text-text-muted">{data.count.toLocaleString()} รีวิว</span>
               </span>
-            </div>
+              <ArrowRight size={18} className="ml-1 text-text-muted transition-transform group-hover:translate-x-0.5 group-hover:text-text-heading" />
+            </Link>
           </div>
         </Reveal>
         <Reveal className="reveal-stagger grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -65,6 +68,7 @@ export default function ReviewsSection() {
               )}
               <div className="mt-4 border-t border-border-subtle pt-3 text-xs text-text-muted">
                 <p className="font-semibold text-text-heading">{r.displayName}</p>
+                <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-success-text"><BadgeCheck size={11} /> {verifiedLabel(r.channel)}</p>
                 <p className="mt-0.5 line-clamp-1">
                   {r.productName ?? "สินค้า DD Mobile"}
                   {r.createdAt && ` · ${new Date(r.createdAt).toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "2-digit" })}`}
@@ -73,6 +77,9 @@ export default function ReviewsSection() {
             </div>
           ))}
         </Reveal>
+        <div className="mt-8 text-center">
+          <Link href="/reviews" className="btn-ghost">ดูรีวิวทั้งหมด {data.count.toLocaleString()} รีวิว <ArrowRight size={16} /></Link>
+        </div>
       </div>
     </section>
   );

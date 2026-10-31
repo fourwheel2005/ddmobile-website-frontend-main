@@ -11,6 +11,11 @@ describe("gate — กำแพงสมาชิก", () => {
     expect(gate("/r/AbCdEfGhIjKlMnOpQrStUv", "", undefined)).toEqual({ type: "allow" });
     expect(gate("/d/ABC123", "", undefined)).toEqual({ type: "allow" });
   });
+  it("หน้ารีวิวร้าน + ลิงก์ขอรีวิว (ลูกค้าที่ซื้อนอกเว็บไม่มีบัญชี) ต้องไม่ถูกกั้น", () => {
+    expect(gate("/reviews", "", undefined)).toEqual({ type: "allow" });
+    expect(gate("/review/Ab3dEf6hJk7m", "", undefined)).toEqual({ type: "allow" });
+    expect(isPublicPath("/review")).toBe(false);
+  });
   it("ไม่ล็อกอิน → /login พร้อมหน้าเดิม (รวม query เช่น ?variant=)", () => {
     expect(gate("/products/abc", "?variant=v1&returnTo=%2Fproducts", undefined)).toEqual({
       type: "redirect", location: "/login?redirect=%2Fproducts%2Fabc%3Fvariant%3Dv1%26returnTo%3D%252Fproducts",

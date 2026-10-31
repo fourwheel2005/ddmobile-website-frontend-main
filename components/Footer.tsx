@@ -37,6 +37,7 @@ export default function Footer() {
             <li><Link href="/" className="hover:text-yellow-hover">หน้าหลัก</Link></li>
             <li><Link href="/products" className="hover:text-yellow-hover">สินค้าทั้งหมด</Link></li>
             <li><Link href="/installments" className="hover:text-yellow-hover">ขั้นตอนการผ่อน</Link></li>
+            <li><Link href="/reviews" className="hover:text-yellow-hover">รีวิวจากลูกค้า</Link></li>
             <li><Link href="/contact" className="hover:text-yellow-hover">ติดต่อเรา</Link></li>
           </ul>
         </div>
