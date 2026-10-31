@@ -11,7 +11,7 @@ import {
   type AnimationPlaybackControls,
   type PanInfo,
 } from "framer-motion";
-import { CreditCard, MoveHorizontal, ShieldCheck, Truck, Zap } from "lucide-react";
+import { CreditCard, ShieldCheck, Truck, Zap } from "lucide-react";
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { INTENT_SEEN_EVENT, isIntentSeen } from "@/components/IntentGate";
@@ -35,7 +35,6 @@ export type HeroIntroPhase = "pending" | "intro" | "idle";
 export const DUO_FRAMES = 90;
 export const VIEW_FRAME: Record<HeroDuoView, number> = { back: 0, folded: 53, open: DUO_FRAMES - 1 };
 const VIEWS: HeroDuoView[] = ["back", "folded", "open"];
-const VIEW_LABEL: Record<HeroDuoView, string> = { back: "ด้านหลัง", folded: "พับ", open: "กาง" };
 /** ขนาดภาพเฟรม (กว้าง × สูง) — สัดส่วนเดียวกันทุกชุด */
 const FRAME_ASPECT = 1100 / 932;
 
@@ -45,10 +44,9 @@ const FRAMES_PER_STAGE_WIDTH = 64;
 
 /** ความยาว motion เปิดตัวทั้งหมด (วินาที) */
 export const HERO_INTRO_SECONDS = 5.5;
-/** ช่วงที่เครื่องหมุน+กาง (ที่เหลือคือป้าย/ปุ่มทยอยขึ้นแล้วนิ่ง) */
+/** ช่วงที่เครื่องหมุน+กาง (ที่เหลือคือป้ายทยอยขึ้นแล้วนิ่ง) */
 const PHONES_SECONDS = 3.6;
 const CHIPS_AT_SECONDS = PHONES_SECONDS;
-const CONTROLS_AT_SECONDS = 4.4;
 /** รอโหลดเฟรมได้นานสุดเท่านี้ ไม่ทันก็ข้าม intro (ไม่ให้ลูกค้ารอ) */
 const INTRO_LOAD_TIMEOUT_MS = 3000;
 export const HERO_INTRO_STORAGE_KEY = "dd-hero-intro-v1";
@@ -150,15 +148,14 @@ const CHIPS: { side: "left" | "right"; icon: ReactNode; label: string }[] = [
  * 0.0–0.6  แสงฟุ้งสว่างขึ้น · เครื่องพับ (ด้านหลัง) ลอยขึ้นกลางเวที
  * 0.3–2.1  หมุนช้าโชว์ชุดกล้อง → ขอบบานพับ → จอนอก
  * 2.1–3.6  กางออกเป็นจอใหญ่ หมุนเข้าหน้าตรง
- * 3.6–4.4  ป้ายข้อดีทยอยขึ้น สลับซ้าย-ขวา
- * 4.4–5.5  ปุ่มเลือกท่าขึ้น แล้วทุกอย่างนิ่ง → โต้ตอบได้
+ * 3.6–5.5  ป้ายข้อดีทยอยขึ้น สลับซ้าย-ขวา แล้วทุกอย่างนิ่ง → ลากหมุนได้
  */
 const INTRO_KEYS = { frames: [VIEW_FRAME.back, VIEW_FRAME.back, VIEW_FRAME.folded, VIEW_FRAME.open], times: [0, 0.08, 0.58, 1] };
 
 export default function HeroPhone() {
   const reduceMotion = !!useReducedMotion();
   const [phase, setPhase] = useState<HeroIntroPhase>("pending");
-  /** ขั้นของ intro: 0 = เครื่อง · 1 = ป้ายขึ้น · 2 = ปุ่มขึ้น (ข้าม intro → idle แสดงทุกอย่างทันที) */
+  /** ขั้นของ intro: 0 = เครื่อง · 1 = ป้ายขึ้น (ข้าม intro → idle แสดงทุกอย่างทันที) */
   const [introStage, setIntroStage] = useState(0);
   const [view, setView] = useState<HeroDuoView>("open");
   const decided = useRef<boolean | null>(null);
@@ -257,7 +254,7 @@ export default function HeroPhone() {
     return () => window.removeEventListener(INTENT_SEEN_EVENT, start);
   }, [reduceMotion, frame]);
 
-  // intro: รอเฟรมครบ (ไม่เกิน 3 วิ ไม่ทันก็ข้าม) แล้วเล่นหมุน+กาง · ป้าย/ปุ่มทยอยตามเวลาเดิม
+  // intro: รอเฟรมครบ (ไม่เกิน 3 วิ ไม่ทันก็ข้าม) แล้วเล่นหมุน+กาง · ป้ายทยอยตามเวลาเดิม
   const [introRunning, setIntroRunning] = useState(false);
   useEffect(() => {
     if (phase !== "intro" || introRunning) return;
@@ -278,7 +275,6 @@ export default function HeroPhone() {
     const timers = [
       window.setTimeout(() => setView("open"), PHONES_SECONDS * 1000),
       window.setTimeout(() => setIntroStage(1), CHIPS_AT_SECONDS * 1000),
-      window.setTimeout(() => setIntroStage(2), CONTROLS_AT_SECONDS * 1000),
       window.setTimeout(() => setPhase("idle"), HERO_INTRO_SECONDS * 1000),
     ];
     return () => timers.forEach((t) => window.clearTimeout(t));
@@ -306,7 +302,6 @@ export default function HeroPhone() {
   const intro = phase === "intro";
   const animated = phase === "idle" && !reduceMotion;
   const chipsShown = phase === "idle" || (intro && introStage >= 1);
-  const controlsShown = phase === "idle" || (intro && introStage >= 2);
 
   // ---------- เอียงตามเมาส์ (เบา ๆ ให้มีมิติ) ----------
   const mouseX = useMotionValue(0);
@@ -357,7 +352,8 @@ export default function HeroPhone() {
 
   return (
     <div
-      className="relative flex min-w-0 flex-col items-center overflow-hidden py-2"
+      // pb ใต้แถวป้าย: ช่วงกาง (เฟรม ~66–74) ฝั่งที่หมุนเข้าหากล้องยื่นต่ำสุด ~98% ของภาพ — ต้องไม่โดน overflow ตัด
+      className="relative flex min-w-0 flex-col items-center overflow-hidden pb-2 pt-2 sm:pb-5"
       style={{ perspective: 1200 }}
       data-hero-phase={phase}
       onMouseMove={handleMouseMove}
@@ -379,7 +375,7 @@ export default function HeroPhone() {
 
       <motion.div
         ref={stageRef}
-        className="relative z-10 -mt-1 -mb-[9%] aspect-[1100/932] w-[min(92vw,440px)] cursor-grab select-none outline-none [touch-action:pan-y] active:cursor-grabbing focus-visible:rounded-[2rem] focus-visible:ring-2 focus-visible:ring-yellow focus-visible:ring-offset-4 md:w-[min(100%,500px)]"
+        className="relative z-10 -mt-1 aspect-[1100/932] sm:-mb-[9%] w-[min(92vw,440px)] cursor-grab select-none outline-none [touch-action:pan-y] active:cursor-grabbing focus-visible:rounded-[2rem] focus-visible:ring-2 focus-visible:ring-yellow focus-visible:ring-offset-4 md:w-[min(100%,500px)]"
         style={{ rotateX, rotateY, transformStyle: "preserve-3d" }}
         role="group"
         tabIndex={0}
@@ -431,23 +427,6 @@ export default function HeroPhone() {
 
       <ChipRow chips={CHIPS.slice(2, 4)} offset={2} show={chipsShown} intro={intro} reduceMotion={reduceMotion} />
 
-      <motion.div
-        className="relative z-20 mt-3 flex flex-col items-center gap-2"
-        initial={{ opacity: 0, y: 8 }}
-        animate={controlsShown ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 }}
-        transition={{ duration: reduceMotion ? 0 : 0.5, ease: "easeOut" }}
-      >
-        <p className="flex items-center gap-1.5 text-xs font-medium text-text-muted">
-          <MoveHorizontal size={15} aria-hidden="true" />
-          ลากซ้าย–ขวาเพื่อหมุนและกางเครื่อง
-        </p>
-        <div className="grid grid-cols-3 rounded-full border border-border-default bg-white/90 p-1 shadow-sm backdrop-blur">
-          {VIEWS.map((v) => (
-            <ViewButton key={v} active={view === v} label={VIEW_LABEL[v]} onClick={() => goTo(v)} />
-          ))}
-        </div>
-      </motion.div>
-
       <span className="sr-only" aria-live="polite">
         กำลังแสดง{view === "back" ? "ด้านหลัง" : view === "folded" ? "เครื่องตอนพับ" : "เครื่องตอนกาง"}
       </span>
@@ -478,21 +457,6 @@ function ChipRow({ chips, offset, show, intro, reduceMotion }: {
         </Chip>
       ))}
     </div>
-  );
-}
-
-function ViewButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={`min-h-11 min-w-[4.5rem] rounded-full px-4 text-xs font-semibold transition-colors ${
-        active ? "bg-text-heading text-white" : "text-text-muted hover:bg-bg-subtle hover:text-text-heading"
-      }`}
-    >
-      {label}
-    </button>
   );
 }
 
