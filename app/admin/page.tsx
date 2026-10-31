@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Smartphone, ClipboardList, Users,
   LogOut, Clock, CheckCircle2, Loader2,
   X, AlertTriangle, Warehouse, Menu, Search,
-  ShoppingBag, Check, Eye, Truck, Store, CreditCard, Receipt, UserCog, TicketPercent, Banknote, TrendingUp, Zap, Star, Target, Inbox, RotateCcw, Scale
+  ShoppingBag, Check, Eye, Truck, Store, CreditCard, Receipt, UserCog, TicketPercent, Banknote, TrendingUp, Zap, Star, Target, Inbox, RotateCcw, Scale, Images
 } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
@@ -19,6 +19,7 @@ import EmployeeManager from "@/components/EmployeeManager";
 import CouponAdmin from "@/components/CouponAdmin";
 import PromotionManager from "@/components/PromotionManager";
 import ReviewAdmin from "@/components/ReviewAdmin";
+import StoreGalleryAdmin from "@/components/StoreGalleryAdmin";
 import IntentStats from "@/components/IntentStats";
 import TradeInManager from "@/components/TradeInManager";
 import TradeInRequests from "@/components/TradeInRequests";
@@ -661,6 +662,8 @@ export default function AdminDashboard() {
               {/* รีวิวลูกค้า (ตอบกลับ/ลบ) */}
               {activeMenu === "รีวิวลูกค้า" && <ReviewAdmin />}
 
+              {activeMenu === "หน้าร้าน & ทีมงาน" && <StoreGalleryAdmin />}
+
               {/* บริการที่ลูกค้าสนใจ (จากป๊อปอัพคัดกรอง) */}
               {activeMenu === "บริการที่ลูกค้าสนใจ" && <IntentStats />}
 
@@ -852,6 +855,7 @@ const menuItems = [
   { name: "ราคารับซื้อ (ขาย/บอลลูน)", icon: Banknote },
   { name: "คำขอขาย/บอลลูน", icon: Inbox },
   { name: "รีวิวลูกค้า", icon: Star },
+  { name: "หน้าร้าน & ทีมงาน", icon: Images },
   { name: "บริการที่ลูกค้าสนใจ", icon: Target },
   { name: "คำขอผ่อนสินค้า", icon: ClipboardList },
   { name: "จัดการลูกค้า", icon: Users },

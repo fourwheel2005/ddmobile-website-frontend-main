@@ -1,12 +1,21 @@
-"use client";
+import type { Metadata } from "next";
 import {
   CheckCircle2, MessageCircle, Phone,
   Target, Users, RefreshCw, Lightbulb, Heart, Clock, TrendingUp, Banknote
 } from "lucide-react";
 import { LINE_URL, FACEBOOK_URL, TEL, TEL_HREF } from "@/lib/contact";
 import { SERVICES } from "@/lib/services";
+import { loadStoreGallery } from "@/lib/storeGallery";
+import StoreSections from "@/components/store/StoreSections";
 
-export default function ContactPage() {
+export const metadata: Metadata = {
+  title: "เกี่ยวกับเรา · หน้าร้าน ทีมงาน และการเดินทาง | DD Mobile",
+  description: "รู้จัก ดีดี โมบาย — หน้าร้านจริง ทีมงานและช่างประจำร้าน พร้อมเส้นทางการเดินทางมาร้านและช่องทางติดต่อ",
+};
+
+/** เกี่ยวกับเรา: เรื่องราว → หน้าร้าน/ทีมงาน/ช่าง (รูปจากหลังบ้าน) → บริการ → ค่านิยม → การเดินทาง → ติดต่อ */
+export default async function ContactPage() {
+  const gallery = await loadStoreGallery();
   return (
     <div className="page-wrapper min-h-screen bg-bg-base">
 
@@ -29,6 +38,9 @@ export default function ContactPage() {
           </div>
         </div>
       </section>
+
+      {/* หน้าร้าน / ทีมงาน / ช่าง — แอดมินอัปโหลดในหลังบ้าน (ซ่อนเองถ้ายังไม่มีรูป) */}
+      <StoreSections gallery={gallery} sections={["STORE", "TEAM", "TECHNICIAN"]} />
 
       {/* 2. SERVICES */}
       <section className="container-dd py-12 md:py-16">
@@ -77,6 +89,9 @@ export default function ContactPage() {
           </div>
         </div>
       </section>
+
+      {/* การเดินทางมาร้าน */}
+      <StoreSections gallery={gallery} sections={["DIRECTIONS"]} />
 
       {/* 4. CONTACT CTA */}
       <section className="container-dd py-12 md:py-16">

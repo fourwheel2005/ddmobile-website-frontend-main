@@ -16,6 +16,7 @@ import Tilt from "@/components/Tilt";
 import HeroPhone from "@/components/HeroPhone";
 import PromoCarousel from "@/components/PromoCarousel";
 import ReviewsSection from "@/components/ReviewsSection";
+import StoreTeaser from "@/components/store/StoreTeaser";
 import { ProductGridSkeleton } from "@/components/Skeletons";
 
 interface CatalogItem {
@@ -163,6 +164,9 @@ export default function Home() {
       </section>
 
       {/* ===================== CTA ===================== */}
+      {/* หน้าร้าน + ทีมงาน (รูปจากหลังบ้าน · ซ่อนอัตโนมัติถ้ายังไม่มีรูป) */}
+      <StoreTeaser />
+
       {/* รีวิวจากลูกค้าที่ซื้อจริง (ซ่อนอัตโนมัติถ้ายังไม่มีรีวิว) */}
       <ReviewsSection />
 
