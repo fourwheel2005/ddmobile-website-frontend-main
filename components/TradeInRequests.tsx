@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Inbox, Trash2, Copy, Phone, ChevronLeft, ChevronRight, Images } from "lucide-react";
-import { LineChatButton } from "@/components/LineChatButton";
+import { LineChatButton, LineIdentity } from "@/components/LineChatButton";
 import ProtectedImageViewer from "@/components/ProtectedImageViewer";
 import { PHOTO_SLOTS } from "@/lib/serviceRequest";
 import { SERVICES, type ServiceCode } from "@/lib/services";
@@ -29,6 +29,7 @@ interface TradeInRequest {
   serviceType: "SELL" | "BALLOON";                 // V43 — คำขอเก่าทั้งหมด = BALLOON
   photos: { id: number; slot: string }[];
   lineUserId?: string | null;                     // ลูกค้าทักแชทพร้อมเลขอ้างอิงแล้ว → ปุ่มเปิดห้องแชทของลูกค้า
+  lineDisplayName?: string | null;
 }
 
 type ServiceFilter = "" | "SELL" | "BALLOON";
@@ -165,6 +166,7 @@ export default function TradeInRequests() {
                     <p className="mt-1 text-sm text-text-body">
                       {r.name} · <a href={`tel:${r.tel.replace(/\D/g, "")}`} className="font-semibold text-yellow-text hover:underline">{r.tel}</a> · {areaOf(r)}
                     </p>
+                    <LineIdentity lineUserId={r.lineUserId} lineDisplayName={r.lineDisplayName} />
                     <p className="mt-0.5 text-xs text-text-muted">{formatThaiDateTime(r.createdAt)}{r.userEmail ? ` · ${r.userEmail}` : ""}</p>
                   </div>
                   {r.estimatedPrice != null && (

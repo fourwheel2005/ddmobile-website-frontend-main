@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 import api from "@/lib/api";
 import { getApiError } from "@/lib/errorMessage";
 import { baht } from "@/lib/money";
-import { LineChatButton } from "@/components/LineChatButton";
+import { LineChatButton, LineIdentity } from "@/components/LineChatButton";
 import { TableSkeleton } from "@/components/Skeletons";
 import StatCard from "@/components/ui/StatCard";
 import ProtectedImageViewer from "@/components/ProtectedImageViewer";
@@ -20,7 +20,7 @@ interface InstallmentRequest {
   hasIdCard: boolean; idCardPurgedAt: string | null; consentAt: string;
   status: string; statusChangedAt: string | null; handledBy: string | null; adminNote: string | null;
   version: number; createdAt: string;
-  lineLinked: boolean; decisionReason: string | null; customerNotifiedAt: string | null; lineUserId?: string | null;
+  lineLinked: boolean; decisionReason: string | null; customerNotifiedAt: string | null; lineUserId?: string | null; lineDisplayName?: string | null;
 }
 interface PageResult {
   content: InstallmentRequest[]; page: number; totalPages: number; totalElements: number; last: boolean; pendingCount: number;
@@ -157,6 +157,7 @@ export default function InstallmentRequestsAdmin({ onPendingCount }: { onPending
                         {r.name} · <a href={`tel:${r.tel.replace(/\D/g, "")}`} className="font-semibold text-yellow-text hover:underline">{r.tel}</a>
                         {area && <> · {area}</>}
                       </p>
+                      <LineIdentity lineUserId={r.lineUserId} lineDisplayName={r.lineDisplayName} />
                       <p className="mt-0.5 text-xs text-text-muted">
                         {fmt(r.createdAt)}{r.userEmail ? ` · ${r.userEmail}` : ""}{r.handledBy ? ` · ดูแลโดย ${r.handledBy}` : ""}
                       </p>
