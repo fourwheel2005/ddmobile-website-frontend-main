@@ -17,7 +17,7 @@ import { useCart } from "@/context/CartContext";
 import { WEB_CHECKOUT, reservedLabel } from "@/lib/commerce";
 import { buildInstLookup, type InstallmentPlan, type InstallmentSerial } from "@/lib/installment";
 import { stockPromo } from "@/lib/promo";
-import { searchProducts, deriveFacets, emptyFacet, kindOf, type ProductFilters } from "@/lib/productSearch";
+import { searchProducts, deriveFacets, emptyFacet, kindOf, type ProductFilters, type SortKey } from "@/lib/productSearch";
 import { useCompare } from "@/lib/useCompare";
 import CompareBar from "@/components/CompareBar";
 
@@ -65,19 +65,31 @@ interface CatalogItem {
   promoEndsAt?: string | null;
 }
 
-type SortKey = "recommended" | "price-asc" | "price-desc" | "newest" | "name";
 type Cond = "NEW" | "SECOND_HAND" | "ACCESSORY";
 
 const conditionFromParam = (value: string | null): Cond =>
   value === "SECOND_HAND" || value === "ACCESSORY" ? value : "NEW";
 
-const sortOptions: { key: SortKey; label: string }[] = [
+// phonesOnly = เรียงตามรุ่นมือถือ — ไม่มีความหมายกับอุปกรณ์เสริม จึงซ่อนในแท็บนั้น
+const sortOptions: { key: SortKey; label: string; phonesOnly?: boolean }[] = [
   { key: "recommended", label: "แนะนำ" },
+  { key: "model-asc", label: "รุ่นต่ำ → สูง", phonesOnly: true },
+  { key: "model-desc", label: "รุ่นสูง → ต่ำ", phonesOnly: true },
   { key: "price-asc", label: "ราคาน้อย → มาก" },
   { key: "price-desc", label: "ราคามาก → น้อย" },
   { key: "newest", label: "มาใหม่ล่าสุด" },
   { key: "name", label: "ชื่อ ก-ฮ / A-Z" },
 ];
+
+// มือ 2 มีหลายรุ่นปนกัน → เริ่มที่เรียงรุ่นต่ำ → สูง · หมวดอื่นเริ่มที่ "แนะนำ"
+const defaultSort = (cond: Cond): SortKey => (cond === "SECOND_HAND" ? "model-asc" : "recommended");
+const sortFromParam = (value: string | null, cond: Cond): SortKey => {
+  const opt = sortOptions.find((o) => o.key === value);
+  return opt && !(opt.phonesOnly && cond === "ACCESSORY") ? opt.key : defaultSort(cond);
+};
+// ?sort= ใส่เฉพาะเมื่อไม่ใช่ค่าเริ่มต้นของหมวด — กดกลับจากหน้าสินค้าแล้วยังเรียงแบบเดิม
+const listUrl = (cond: Cond, sort: SortKey) =>
+  `/products?condition=${cond}${sort === defaultSort(cond) ? "" : `&sort=${sort}`}`;
 
 const CONDS = [
   ["NEW", "มือ 1 (ใหม่)", Sparkles, "bg-success-text"],
@@ -113,8 +125,8 @@ function ProductsContent() {
   const [error, setError] = useState(false);
 
   const [search, setSearch] = useState("");
-  const [sortBy, setSortBy] = useState<SortKey>("recommended");
   const [cond, setCond] = useState<Cond>(() => conditionFromParam(searchParams.get("condition")));
+  const [sortBy, setSortBy] = useState<SortKey>(() => sortFromParam(searchParams.get("sort"), conditionFromParam(searchParams.get("condition"))));
   const [facet, setFacet] = useState<Omit<ProductFilters, "query">>(emptyFacet);
   const [filterOpen, setFilterOpen] = useState(false);   // มือถือ: เปิด/ปิดแผงตัวกรอง
   const [showSuggest, setShowSuggest] = useState(false);
@@ -124,7 +136,7 @@ function ProductsContent() {
   const [ratingByVariant, setRatingByVariant] = useState<Map<string, { average: number; count: number }>>(new Map());
   const [ratingByName, setRatingByName] = useState<Map<string, { average: number; count: number }>>(new Map());
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const listHref = `/products?condition=${cond}`;
+  const listHref = listUrl(cond, sortBy);
   const detailHref = (id: string) => `/products/${encodeURIComponent(id)}?returnTo=${encodeURIComponent(listHref)}`;
 
   const setFacetPatch = (patch: Partial<ProductFilters>) => setFacet((s) => ({ ...s, ...patch }));
@@ -134,7 +146,13 @@ function ProductsContent() {
     setCond(next);
     setFacet(emptyFacet());   // รีเซ็ตตัวกรองเมื่อเปลี่ยนหมวด — เกรด/แบต/รุ่น/ความจุ ต่างกันต่อหมวด
     setFilterOpen(false);
-    router.replace(`/products?condition=${next}`, { scroll: false });
+    setSortBy(defaultSort(next));
+    router.replace(listUrl(next, defaultSort(next)), { scroll: false });
+  };
+
+  const changeSort = (next: SortKey) => {
+    setSortBy(next);
+    router.replace(listUrl(cond, next), { scroll: false });
   };
 
   useEffect(() => {
@@ -427,8 +445,8 @@ function ProductsContent() {
             <div className="mb-6 flex flex-wrap items-center gap-3 border-b border-border-default pb-4">
               <div className="relative">
                 <ArrowUpDown className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" size={15} />
-                <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortKey)} aria-label="เรียงลำดับ" className="input-dd w-auto cursor-pointer py-2 pl-9 pr-8 text-sm">
-                  {sortOptions.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+                <select value={sortBy} onChange={(e) => changeSort(e.target.value as SortKey)} aria-label="เรียงลำดับ" className="input-dd w-auto cursor-pointer py-2 pl-9 pr-8 text-sm">
+                  {sortOptions.filter((o) => !(o.phonesOnly && cond === "ACCESSORY")).map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
                 </select>
               </div>
               {!isLoading && <span className="ml-auto text-sm text-text-muted">พบ <span className="font-semibold text-text-heading">{displayed.length}</span> รายการ</span>}

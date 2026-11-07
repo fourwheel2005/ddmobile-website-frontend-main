@@ -176,6 +176,48 @@ describe("searchProducts", () => {
   });
 });
 
+describe("searchProducts — เรียงตามรุ่น", () => {
+  // ตามข้อมูลจริงหน้ามือ 2: 13 หลายเครื่องปน 13 Pro Max / 16e / Samsung ที่อยู่หมวด iPhone
+  const items = [
+    make({ id: "pm13", productName: "iPhone 13 Pro Max", storage: "128GB", minPrice: 12900, score: 9 }),
+    make({ id: "13-256", productName: "iPhone 13", storage: "256GB", minPrice: 11590, score: 8 }),
+    make({ id: "13-128b", productName: "iPhone 13", storage: "128GB", minPrice: 11590, score: 7 }),
+    make({ id: "13-128a", productName: "iPhone 13", storage: "128GB", minPrice: 8990, score: 6 }),
+    make({ id: "s26", productName: "S26Ultra", brand: "Samsung", storage: "256GB", minPrice: 30000, score: 10 }),
+    make({ id: "16", productName: "iPhone 16", storage: "128GB", minPrice: 20000, score: 1 }),
+    make({ id: "16e", productName: "iPhone 16e", storage: "128GB", minPrice: 15000, score: 2 }),
+    make({ id: "13p", productName: "iPhone 13 Pro", storage: "128GB", minPrice: 12000, score: 3 }),
+  ];
+  it("รุ่นต่ำ → สูง: รุ่น → ความจุ → ราคา · ยี่ห้ออื่นต่อท้าย iPhone", () => {
+    const r = searchProducts(items, emptyFilters(), "SECOND_HAND", "model-asc");
+    expect(r.map((x) => x.id)).toEqual(["13-128a", "13-128b", "13-256", "13p", "pm13", "16e", "16", "s26"]);
+  });
+  it("รุ่นสูง → ต่ำ: กลับด้านทั้งหมด แต่ iPhone ยังขึ้นก่อนยี่ห้ออื่น", () => {
+    const r = searchProducts(items, emptyFilters(), "SECOND_HAND", "model-desc");
+    expect(r.map((x) => x.id)).toEqual(["16", "16e", "pm13", "13p", "13-256", "13-128b", "13-128a", "s26"]);
+  });
+  it("MODEL หลายความจุ: ใช้ความจุเล็กสุดที่ยังมีของ", () => {
+    const list = [
+      make({ id: "m", type: "MODEL", productName: "iPhone 13", storage: null, minPrice: 9000,
+             options: [{ storage: "128GB", quantity: 0 }, { storage: "512GB", quantity: 1 }] }),
+      make({ id: "u", productName: "iPhone 13", storage: "256GB", minPrice: 9000 }),
+    ];
+    expect(searchProducts(list, emptyFilters(), "SECOND_HAND", "model-asc").map((x) => x.id)).toEqual(["u", "m"]);
+  });
+  it("ถูกจอง/ขายแล้ว ยังไปท้ายเหมือน sort อื่น", () => {
+    const list = [
+      make({ id: "old-reserved", productName: "iPhone 12", stockState: "RESERVED" }),
+      make({ id: "old-sold", productName: "iPhone 11", sold: true }),
+      make({ id: "new", productName: "iPhone 15" }),
+    ];
+    expect(searchProducts(list, emptyFilters(), "SECOND_HAND", "model-asc").map((x) => x.id)).toEqual(["new", "old-reserved", "old-sold"]);
+  });
+  it("มีคำค้น + เลือกเรียงรุ่น → เคารพการเรียงรุ่น", () => {
+    const r = searchProducts(items, withFilters({ query: "iphone 13" }), "SECOND_HAND", "model-asc");
+    expect(r.map((x) => x.id)).toEqual(["13-128a", "13-128b", "13-256", "13p", "pm13"]);
+  });
+});
+
 describe("deriveFacets", () => {
   const items = [
     make({ type: "UNIT", condition: "SECOND_HAND", productName: "iPhone 13", storage: "128GB", grade: "A" }),
@@ -192,6 +234,11 @@ describe("deriveFacets", () => {
     const f = deriveFacets(items, "NEW");
     expect(f.grades).toEqual([]);
     expect(f.storages).toEqual(["256GB", "512GB"]);
+  });  it("dropdown รุ่นเรียงต่ำ → สูง ไม่ใช่ A-Z (16e อยู่ก่อน 16, ไม่ใช่หลัง 16 Pro Max)", () => {
+    const list = ["iPhone 16 Pro Max", "iPhone 16e", "iPhone 14", "iPhone 16", "iPhone 13 Pro Max", "iPhone 13"]
+      .map((productName) => make({ productName }));
+    expect(deriveFacets(list, "SECOND_HAND").models)
+      .toEqual(["iPhone 13", "iPhone 13 Pro Max", "iPhone 14", "iPhone 16e", "iPhone 16", "iPhone 16 Pro Max"]);
   });
 });
 

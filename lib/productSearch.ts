@@ -10,9 +10,11 @@
  * ราคา/ส่วนลดจริงคิดที่ server เสมอ — ที่นี่ทำแค่ค้นหา/แสดงผล
  */
 
+import { compareModelNames } from "./modelOrder";
+
 export type Cond = "NEW" | "SECOND_HAND" | "ACCESSORY";
 export type BatteryBand = "all" | "gte90" | "b80to89" | "lt80";
-export type SortKey = "recommended" | "price-asc" | "price-desc" | "newest" | "name";
+export type SortKey = "recommended" | "price-asc" | "price-desc" | "newest" | "name" | "model-asc" | "model-desc";
 
 /** รูปตัวเลือกรุ่นย่อย (variant) เท่าที่ search ต้องใช้ */
 export interface OptionLike {
@@ -257,8 +259,22 @@ function sortComparator(a: SearchableItem, b: SearchableItem, sortBy: SortKey): 
     case "price-desc": return (b.minPrice ?? 0) - (a.minPrice ?? 0);
     case "newest": return (b.latestReceivedAt ?? "").localeCompare(a.latestReceivedAt ?? "");
     case "name": return a.productName.localeCompare(b.productName, "th");
+    case "model-asc": return compareByModel(a, b, 1);
+    case "model-desc": return compareByModel(a, b, -1);
     default: return (b.score ?? 0) - (a.score ?? 0);   // recommended
   }
+}
+
+/** ความจุเล็กสุดที่ซื้อได้ (MODEL มีหลายความจุ) — ไม่รู้ = ท้ายสุด */
+function minStorageValue(it: SearchableItem): number {
+  return Math.min(Number.MAX_SAFE_INTEGER, ...itemStorages(it).map(storageSortValue));
+}
+
+/** เรียงตามรุ่น (lib/modelOrder) → รุ่นเดียวกันเรียงความจุ → ราคา · dir = -1 กลับด้านทั้งหมด (ยกเว้นตระกูล) */
+function compareByModel(a: SearchableItem, b: SearchableItem, dir: 1 | -1): number {
+  return compareModelNames(a, b, dir)
+    || dir * (minStorageValue(a) - minStorageValue(b))
+    || dir * ((a.minPrice ?? Infinity) - (b.minPrice ?? Infinity) || 0);
 }
 
 /* ============================ facets ============================ */
@@ -272,7 +288,10 @@ export interface Facets {
 /** ดึงตัวเลือก facet ที่มีจริงในหมวดปัจจุบัน (เพื่อ render dropdown/chip + auto-hide ตัวที่ว่าง) */
 export function deriveFacets(items: SearchableItem[], cond: Cond): Facets {
   const inCond = items.filter((it) => kindOf(it) === cond);
-  const models = dedupe(inCond.map((it) => it.productName).filter(Boolean)).sort((a, b) => a.localeCompare(b, "th"));
+  // รุ่นเรียงต่ำ → สูง (iPhone 13 → 13 Pro → … → 16e → 16 …) — ไม่ใช่ A-Z ที่ทำ 16e ไปอยู่หลัง 16 Pro Max
+  const brandOf = new Map(inCond.map((it) => [it.productName, it.brand] as const));
+  const models = dedupe(inCond.map((it) => it.productName).filter(Boolean))
+    .sort((a, b) => compareModelNames({ productName: a, brand: brandOf.get(a) }, { productName: b, brand: brandOf.get(b) }));
   const grades = dedupe(inCond.map((it) => it.grade).filter((g): g is string => !!g)).sort();
   const storages = dedupe(inCond.flatMap(itemStorages)).sort((a, b) => storageSortValue(a) - storageSortValue(b));
   return { models, grades, storages };
