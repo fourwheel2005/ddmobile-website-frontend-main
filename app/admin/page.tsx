@@ -20,6 +20,7 @@ import CouponAdmin from "@/components/CouponAdmin";
 import PromotionManager from "@/components/PromotionManager";
 import ReviewAdmin from "@/components/ReviewAdmin";
 import StoreGalleryAdmin from "@/components/StoreGalleryAdmin";
+import { LineChatOffBanner } from "@/components/LineChatButton";
 import IntentStats from "@/components/IntentStats";
 import TradeInManager from "@/components/TradeInManager";
 import TradeInRequests from "@/components/TradeInRequests";
@@ -492,6 +493,7 @@ export default function AdminDashboard() {
               )}
 
               {/* คำขอผ่อนสินค้า (หน้าสินค้า "ยืนยันผ่อนเครื่องนี้" / ฟอร์มเลือกบริการ) + บัตรประชาชน */}
+              {(activeMenu === "คำขอผ่อนสินค้า" || activeMenu === "คำขอขาย/บอลลูน") && <LineChatOffBanner />}
               {activeMenu === "คำขอผ่อนสินค้า" && <InstallmentRequestsAdmin onPendingCount={setInstallmentPending} />}
 
               {/* จัดการลูกค้า — รายชื่อ + สถานะจริง + ระงับ/ปลดระงับ/เตือน + คิวเฝ้าระวัง */}

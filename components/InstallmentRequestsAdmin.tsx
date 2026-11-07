@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 import api from "@/lib/api";
 import { getApiError } from "@/lib/errorMessage";
 import { baht } from "@/lib/money";
-import { lineChatUrl } from "@/lib/contact";
+import { LineChatButton } from "@/components/LineChatButton";
 import { TableSkeleton } from "@/components/Skeletons";
 import StatCard from "@/components/ui/StatCard";
 import ProtectedImageViewer from "@/components/ProtectedImageViewer";
@@ -20,7 +20,7 @@ interface InstallmentRequest {
   hasIdCard: boolean; idCardPurgedAt: string | null; consentAt: string;
   status: string; statusChangedAt: string | null; handledBy: string | null; adminNote: string | null;
   version: number; createdAt: string;
-  lineLinked: boolean; decisionReason: string | null; customerNotifiedAt: string | null;
+  lineLinked: boolean; decisionReason: string | null; customerNotifiedAt: string | null; lineUserId?: string | null;
 }
 interface PageResult {
   content: InstallmentRequest[]; page: number; totalPages: number; totalElements: number; last: boolean; pendingCount: number;
@@ -202,7 +202,7 @@ export default function InstallmentRequestsAdmin({ onPendingCount }: { onPending
                       className="inline-flex items-center gap-1.5 rounded-full border border-border-default bg-white px-3 py-1.5 text-xs font-bold text-text-heading hover:border-yellow">
                       <Copy size={13} /> คัดลอก
                     </button>
-                    <a href={lineChatUrl()} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-yellow-text hover:underline">เปิด LINE OA</a>
+                    <LineChatButton lineUserId={r.lineUserId} />
                   </div>
                 </div>
               );

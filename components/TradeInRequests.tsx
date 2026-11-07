@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Inbox, Trash2, Copy, Phone, ChevronLeft, ChevronRight, Images } from "lucide-react";
+import { LineChatButton } from "@/components/LineChatButton";
 import ProtectedImageViewer from "@/components/ProtectedImageViewer";
 import { PHOTO_SLOTS } from "@/lib/serviceRequest";
 import { SERVICES, type ServiceCode } from "@/lib/services";
@@ -27,6 +28,7 @@ interface TradeInRequest {
   status: string; assignedTo: string | null; outcomeReason: string | null; version: number;   // S15 CRM
   serviceType: "SELL" | "BALLOON";                 // V43 — คำขอเก่าทั้งหมด = BALLOON
   photos: { id: number; slot: string }[];
+  lineUserId?: string | null;                     // ลูกค้าทักแชทพร้อมเลขอ้างอิงแล้ว → ปุ่มเปิดห้องแชทของลูกค้า
 }
 
 type ServiceFilter = "" | "SELL" | "BALLOON";
@@ -206,6 +208,7 @@ export default function TradeInRequests() {
                       <Images size={13} /> ดูรูปเครื่อง ({r.photos.length})
                     </button>
                   )}
+                  <LineChatButton lineUserId={r.lineUserId} />
                   <button type="button" onClick={() => copyDetail(r)}
                     className="inline-flex items-center gap-1.5 rounded-full border border-border-default bg-white px-3 py-1.5 text-xs font-bold text-text-heading transition-colors hover:border-yellow">
                     <Copy size={13} /> คัดลอกรายละเอียด
