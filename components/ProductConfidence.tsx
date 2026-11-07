@@ -13,6 +13,8 @@ export interface ConfidenceData {
   batteryHealth?: number | null;
   batteryCheckedAt?: string | null;
   warrantyExpire?: string | null;
+  /** ข้อความประกัน (เช่น "ประกันร้าน 30 วัน") — ใช้เมื่อไม่มีวันหมดประกัน (FIX-220) */
+  warrantyTerms?: string | null;
   photoCount?: number | null;
   stockState?: string | null;
   inspection?: { screen?: string | null; body?: string | null; camera?: string | null; faceId?: string | null } | null;
@@ -45,8 +47,10 @@ export default function ProductConfidence({ data }: { data: ConfidenceData }) {
   const gradeDesc = gradeDescription(data.grade);
   const battery = data.batteryHealth;
   const insp = data.inspection ?? {};
+  // ประกัน: วันหมดก่อน (มีวันที่ชัด) · ไม่มีวันแต่ร้านเขียนเงื่อนไขไว้ → โชว์ข้อความนั้น (FIX-220)
+  const warranty = dateTh(data.warrantyExpire) ? `ถึง ${dateTh(data.warrantyExpire)}` : (data.warrantyTerms || null);
   const anyUnspecified =
-    !data.grade || battery == null || !data.warrantyExpire ||
+    !data.grade || battery == null || !warranty ||
     !insp.screen || !insp.body || !insp.camera || !insp.faceId ||
     !data.accessories || !data.defectNotes;
 
@@ -56,7 +60,7 @@ export default function ProductConfidence({ data }: { data: ConfidenceData }) {
         <ShieldCheck size={18} className="text-success-text" /> ข้อมูลสภาพเครื่อง (มือสอง)
       </h2>
 
-      {/* แบตเตอรี่ — % จริง + เวลาที่ตรวจ (Stock ยังไม่ส่งเวลา → ยังไม่ได้ระบุ) */}
+      {/* แบตเตอรี่ — % จริง + เวลาที่ตรวจ (Stock ประทับตอนรับเข้า/แก้ผลตรวจ — FIX-220) */}
       {battery != null && (
         <div className="mb-3 rounded-xl border border-border-default bg-bg-subtle p-3.5">
           <div className="mb-1.5 flex items-center justify-between text-sm">
@@ -78,12 +82,12 @@ export default function ProductConfidence({ data }: { data: ConfidenceData }) {
 
       <dl className="divide-y divide-border-subtle">
         <Field label="เกรดสภาพ" value={data.grade ? <span className="badge-dd badge-info">เกรด {data.grade}{gradeDesc ? ` · ${gradeDesc}` : ""}</span> : null} />
-        <Field label="ประกัน" value={dateTh(data.warrantyExpire)} />
+        <Field label="ประกัน" value={warranty} />
         <Field label="รูปจริงของสินค้า" value={data.photoCount != null && data.photoCount > 0 ? `${data.photoCount} รูป` : null} />
         <Field label="สถานะสต็อก" value={data.stockState === "SOLD" ? "ขายแล้ว" : data.stockState === "RESERVED" ? "จองแล้ว"
           : data.stockState === "DEPOSITED" ? "วางมัดจำแล้ว" : data.stockState === "AVAILABLE" ? "พร้อมขาย" : null} />
 
-        {/* checklist ตรวจสภาพ — Stock ยังไม่ส่ง → ยังไม่ได้ระบุ (ไม่ fabricate) */}
+        {/* checklist ตรวจสภาพ — ร้านกรอกใน Stock (FIX-220) · ไม่กรอก → ยังไม่ได้ระบุ (ไม่ fabricate) */}
         <Field label="หน้าจอ" value={insp.screen} />
         <Field label="ตัวเครื่อง/บอดี้" value={insp.body} />
         <Field label="กล้อง" value={insp.camera} />

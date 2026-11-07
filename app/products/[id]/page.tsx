@@ -70,6 +70,17 @@ interface CatalogItem {
   originalMinPrice?: number | null;   // FIX-217: minPrice = ราคาโปรแล้ว · ราคาเดิมคู่กัน
   promoName?: string | null;
   promoEndsAt?: string | null;
+  /** FIX-220: ผลตรวจสภาพมือสองที่ร้านกรอกใน Stock — ข้อความพร้อมโชว์ · null = ยังไม่กรอก */
+  conditionReport?: {
+    checkedAt: string | null;
+    screen: string | null;
+    body: string | null;
+    camera: string | null;
+    faceId: string | null;
+    accessories: string | null;
+    conditionNote: string | null;
+    warrantyTerms: string | null;
+  } | null;
 }
 
 function safeProductsReturn(raw: string | null) {
@@ -563,8 +574,17 @@ function ProductDetailContent() {
                   grade: item.grade,
                   batteryHealth: item.avgBatteryHealth,
                   warrantyExpire: item.warrantyExpire,
+                  warrantyTerms: item.conditionReport?.warrantyTerms,
                   photoCount: item.photoCount ?? (item.gallery?.length ?? null),
                   stockState: item.stockState ?? (item.sold ? "SOLD" : "AVAILABLE"),
+                  // FIX-220: ผลตรวจที่ร้านกรอกใน Stock (รับเข้า/แก้ไขเครื่อง)
+                  batteryCheckedAt: item.conditionReport?.checkedAt,
+                  inspection: item.conditionReport ? {
+                    screen: item.conditionReport.screen, body: item.conditionReport.body,
+                    camera: item.conditionReport.camera, faceId: item.conditionReport.faceId,
+                  } : null,
+                  accessories: item.conditionReport?.accessories,
+                  defectNotes: item.conditionReport?.conditionNote,
                 }} />
               )}
             </div>
