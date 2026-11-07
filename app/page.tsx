@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from "react";
 import api from "@/lib/api";
 import { getCatalog } from "@/lib/catalog";
 import { LINE_URL } from "@/lib/contact";
+import { stockPromo } from "@/lib/promo";
 import { buildInstLookup, type InstallmentPlan, type InstallmentSerial, type InstInfo } from "@/lib/installment";
 import {
   Zap, ShieldCheck, Smartphone, CreditCard,
@@ -31,6 +32,9 @@ interface CatalogItem {
   minPrice: number | null;
   imageUrl: string | null;
   options?: ({ storage: string | null } | null)[] | null;
+  originalMinPrice?: number | null;   // FIX-217: โปรจาก Stock — minPrice เป็นราคาโปรแล้ว
+  promoName?: string | null;
+  promoEndsAt?: string | null;
 }
 
 export default function Home() {
@@ -191,6 +195,7 @@ export default function Home() {
 
 function ProductCard({ product, inst }: { product: CatalogItem; inst?: InstInfo | null }) {
   const isNew = product.condition === "NEW";
+  const flash = stockPromo(product.minPrice, product.originalMinPrice, product.promoName, product.promoEndsAt);
   return (
     <Tilt className="h-full" max={5} scale={1.02} radius={18}>
     <Link href={`/products/${encodeURIComponent(product.id)}`} className="card-dd group flex h-full flex-col overflow-hidden !p-0">
@@ -198,6 +203,11 @@ function ProductCard({ product, inst }: { product: CatalogItem; inst?: InstInfo 
         <span className={`badge-dd absolute left-3 top-3 z-10 ${isNew ? "badge-success" : "badge-info"}`}>
           {isNew ? <Sparkles size={11} /> : <RotateCcw size={11} />} {product.conditionLabel}
         </span>
+        {flash && (
+          <span className="absolute right-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-price px-2.5 py-1 text-[11px] font-bold text-white shadow-md">
+            <Zap size={11} className="fill-white" /> {flash.label}
+          </span>
+        )}
         {product.imageUrl ? (
           <Image src={product.imageUrl} alt={product.productName} fill loader={stockImageLoader} placeholder="blur" blurDataURL={IMAGE_BLUR_DATA_URL} sizes="(max-width: 1024px) 50vw, 25vw" className="object-contain transition-transform duration-300 group-hover:scale-105" />
         ) : (
@@ -216,7 +226,12 @@ function ProductCard({ product, inst }: { product: CatalogItem; inst?: InstInfo 
         </p>
         <div className="mt-auto pt-3">
           <p className="text-xs text-text-muted">ราคา</p>
-          <p className="text-lg font-bold text-price">{product.minPrice != null ? "฿" + product.minPrice.toLocaleString() : "-"}</p>
+          <p className="text-lg font-bold text-price">
+            {flash?.priceBefore != null && (
+              <span className="mr-1.5 align-middle text-xs font-medium text-text-muted line-through">฿{flash.priceBefore.toLocaleString()}</span>
+            )}
+            {product.minPrice != null ? "฿" + product.minPrice.toLocaleString() : "-"}
+          </p>
           {inst?.monthly != null && (
             <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-yellow/15 px-2 py-1.5 text-xs font-bold text-text-heading">
               <CreditCard size={13} className="flex-shrink-0 text-yellow-hover" />

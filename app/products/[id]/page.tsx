@@ -6,7 +6,7 @@ import Image from "next/image";
 import api from "@/lib/api";
 import { getCatalogItem } from "@/lib/catalog";
 import { baht } from "@/lib/money";
-import { promoForItem, type PublicPromotion } from "@/lib/promo";
+import { stockPromo } from "@/lib/promo";
 import dynamic from "next/dynamic";
 import {
   Smartphone, ShieldCheck, CheckCircle2, XCircle,
@@ -36,6 +36,9 @@ interface VariantOption {
   quantity: number;
   imageUrl: string | null;
   gallery: string[] | null;
+  originalPrice?: number | null;   // FIX-217: ราคาเดิมเมื่อสีนี้ติดโปรจาก Stock
+  promoName?: string | null;
+  promoEndsAt?: string | null;
 }
 
 interface CatalogItem {
@@ -64,6 +67,9 @@ interface CatalogItem {
   soldAt?: string | null;
   stockState?: string | null;   // S13: AVAILABLE | SOLD · FIX-214: RESERVED (จองแล้ว) | DEPOSITED (วางมัดจำแล้ว)
   photoCount?: number | null;   // S13: จำนวนรูปจริง
+  originalMinPrice?: number | null;   // FIX-217: minPrice = ราคาโปรแล้ว · ราคาเดิมคู่กัน
+  promoName?: string | null;
+  promoEndsAt?: string | null;
 }
 
 function safeProductsReturn(raw: string | null) {
@@ -92,7 +98,6 @@ function ProductDetailContent() {
   const [selColor, setSelColor] = useState<string | null>(null);
   const [selStorage, setSelStorage] = useState<string | null>(null);
   const [installment, setInstallment] = useState<InstallmentInfo | null>(null);
-  const [promos, setPromos] = useState<PublicPromotion[]>([]);
   const [installmentReq, setInstallmentReq] = useState<InstallmentInterest | null>(null);   // เปิดฟอร์มผ่อน (snapshot เครื่อง+แผน)
   // ซื้อผ่าน LINE: คูปองที่ลดมากสุด + ชื่อ/เบอร์ผู้ซื้อ แนบไปในข้อความ (เดิมคูปองเห็น/ใช้ได้ที่หน้า checkout หน้าเดียว)
   const [coupon, setCoupon] = useState<Coupon | null>(null);
@@ -105,10 +110,6 @@ function ProductDetailContent() {
       .then((r) => { if (alive) setCoupon(bestCoupon(Array.isArray(r.data) ? r.data : [])); })
       .catch(() => { /* ไม่มีคูปอง/ผิดพลาด → ส่งข้อความโดยไม่มีโค้ด */ });
     return () => { alive = false; cancelAnimationFrame(f); };
-  }, []);
-
-  useEffect(() => {
-    api.get("/promotions/active").then((r) => setPromos(Array.isArray(r.data) ? r.data : [])).catch(() => { /* ไม่มีโปร */ });
   }, []);
 
   // มือ 1 (MODEL): ตั้งค่าตัวเลือกเริ่มต้น = option แรก
@@ -149,7 +150,9 @@ function ProductDetailContent() {
         if (item.type === "UNIT") {
           res = await api.get(`/installment/serial/${encodeURIComponent(item.id)}`);
         } else if (item.type === "MODEL") {
-          res = await api.get(`/installment/model`, { params: { productId: item.id, storage: selStorage ?? "" } });
+          // FIX-217: ส่งสีที่เลือก — โปรจาก Stock ตั้งเฉพาะบางสีได้ (สีที่ไม่ติดโปรได้แผนปกติ)
+          const variantId = item.options?.find((o) => o.color === selColor && o.storage === selStorage)?.variantId;
+          res = await api.get(`/installment/model`, { params: { productId: item.id, storage: selStorage ?? "", ...(variantId ? { variantId } : {}) } });
         } else {
           if (!cancel) setInstallment(null);
           return;
@@ -163,7 +166,7 @@ function ProductDetailContent() {
     };
     load();
     return () => { cancel = true; };
-  }, [item, selStorage]);
+  }, [item, selStorage, selColor]);
 
   if (isLoading) {
     return (
@@ -289,8 +292,10 @@ function ProductDetailContent() {
       }
     }
   }
-  // โปร flash sale ของตัวที่เลือกอยู่ (แสดงผลเท่านั้น — server คิดจริงตอนสร้างออเดอร์)
-  const flash = item.sold ? null : promoForItem(promos, { id: item.id, variantId: effVariantId, category: item.category }, effPrice);
+  // FIX-217: โปรจาก Stock ของตัวที่เลือกอยู่ — effPrice เป็นราคาโปรแล้ว · ราคาเดิมยังโชว์คู่กัน (โปรมีกำหนดเวลา)
+  const flash = item.sold ? null : isModel
+    ? stockPromo(effPrice, selOption?.originalPrice, selOption?.promoName, selOption?.promoEndsAt)
+    : stockPromo(effPrice, item.originalMinPrice, item.promoName, item.promoEndsAt);
 
   // ซื้อผ่าน LINE — สถานะยึดตัวเลือกที่เลือกอยู่ (effQty/effPrice) ชุดเดียวกับเงื่อนไขปุ่มเดิม (canBuy)
   const status: BuyStatus = buyStatus(!!item.sold, effQty, effPrice, item.stockState);
@@ -298,7 +303,7 @@ function ProductDetailContent() {
   const buyMessage = buildBuyMessage({
     status, productName: item.productName, color: effColor, storage: effStorage, conditionLabel: item.conditionLabel,
     code: isUnit && item.imei ? item.imei : item.sku || null,
-    price: effPrice, promo: flash, coupon, buyer,
+    price: flash?.priceBefore ?? effPrice, promo: flash?.priceBefore != null ? flash : null, coupon, buyer,
     url: `${window.location.origin}/products/${encodeURIComponent(item.id)}${isModel ? `?variant=${encodeURIComponent(effVariantId)}` : ""}`,
   });
   // กดแล้ว: คัดลอกข้อความสำรอง (เดสก์ท็อปไม่มีแอป LINE ข้อความจะหาย) + นับสถิติดีมานด์ — ไม่ขวางการเปิด LINE
@@ -438,9 +443,9 @@ function ProductDetailContent() {
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                 {effPrice == null ? (
                   <span className="text-2xl font-bold text-white md:text-3xl">สอบถามราคา</span>
-                ) : flash ? (
+                ) : flash?.priceBefore != null ? (
                   <>
-                    <span className="mr-1 text-lg font-medium text-white/50 line-through">฿{effPrice.toLocaleString()}</span>
+                    <span className="mr-1 text-lg font-medium text-white/50 line-through">฿{flash.priceBefore.toLocaleString()}</span>
                     <CountUp value={flash.priceAfter} prefix="฿" className="text-3xl font-bold text-yellow md:text-4xl" />
                   </>
                 ) : (
@@ -458,7 +463,9 @@ function ProductDetailContent() {
                   <span className="inline-flex items-center gap-1 rounded-full bg-yellow px-2.5 py-0.5 text-xs font-bold text-text-heading"><Zap size={11} className="fill-text-heading" /> {flash.label}</span>
                   <span className="text-sm font-semibold text-white">{flash.name}</span>
                   <FlashCountdown endAt={flash.endAt} />
-                  <span className="w-full text-[11px] text-white/60">ส่วนลดคำนวณให้อัตโนมัติตอนชำระเงิน</span>
+                  <span className="w-full text-[11px] text-white/60">
+                    ราคาพิเศษช่วงเวลาจำกัด{flash.priceBefore != null ? ` · ราคาปกติ ฿${flash.priceBefore.toLocaleString()}` : ""} · หมดโปรกลับเป็นราคาปกติ
+                  </span>
                 </div>
               )}
               {bestInstallmentTerm && (

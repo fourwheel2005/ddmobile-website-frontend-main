@@ -16,7 +16,7 @@ import ProductFilterPanel from "@/components/ProductFilterPanel";
 import { useCart } from "@/context/CartContext";
 import { WEB_CHECKOUT, reservedLabel } from "@/lib/commerce";
 import { buildInstLookup, type InstallmentPlan, type InstallmentSerial } from "@/lib/installment";
-import { promoForItem, type PublicPromotion } from "@/lib/promo";
+import { stockPromo } from "@/lib/promo";
 import { searchProducts, deriveFacets, emptyFacet, kindOf, type ProductFilters } from "@/lib/productSearch";
 import { useCompare } from "@/lib/useCompare";
 import CompareBar from "@/components/CompareBar";
@@ -29,6 +29,9 @@ interface VariantOption {
   quantity: number;
   imageUrl: string | null;
   gallery: string[] | null;
+  originalPrice?: number | null;   // FIX-217: ราคาเดิมเมื่อสีนี้ติดโปรจาก Stock
+  promoName?: string | null;
+  promoEndsAt?: string | null;
 }
 
 interface CatalogItem {
@@ -57,6 +60,9 @@ interface CatalogItem {
   sold?: boolean;          // เครื่องที่ขายแล้ว — โชว์ป้าย "ขายแล้ว" + รูปจาง ไม่ให้ซื้อ
   soldAt?: string | null;
   stockState?: string | null;   // FIX-214: RESERVED (จองแล้ว) / DEPOSITED (วางมัดจำแล้ว)
+  originalMinPrice?: number | null;   // FIX-217: minPrice = ราคาโปรแล้ว · ราคาเดิมคู่กัน
+  promoName?: string | null;
+  promoEndsAt?: string | null;
 }
 
 type SortKey = "recommended" | "price-asc" | "price-desc" | "newest" | "name";
@@ -114,7 +120,6 @@ function ProductsContent() {
   const [showSuggest, setShowSuggest] = useState(false);
   const [plans, setPlans] = useState<InstallmentPlan[]>([]);
   const [serials, setSerials] = useState<InstallmentSerial[]>([]);
-  const [promos, setPromos] = useState<PublicPromotion[]>([]);   // โปรอัตโนมัติ — โชว์ป้าย/ราคาขีดฆ่า (server คิดจริงตอนสั่งซื้อ)
   // ★ ต่อสินค้า (จากรีวิวผู้ซื้อจริง) — จับคู่ด้วย variantId (เสถียร S15) ก่อน แล้ว fallback ชื่อ (legacy/MODEL)
   const [ratingByVariant, setRatingByVariant] = useState<Map<string, { average: number; count: number }>>(new Map());
   const [ratingByName, setRatingByName] = useState<Map<string, { average: number; count: number }>>(new Map());
@@ -137,17 +142,15 @@ function ProductsContent() {
       setIsLoading(true);
       setError(false);
       try {
-        const [catalog, plan, ser, pr, rt] = await Promise.all([
+        const [catalog, plan, ser, rt] = await Promise.all([
           getCatalog<CatalogItem>(),
           api.get("/installment/plans").catch(() => ({ data: [] })),
           api.get("/installment/serials").catch(() => ({ data: [] })),
-          api.get("/promotions/active").catch(() => ({ data: [] })),
           api.get("/reviews/ratings").catch(() => ({ data: [] })),
         ]);
         setItems(catalog);
         setPlans(Array.isArray(plan.data) ? plan.data : []);
         setSerials(Array.isArray(ser.data) ? ser.data : []);
-        setPromos(Array.isArray(pr.data) ? pr.data : []);
         const byVar = new Map<string, { average: number; count: number }>();
         const byName = new Map<string, { average: number; count: number }>();
         (Array.isArray(rt.data) ? rt.data : []).forEach((r: { productName: string; average: number; count: number; variantId: string | null }) => {
@@ -225,7 +228,8 @@ function ProductsContent() {
   // priority = การ์ดที่อยู่เหนือ fold (โหลดทันที ไม่ lazy) เพื่อให้แถวแรกขึ้นเร็ว
   const renderCard = (it: CatalogItem, priority = false) => {
     const inst = instFor(it);
-    const flash = it.sold ? null : promoForItem(promos, it, it.minPrice);
+    // FIX-217: โปรจาก Stock — minPrice เป็นราคาโปรแล้ว ราคาเดิมขีดฆ่าคู่กัน
+    const flash = it.sold ? null : stockPromo(it.minPrice, it.originalMinPrice, it.promoName, it.promoEndsAt);
     const rt = (it.variantId && ratingByVariant.get(it.variantId)) || ratingByName.get(it.productName);
     return (
       <motion.div key={it.id} layout initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.25 }}>
@@ -294,8 +298,8 @@ function ProductsContent() {
                 <p className="text-xs text-text-muted">ราคา</p>
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <p className={`font-bold text-price ${it.minPrice == null ? "text-sm" : "text-lg"}`}>
-                    {flash ? (
-                      <><span className="mr-1.5 align-middle text-xs font-medium text-text-muted line-through">{priceText(it.minPrice)}</span>{baht(flash.priceAfter)}</>
+                    {flash?.priceBefore != null ? (
+                      <><span className="mr-1.5 align-middle text-xs font-medium text-text-muted line-through">{baht(flash.priceBefore)}</span>{baht(flash.priceAfter)}</>
                     ) : (
                       <>{priceText(it.minPrice)}{(it.type === "GROUP" || it.type === "MODEL") && it.maxPrice != null && it.maxPrice !== it.minPrice ? ` - ${Number(it.maxPrice).toLocaleString()}` : ""}</>
                     )}

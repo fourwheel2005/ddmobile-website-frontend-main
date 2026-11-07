@@ -123,6 +123,9 @@ export default function PromotionManager() {
         </div>
         <button onClick={openAdd} className="btn-primary"><Plus size={16} /> เพิ่มโปรโมชั่น</button>
       </div>
+      <p className="-mt-2 mb-3 text-xs text-text-muted">
+        หน้านี้สำหรับคูปอง/ลดทั้งออเดอร์ · โปรราคาสินค้ารายรุ่น (ราคาสด/ดาวน์/ผ่อน) ตั้งที่ระบบ Stock เมนู &ldquo;โปรโมชัน&rdquo; แล้วหน้าเว็บขึ้นป้ายให้อัตโนมัติ
+      </p>
 
       <div className="overflow-hidden rounded-2xl border border-border-default bg-white">
         <div className="max-h-[65vh] overflow-auto">
@@ -201,9 +204,13 @@ export default function PromotionManager() {
                 <label className="label-dd">ใช้กับ</label>
                 <select value={form.scope} onChange={(e) => set({ scope: e.target.value })} className="input-dd">
                   <option value="ORDER">ทั้งออเดอร์</option>
-                  <option value="PRODUCT">สินค้าเฉพาะตัว (flash sale)</option>
-                  <option value="CATEGORY">ทั้งหมวด</option>
+                  {/* FIX-217: โปรราคาสินค้าย้ายไป Stock — เหลือไว้เฉพาะตอนแก้โปรเก่า (บันทึกได้เมื่อปิดโปรเท่านั้น) */}
+                  <option value="PRODUCT" disabled={form.scope !== "PRODUCT"}>สินค้าเฉพาะตัว — ย้ายไปตั้งที่ Stock</option>
+                  <option value="CATEGORY" disabled={form.scope !== "CATEGORY"}>ทั้งหมวด — ย้ายไปตั้งที่ Stock</option>
                 </select>
+                {form.scope !== "ORDER" && (
+                  <p className="mt-1 text-xs text-error-text">โปรสินค้า/หมวดเลิกใช้ที่เว็บแล้ว — ปิดโปรนี้ แล้วตั้งใหม่ที่ระบบ Stock (เมนูโปรโมชัน)</p>
+                )}
               </div>
 
               {/* เลือกสินค้า (PRODUCT) — ค้นหาแล้วกดเพิ่มเป็น chip */}

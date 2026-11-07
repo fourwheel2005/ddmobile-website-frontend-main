@@ -19,6 +19,19 @@ export interface InstallmentInfo {
   terms: InstallmentTerm[];      // = งวดของแผนแรก (back-compat)
   note: string | null;
   plans?: InstallmentPlanOption[] | null;   // แผนหลายแบบ (ปุ่มเลือก) — มีอย่างน้อย 1 แผนเมื่อมีข้อมูลผ่อน
+  // FIX-217: โปรจาก Stock — plans เป็นแผนโปรแล้ว · originalPlans = ดาวน์/ผ่อนปกติ (ลำดับแผน/งวดตรงกัน)
+  promoName?: string | null;
+  promoEndsAt?: string | null;
+  originalPlans?: InstallmentPlanOption[] | null;
+}
+
+/** ดาวน์/ค่างวดปกติ (ก่อนโปร) ของงวดเดียวกัน — null = ไม่มีโปร หรือหาคู่ไม่เจอ */
+export function originalQuote(info: InstallmentInfo, planIndex: number, months: number | undefined) {
+  if (!info.promoName || months == null) return null;
+  const plan = info.originalPlans?.[planIndex];
+  const t = plan?.terms?.find((x) => x.months === months);
+  if (!plan || !t) return null;
+  return { down: t.down != null ? t.down : plan.down, monthly: t.monthly };
 }
 
 
@@ -80,6 +93,7 @@ export default function InstallmentBox({ info, price, onConfirm }: {
   };
 
   const baseDown = baseDownFor(term);
+  const original = originalQuote(info, Math.min(planSel, plans.length - 1), term?.months);
   const range = rangeFor(term);
   const quote = quoteFor(term);
   const down = quote.down;
@@ -127,6 +141,20 @@ export default function InstallmentBox({ info, price, onConfirm }: {
       </div>
 
       <div className="p-5">
+        {info.promoName && (
+          <div className="mb-4 rounded-xl border border-price/30 bg-price/5 px-3 py-2 text-xs">
+            <span className="mr-1.5 inline-flex items-center gap-1 rounded-full bg-price px-2 py-0.5 font-bold text-white">
+              <Sparkles size={11} /> โปรพิเศษ
+            </span>
+            <span className="font-semibold text-text-heading">{info.promoName}</span>
+            {original && (original.down !== baseDown || original.monthly !== term?.monthly) && (
+              <p className="mt-1 text-text-muted">
+                ราคาปกติงวดนี้: ดาวน์ <span className="line-through">{baht(original.down)}</span>
+                {" · "}<span className="line-through">{baht(original.monthly)}</span>/เดือน · ราคาโปรมีกำหนดเวลา
+              </p>
+            )}
+          </div>
+        )}
         {/* เลือกแผนผ่อน (ถ้ามีหลายแผน) — ตั้งจากร้าน (Stock) */}
         {plans.length > 1 && (
           <div className="mb-4">
@@ -332,7 +360,7 @@ export default function InstallmentBox({ info, price, onConfirm }: {
         )}
 
         {/* โปรโมชันพิเศษ (ของแผนที่เลือก) */}
-        {plan.promo && (
+        {plan.promo && plan.promo !== info.promoName && (   /* ชื่อโปร Stock โชว์ด้านบนแล้ว */
           <div className="mt-4 flex items-center gap-2 rounded-xl bg-pink-50 px-4 py-3 text-sm font-semibold text-pink-700">
             <Sparkles size={16} className="flex-shrink-0" /> {plan.promo}
           </div>
