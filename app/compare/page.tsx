@@ -45,7 +45,8 @@ const ATTRS: { label: string; render: (it: CmpItem) => React.ReactNode }[] = [
   { label: "แบตเตอรี่", render: (it) => (it.avgBatteryHealth != null ? `${it.avgBatteryHealth}%` : UNSPEC) },
   { label: "ประกันถึง", render: (it) => dateTh(it.warrantyExpire) || UNSPEC },
   { label: "รูปจริง", render: (it) => (it.photoCount != null && it.photoCount > 0 ? `${it.photoCount} รูป` : UNSPEC) },
-  { label: "สถานะ", render: (it) => (it.stockState === "SOLD" ? "ขายแล้ว" : it.stockState === "AVAILABLE" ? "พร้อมขาย" : UNSPEC) },
+  { label: "สถานะ", render: (it) => (it.stockState === "SOLD" ? "ขายแล้ว" : it.stockState === "RESERVED" ? "จองแล้ว"
+      : it.stockState === "DEPOSITED" ? "วางมัดจำแล้ว" : it.stockState === "AVAILABLE" ? "พร้อมขาย" : UNSPEC) },
 ];
 
 export default function ComparePage() {

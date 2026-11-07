@@ -14,7 +14,7 @@ import { ProductGridSkeleton } from "@/components/Skeletons";
 import Tilt from "@/components/Tilt";
 import ProductFilterPanel from "@/components/ProductFilterPanel";
 import { useCart } from "@/context/CartContext";
-import { WEB_CHECKOUT } from "@/lib/commerce";
+import { WEB_CHECKOUT, reservedLabel } from "@/lib/commerce";
 import { buildInstLookup, type InstallmentPlan, type InstallmentSerial } from "@/lib/installment";
 import { promoForItem, type PublicPromotion } from "@/lib/promo";
 import { searchProducts, deriveFacets, emptyFacet, kindOf, type ProductFilters } from "@/lib/productSearch";
@@ -56,6 +56,7 @@ interface CatalogItem {
   score: number;
   sold?: boolean;          // เครื่องที่ขายแล้ว — โชว์ป้าย "ขายแล้ว" + รูปจาง ไม่ให้ซื้อ
   soldAt?: string | null;
+  stockState?: string | null;   // FIX-214: RESERVED (จองแล้ว) / DEPOSITED (วางมัดจำแล้ว)
 }
 
 type SortKey = "recommended" | "price-asc" | "price-desc" | "newest" | "name";
@@ -170,9 +171,9 @@ function ProductsContent() {
 
   // นับเฉพาะของที่ยังซื้อได้ — ไม่รวมการ์ด "ขายแล้ว" (social proof) กันตัวเลขแท็บโป่งจนงง (FIX-121)
   const condCounts = useMemo(() => ({
-    NEW: items.filter((i) => kindOf(i) === "NEW" && !i.sold).length,
-    SECOND_HAND: items.filter((i) => kindOf(i) === "SECOND_HAND" && !i.sold).length,
-    ACCESSORY: items.filter((i) => kindOf(i) === "ACCESSORY" && !i.sold).length,
+    NEW: items.filter((i) => kindOf(i) === "NEW" && !i.sold && !reservedLabel(i.stockState)).length,
+    SECOND_HAND: items.filter((i) => kindOf(i) === "SECOND_HAND" && !i.sold && !reservedLabel(i.stockState)).length,
+    ACCESSORY: items.filter((i) => kindOf(i) === "ACCESSORY" && !i.sold && !reservedLabel(i.stockState)).length,
   }), [items]);
 
   // facet ที่มีจริงในหมวดปัจจุบัน (auto-hide ตัวที่ว่าง)
@@ -251,6 +252,13 @@ function ProductsContent() {
                   </span>
                 </span>
               )}
+              {!it.sold && reservedLabel(it.stockState) && (
+                <span className="absolute inset-0 z-10 flex items-center justify-center">
+                  <span className="-rotate-12 rounded-lg border-2 border-white/90 bg-amber-600/90 px-4 py-1.5 text-base font-extrabold tracking-wide text-white shadow-lg">
+                    {reservedLabel(it.stockState)}
+                  </span>
+                </span>
+              )}
               {!it.sold && inst?.down != null && (
                 <span className="absolute bottom-0 left-0 z-10 rounded-tr-xl bg-text-heading px-3 py-1.5 text-xs font-bold text-white shadow-md">
                   ดาวน์ <span className="text-yellow">฿{inst.down.toLocaleString()}</span>
@@ -316,6 +324,8 @@ function ProductsContent() {
                   <span className="badge-dd bg-text-heading/10 text-text-muted">
                     <CheckCircle2 size={12} /> ขายแล้ว
                   </span>
+                ) : reservedLabel(it.stockState) ? (
+                  <span className="badge-dd bg-amber-100 text-amber-800">{reservedLabel(it.stockState)}</span>
                 ) : it.quantity > 0 ? (
                   <span className="badge-dd badge-success">
                     <CheckCircle2 size={12} /> {it.type === "UNIT" ? "พร้อมส่ง" : `พร้อมส่ง ${it.quantity} ชิ้น`}

@@ -80,7 +80,8 @@ export default function ProductConfidence({ data }: { data: ConfidenceData }) {
         <Field label="เกรดสภาพ" value={data.grade ? <span className="badge-dd badge-info">เกรด {data.grade}{gradeDesc ? ` · ${gradeDesc}` : ""}</span> : null} />
         <Field label="ประกัน" value={dateTh(data.warrantyExpire)} />
         <Field label="รูปจริงของสินค้า" value={data.photoCount != null && data.photoCount > 0 ? `${data.photoCount} รูป` : null} />
-        <Field label="สถานะสต็อก" value={data.stockState === "SOLD" ? "ขายแล้ว" : data.stockState === "AVAILABLE" ? "พร้อมขาย" : null} />
+        <Field label="สถานะสต็อก" value={data.stockState === "SOLD" ? "ขายแล้ว" : data.stockState === "RESERVED" ? "จองแล้ว"
+          : data.stockState === "DEPOSITED" ? "วางมัดจำแล้ว" : data.stockState === "AVAILABLE" ? "พร้อมขาย" : null} />
 
         {/* checklist ตรวจสภาพ — Stock ยังไม่ส่ง → ยังไม่ได้ระบุ (ไม่ fabricate) */}
         <Field label="หน้าจอ" value={insp.screen} />

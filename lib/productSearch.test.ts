@@ -168,6 +168,12 @@ describe("searchProducts", () => {
   it("n=0: ไม่มี item ในหมวด → []", () => {
     expect(searchProducts([], emptyFilters(), "NEW", "recommended")).toEqual([]);
   });
+  it("เครื่องที่ถูกจอง/วางมัดจำ อยู่หลังของพร้อมขาย แต่ก่อนของขายแล้ว (FIX-214)", () => {
+    const withReserved = [...items,
+      make({ id: "e", productName: "iPhone 12", storage: "64GB", minPrice: 8000, score: 10, stockState: "RESERVED" })];
+    const r = searchProducts(withReserved, emptyFilters(), "SECOND_HAND", "price-asc");
+    expect(r.map((x) => x.id)).toEqual(["a", "d", "b", "e", "c"]);   // e ถูกสุดแต่ถูกจองแล้ว → หลังของพร้อมขาย
+  });
 });
 
 describe("deriveFacets", () => {

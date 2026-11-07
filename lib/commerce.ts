@@ -20,7 +20,7 @@ export function bestCoupon(list: Coupon[], now = Date.now()): Coupon | null {
   return usable.reduce<Coupon | null>((a, b) => (!a || b.percent > a.percent ? b : a), null);
 }
 
-export type BuyStatus = "available" | "out" | "sold" | "ask-price";
+export type BuyStatus = "available" | "out" | "sold" | "reserved" | "ask-price";
 
 export interface BuyInterest {
   status: BuyStatus;
@@ -40,6 +40,7 @@ const HEADER: Record<BuyStatus, string> = {
   available: "🛒 สนใจซื้อเครื่องนี้ (ซื้อสด)",
   out: "📦 สนใจเครื่องนี้ — ขอสอบถาม/สั่งจอง (หน้าเว็บแจ้งสินค้าหมด)",
   sold: "🔎 สนใจรุ่นนี้ — เครื่องที่ดูขายแล้ว ขอดูเครื่องอื่นที่ใกล้เคียง",
+  reserved: "🔖 สนใจรุ่นนี้ — เครื่องที่ดูมีลูกค้าจอง/วางมัดจำแล้ว ขอดูเครื่องอื่นที่ใกล้เคียง",
   "ask-price": "💬 สอบถามราคาเครื่องนี้",
 };
 
@@ -84,8 +85,9 @@ function buyerLines(buyer?: Buyer | null): string[] {
 }
 
 /** สถานะปุ่มซื้อของเครื่อง (ชุดเดียวกับเงื่อนไขปุ่มเดิม: ขายแล้ว / หมด / ไม่มีราคา / พร้อมขาย) */
-export function buyStatus(sold: boolean, quantity: number, price: number | null): BuyStatus {
+export function buyStatus(sold: boolean, quantity: number, price: number | null, stockState?: string | null): BuyStatus {
   if (sold) return "sold";
+  if (reservedLabel(stockState)) return "reserved";   // จองแล้ว / วางมัดจำแล้ว — ซื้อไม่ได้ (FIX-214)
   if (price == null) return "ask-price";
   if (quantity <= 0) return "out";
   return "available";
@@ -93,3 +95,10 @@ export function buyStatus(sold: boolean, quantity: number, price: number | null)
 
 /** สถิติ "บริการที่ลูกค้าสนใจ" (หลังบ้าน) — มือ 1 / มือ 2 ตามสภาพเครื่อง */
 export const intentForCondition = (condition: string | null | undefined) => (condition === "NEW" ? "NEW" : "USED");
+
+/** ป้ายเครื่องที่ลูกค้าจองไว้ที่ร้าน (FIX-214) — RESERVED = จองแล้ว · DEPOSITED = วางมัดจำแล้ว · อื่น ๆ = null */
+export function reservedLabel(stockState: string | null | undefined): string | null {
+  if (stockState === "RESERVED") return "จองแล้ว";
+  if (stockState === "DEPOSITED") return "วางมัดจำแล้ว";
+  return null;
+}

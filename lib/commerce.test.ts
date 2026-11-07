@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { bestCoupon, buildBuyMessage, buildCartMessage, buyStatus, intentForCondition, WEB_CHECKOUT } from "./commerce";
+import { bestCoupon, buildBuyMessage, buildCartMessage, buyStatus, intentForCondition, reservedLabel, WEB_CHECKOUT } from "./commerce";
 import type { CartItem } from "@/context/CartContext";
 
 describe("WEB_CHECKOUT", () => {
@@ -103,5 +103,25 @@ describe("intentForCondition", () => {
   it("มือ 1 = NEW · อื่น ๆ = USED (สถิติบริการที่ลูกค้าสนใจ)", () => {
     expect(intentForCondition("NEW")).toBe("NEW");
     expect(intentForCondition("SECOND_HAND")).toBe("USED");
+  });
+});
+
+describe("เครื่องที่ลูกค้าจอง/วางมัดจำไว้ (FIX-214)", () => {
+  it("ป้ายตามสถานะจาก server", () => {
+    expect(reservedLabel("RESERVED")).toBe("จองแล้ว");
+    expect(reservedLabel("DEPOSITED")).toBe("วางมัดจำแล้ว");
+    expect(reservedLabel("AVAILABLE")).toBeNull();
+    expect(reservedLabel(undefined)).toBeNull();
+  });
+
+  it("ปุ่มซื้อเป็นสถานะจองแล้ว (ซื้อไม่ได้) — ขายแล้วยังมาก่อน", () => {
+    expect(buyStatus(false, 0, 12900, "RESERVED")).toBe("reserved");
+    expect(buyStatus(false, 0, 12900, "DEPOSITED")).toBe("reserved");
+    expect(buyStatus(true, 0, 12900, "RESERVED")).toBe("sold");
+    expect(buyStatus(false, 1, 12900, "AVAILABLE")).toBe("available");
+  });
+
+  it("ข้อความทัก LINE บอกว่าเครื่องที่ดูมีคนจองแล้ว", () => {
+    expect(buildBuyMessage({ status: "reserved", productName: "iPhone 13", price: 12900 })).toContain("จอง/วางมัดจำแล้ว");
   });
 });

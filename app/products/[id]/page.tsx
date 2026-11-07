@@ -12,7 +12,7 @@ import {
   Smartphone, ShieldCheck, CheckCircle2, XCircle,
   ArrowLeft, ChevronRight, Sparkles, RotateCcw, BatteryMedium, Hash, ShoppingCart, Zap, IdCard, CreditCard, MessageCircle
 } from "lucide-react";
-import { WEB_CHECKOUT, bestCoupon, buildBuyMessage, buyStatus, intentForCondition, type BuyStatus, type Buyer, type Coupon } from "@/lib/commerce";
+import { WEB_CHECKOUT, bestCoupon, buildBuyMessage, buyStatus, intentForCondition, reservedLabel, type BuyStatus, type Buyer, type Coupon } from "@/lib/commerce";
 import { lineChatUrl } from "@/lib/contact";
 import { readStoredUser } from "@/lib/profile";
 import toast from "react-hot-toast";
@@ -62,7 +62,7 @@ interface CatalogItem {
   options: VariantOption[] | null;
   sold?: boolean;
   soldAt?: string | null;
-  stockState?: string | null;   // S13: AVAILABLE | SOLD (server รับรอง)
+  stockState?: string | null;   // S13: AVAILABLE | SOLD · FIX-214: RESERVED (จองแล้ว) | DEPOSITED (วางมัดจำแล้ว)
   photoCount?: number | null;   // S13: จำนวนรูปจริง
 }
 
@@ -293,7 +293,8 @@ function ProductDetailContent() {
   const flash = item.sold ? null : promoForItem(promos, { id: item.id, variantId: effVariantId, category: item.category }, effPrice);
 
   // ซื้อผ่าน LINE — สถานะยึดตัวเลือกที่เลือกอยู่ (effQty/effPrice) ชุดเดียวกับเงื่อนไขปุ่มเดิม (canBuy)
-  const status: BuyStatus = buyStatus(!!item.sold, effQty, effPrice);
+  const status: BuyStatus = buyStatus(!!item.sold, effQty, effPrice, item.stockState);
+  const reserved = reservedLabel(item.stockState);   // FIX-214
   const buyMessage = buildBuyMessage({
     status, productName: item.productName, color: effColor, storage: effStorage, conditionLabel: item.conditionLabel,
     code: isUnit && item.imei ? item.imei : item.sku || null,
@@ -309,6 +310,7 @@ function ProductDetailContent() {
     available: { title: "ซื้อเครื่องนี้ · ทักแอดมินทาง LINE", sub: "แอดมินยืนยันสต็อก ราคา และนัดรับ/จัดส่งให้ในแชท", short: "ซื้อ · ทัก LINE" },
     out: { title: "สอบถาม / สั่งจอง ทาง LINE", sub: "สินค้าหมดชั่วคราว — แอดมินเช็คของเข้าให้", short: "สั่งจอง · LINE" },
     sold: { title: "สอบถามเครื่องอื่นทาง LINE", sub: "เครื่องนี้ขายแล้ว — แอดมินหาเครื่องที่ใกล้เคียงให้", short: "ถามรุ่นอื่น · LINE" },
+    reserved: { title: "สอบถามเครื่องอื่นทาง LINE", sub: "เครื่องนี้มีลูกค้าจอง/วางมัดจำแล้ว — แอดมินหาเครื่องที่ใกล้เคียงให้", short: "ถามรุ่นอื่น · LINE" },
     "ask-price": { title: "สอบถามราคาทาง LINE", sub: "แอดมินแจ้งราคาและโปรโมชันล่าสุดให้", short: "ถามราคา · LINE" },
   };
   // มือสองที่ไม่มีวันประกัน → "ยังไม่ได้ระบุ" (ไม่ default เป็น "ตรวจเช็คแล้ว" ที่ดูเหมือนตรวจ — plan S13)
@@ -359,6 +361,13 @@ function ProductDetailContent() {
                 <span className="absolute inset-0 z-20 flex items-center justify-center">
                   <span className="-rotate-12 rounded-xl border-2 border-white/90 bg-text-heading/85 px-6 py-2 text-2xl font-extrabold tracking-wide text-white shadow-xl">
                     ขายแล้ว
+                  </span>
+                </span>
+              )}
+              {!item.sold && reserved && (
+                <span className="absolute inset-0 z-20 flex items-center justify-center">
+                  <span className="-rotate-12 rounded-xl border-2 border-white/90 bg-amber-600/90 px-6 py-2 text-2xl font-extrabold tracking-wide text-white shadow-xl">
+                    {reserved}
                   </span>
                 </span>
               )}
@@ -560,7 +569,7 @@ function ProductDetailContent() {
                     <ShoppingCart size={20} /> เพิ่มลงตะกร้า
                   </button>
                   <button disabled={!canBuy} onClick={buyNow} className="btn-primary flex-1 py-3.5 text-base disabled:opacity-40">
-                    <Zap size={20} /> {item.sold ? "ขายแล้ว" : item.quantity > 0 ? (item.minPrice == null ? "สอบถามราคา" : "ซื้อเลย") : "สินค้าหมด"}
+                    <Zap size={20} /> {item.sold ? "ขายแล้ว" : reserved ? reserved : item.quantity > 0 ? (item.minPrice == null ? "สอบถามราคา" : "ซื้อเลย") : "สินค้าหมด"}
                   </button>
                 </div>
               ) : (
@@ -619,7 +628,7 @@ function ProductDetailContent() {
         <div className={`grid gap-2 ${bestInstallmentTerm ? "grid-cols-2" : "grid-cols-1"}`}>
           {WEB_CHECKOUT ? (
             <button disabled={!canBuy} onClick={buyNow} className="btn-secondary border-text-heading bg-white py-3 text-sm font-bold disabled:opacity-40">
-              <Zap size={17} /> {item.sold ? "ขายแล้ว" : item.quantity > 0 ? "ซื้อสด" : "สินค้าหมด"}
+              <Zap size={17} /> {item.sold ? "ขายแล้ว" : reserved ? reserved : item.quantity > 0 ? "ซื้อสด" : "สินค้าหมด"}
             </button>
           ) : (
             <a href={lineChatUrl(buyMessage)} target="_blank" rel="noopener noreferrer" onClick={onBuyViaLine}

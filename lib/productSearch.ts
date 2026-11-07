@@ -45,6 +45,7 @@ export interface SearchableItem {
   options?: (OptionLike | null)[] | null;
   score?: number;
   sold?: boolean;
+  stockState?: string | null;   // FIX-214: RESERVED / DEPOSITED = มีลูกค้าจองแล้ว
 }
 
 export interface ProductFilters {
@@ -216,7 +217,10 @@ export function matchesFilters(it: SearchableItem, f: ProductFilters, cond: Cond
 
 /* ============================ orchestrator ============================ */
 
-const soldLast = (a: SearchableItem, b: SearchableItem) => Number(!!a.sold) - Number(!!b.sold);
+// พร้อมขาย → จอง/วางมัดจำแล้ว (FIX-214) → ขายแล้ว
+const availability = (it: SearchableItem) =>
+  it.sold ? 2 : it.stockState === "RESERVED" || it.stockState === "DEPOSITED" ? 1 : 0;
+const soldLast = (a: SearchableItem, b: SearchableItem) => availability(a) - availability(b);
 
 /**
  * รวม filter + rank + sort → ผลลัพธ์พร้อมแสดง
