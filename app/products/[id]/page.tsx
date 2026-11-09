@@ -258,7 +258,8 @@ function ProductDetailContent() {
     color: effColor,
     storage: effStorage,
     conditionLabel: item.conditionLabel,
-    serialOrSku: isUnit && item.imei ? item.imei : item.sku,
+    sku: item.sku,
+    imei: isUnit ? item.imei : null,
     price: effPrice,
     planLabel: sel?.planLabel ?? null,
     downPayment: sel?.downPayment ?? null,
@@ -313,7 +314,7 @@ function ProductDetailContent() {
   const reserved = reservedLabel(item.stockState);   // FIX-214
   const buyMessage = buildBuyMessage({
     status, productName: item.productName, color: effColor, storage: effStorage, conditionLabel: item.conditionLabel,
-    code: isUnit && item.imei ? item.imei : item.sku || null,
+    sku: item.sku, imei: isUnit ? item.imei : null,
     price: flash?.priceBefore ?? effPrice, promo: flash?.priceBefore != null ? flash : null, coupon, buyer,
     url: `${window.location.origin}/products/${encodeURIComponent(item.id)}${isModel ? `?variant=${encodeURIComponent(effVariantId)}` : ""}`,
   });

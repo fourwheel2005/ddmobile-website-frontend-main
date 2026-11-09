@@ -28,7 +28,8 @@ export interface BuyInterest {
   color?: string | null;
   storage?: string | null;
   conditionLabel?: string | null;
-  code?: string | null;          // IMEI (มือสองรายเครื่อง) หรือ SKU
+  sku?: string | null;           // รหัสสินค้า DDxxxxx (Stock)
+  imei?: string | null;          // IMEI ที่ปิดบังแล้ว (มือ 2 รายเครื่อง) — "•••• 30035"
   price: number | null;          // ราคาปกติที่หน้าเว็บโชว์
   promo?: { name: string; label: string; priceAfter: number } | null;   // Flash Sale ที่หน้าเว็บโชว์อยู่
   coupon?: Coupon | null;
@@ -44,6 +45,15 @@ const HEADER: Record<BuyStatus, string> = {
   "ask-price": "💬 สอบถามราคาเครื่องนี้",
 };
 
+/**
+ * รหัสที่แอดมินใช้หาเครื่องใน Stock — ต้องมีทั้งคู่:
+ * รหัสสินค้า (SKU) หลายเครื่องใช้รหัสเดียวกันได้ (สี/ความจุเดียวกัน) → IMEI 5 ตัวท้ายบอกว่าเครื่องไหน
+ */
+export function productCodeLines(sku?: string | null, imei?: string | null): string[] {
+  return [sku?.trim() ? `รหัสสินค้า: ${sku.trim()}` : null, imei?.trim() ? `IMEI: ${imei.trim()}` : null]
+    .filter((l): l is string => !!l);
+}
+
 /** ข้อความที่พิมพ์รอในแชท LINE — ข้อมูลครบให้แอดมินปิดการขายได้โดยไม่ต้องถามซ้ำ */
 export function buildBuyMessage(b: BuyInterest): string {
   const spec = [b.color, b.storage, b.conditionLabel].filter(Boolean).join(" · ");
@@ -51,7 +61,7 @@ export function buildBuyMessage(b: BuyInterest): string {
     HEADER[b.status],
     `รุ่น: ${b.productName}`,
     spec ? `สเปก: ${spec}` : null,
-    b.code ? `รหัส: ${b.code}` : null,
+    ...productCodeLines(b.sku, b.imei),
     b.price != null && b.status !== "ask-price" ? `ราคา: ${baht(b.price)}` : null,
     b.promo && b.status === "available" ? `⚡ ${b.promo.name} (${b.promo.label}) เหลือ ${baht(b.promo.priceAfter)}` : null,
     b.coupon && b.status === "available" ? `🎟 โค้ดส่วนลดของฉัน: ${b.coupon.code} (ลด ${b.coupon.percent}%)` : null,

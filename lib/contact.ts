@@ -32,9 +32,13 @@ export const LINE_ADD_FRIEND_URL = "https://lin.ee/xzwMleE";
  */
 export const LINE_URL = `https://line.me/R/oaMessage/${encodeURIComponent(LINE_ID)}/`;
 
-/** ลิงก์เข้าแชท LINE OA พร้อมข้อความที่พิมพ์รอไว้ในช่องแชทให้เลย */
+/**
+ * ลิงก์เข้าแชท LINE OA พร้อมข้อความที่พิมพ์รอไว้ในช่องแชทให้เลย
+ * LINE เอา "ทุกอย่างหลัง ?" เป็นข้อความ — เบราว์เซอร์ในแอป Facebook แปะ `&fbclid=…` ต่อท้ายลิงก์ที่เปิดออกนอกแอป
+ * → ปิดท้ายด้วยขึ้นบรรทัดใหม่ ให้ข้อความแปะท้ายไปอยู่บรรทัดของมันเอง ไม่ต่อติดบรรทัดสุดท้าย (เช่น รหัสไปรษณีย์)
+ */
 export const lineChatUrl = (message?: string) =>
-  message ? `${LINE_URL}?${encodeURIComponent(message)}` : LINE_URL;
+  message ? `${LINE_URL}?${encodeURIComponent(message.trimEnd() + "\n")}` : LINE_URL;
 
 export const TEL = "088-818-8385";
 export const TEL_HREF = "tel:0888188385";

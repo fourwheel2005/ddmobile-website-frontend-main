@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { emptyTradeIn, PROBLEM_NONE, type TradeInForm } from "./tradeIn";
 import {
-  buildServiceMessage, buildSubmitData, buildSubmitFormData, checkImageFile, galleryUrl, missingRequiredSlots, newSubmissionKey, shareFilesFor,
+  buildServiceMessage, buildSubmitData, buildSubmitFormData, checkImageFile, galleryUrl, missingRequiredSlots, newSubmissionKey, serialOrSkuOf, shareFilesFor,
   validateServiceRequest, MAX_TOTAL_BYTES,
   type PhotoItem, type PhotoSlot, type ServiceRequestState,
 } from "./serviceRequest";
@@ -91,6 +91,23 @@ describe("buildSubmitData / buildSubmitFormData", () => {
     expect(d.consent).toBe(false);
     expect(d.device?.estimatedPrice).toBe(12000);
     expect(d.contact.province).toBe("กรุงเทพมหานคร");
+  });
+});
+
+describe("รหัสสินค้า + IMEI (เคส DD-GE5DZG: ข้อความมีแต่ IMEI ไม่มีรหัสสินค้า)", () => {
+  // snapshot จริงจากหน้าเครื่อง iPhone 14 Pro มือ 2 — รหัสสินค้า DD00536 · IMEI ปิดบังเหลือ 5 ตัวท้าย
+  const real = { productName: "iPhone 14 Pro", color: "Deep Purple", storage: "256GB", conditionLabel: "มือ 2",
+    sku: "DD00536", imei: "•••• 30035", price: 17900, note: "พนักงาน" };
+  it("ข้อความ LINE มีรหัสสินค้า และ IMEI แยกบรรทัด", () => {
+    const msg = buildServiceMessage(state({ services: ["INSTALLMENT"], photos: [], installment: real, idCard, consent: true }),
+      { refCode: "DD-GE5DZG", tradeInId: null, installmentId: 1, photoCount: 0, idCardAttached: true, duplicate: false, galleryToken: null }, null);
+    expect(msg).toContain("รุ่น: iPhone 14 Pro\nสี: Deep Purple\nความจุ: 256GB\nสภาพ: มือ 2\nรหัสสินค้า: DD00536\nIMEI: •••• 30035\nราคาเครื่อง: ฿17,900");
+  });
+  it("ส่ง backend ช่องเดียว (serialOrSku ≤ 80) → การ์ดกลุ่ม/หลังบ้านเห็นทั้งคู่", () => {
+    const d = buildSubmitData(state({ services: ["INSTALLMENT"], photos: [], installment: real, consent: true }), "k", null);
+    expect(d.installment?.serialOrSku).toBe("DD00536 · IMEI •••• 30035");
+    expect(serialOrSkuOf({ sku: "DD00100", imei: null })).toBe("DD00100");   // มือ 1 / ไม่มี IMEI
+    expect(serialOrSkuOf({ sku: " ", imei: undefined })).toBeNull();         // ลูกค้าพิมพ์รุ่นเอง
   });
 });
 

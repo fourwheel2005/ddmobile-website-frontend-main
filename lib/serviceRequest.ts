@@ -10,6 +10,7 @@ import type { ServiceCode } from "@/lib/services";
 import { SERVICES, needsDevice } from "@/lib/services";
 import { contactLines, deviceLines, validateContact, validateDevice, type TradeInForm } from "@/lib/tradeIn";
 import { baht } from "@/lib/money";
+import { productCodeLines } from "@/lib/commerce";
 
 export type PhotoSlot = "FRONT" | "BACK" | "EDGE" | "SCREEN" | "DEFECT" | "EXTRA";
 
@@ -41,7 +42,8 @@ export interface InstallmentInterest {
   color?: string | null;
   storage?: string | null;
   conditionLabel?: string | null;
-  serialOrSku?: string | null;
+  sku?: string | null;          // รหัสสินค้า DDxxxxx
+  imei?: string | null;         // IMEI ที่ปิดบังแล้ว (มือ 2 รายเครื่อง)
   price?: number | null;
   planLabel?: string | null;
   downPayment?: number | null;
@@ -109,6 +111,12 @@ export function validateServiceRequest(s: ServiceRequestState): string | null {
 
 const trimOrNull = (v: string | null | undefined) => (v && v.trim() ? v.trim() : null);
 
+/** ช่อง serialOrSku ของ backend (ช่องเดียว ≤ 80) = "DD00536 · IMEI •••• 30035" — การ์ดกลุ่ม/หลังบ้านโชว์ตามนี้ */
+export function serialOrSkuOf(i: Pick<InstallmentInterest, "sku" | "imei">): string | null {
+  const sku = trimOrNull(i.sku), imei = trimOrNull(i.imei);
+  return [sku, imei && `IMEI ${imei}`].filter(Boolean).join(" · ") || null;
+}
+
 /** JSON part "data" — ชื่อ field ตรงกับ backend `ServiceRequestDtos.SubmitRequest` */
 export function buildSubmitData(s: ServiceRequestState, submissionKey: string, estimatedPrice: number | null) {
   const f = s.form;
@@ -123,7 +131,7 @@ export function buildSubmitData(s: ServiceRequestState, submissionKey: string, e
   const installment = s.services.includes("INSTALLMENT")
     ? {
         catalogId: trimOrNull(i.catalogId), productName: i.productName.trim(), color: trimOrNull(i.color),
-        storage: trimOrNull(i.storage), conditionLabel: trimOrNull(i.conditionLabel), serialOrSku: trimOrNull(i.serialOrSku),
+        storage: trimOrNull(i.storage), conditionLabel: trimOrNull(i.conditionLabel), serialOrSku: serialOrSkuOf(i),
         price: i.price ?? null, planLabel: trimOrNull(i.planLabel), downPayment: i.downPayment ?? null,
         months: i.months ?? null, monthly: i.monthly ?? null, note: trimOrNull(i.note),
       }
@@ -190,7 +198,7 @@ export function installmentLines(i: InstallmentInterest): string[] {
     i.color ? `สี: ${i.color}` : null,
     i.storage ? `ความจุ: ${i.storage}` : null,
     i.conditionLabel ? `สภาพ: ${i.conditionLabel}` : null,
-    i.serialOrSku ? `รหัส: ${i.serialOrSku}` : null,
+    ...productCodeLines(i.sku, i.imei),
     i.price != null ? `ราคาเครื่อง: ${baht(i.price)}` : null,
     i.planLabel ? `แผน: ${i.planLabel}` : null,
     i.downPayment != null ? `เงินดาวน์: ${baht(i.downPayment)}` : null,

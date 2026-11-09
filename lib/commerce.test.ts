@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { bestCoupon, buildBuyMessage, buildCartMessage, buyStatus, intentForCondition, reservedLabel, WEB_CHECKOUT } from "./commerce";
+import { bestCoupon, buildBuyMessage, productCodeLines, buildCartMessage, buyStatus, intentForCondition, reservedLabel, WEB_CHECKOUT } from "./commerce";
 import type { CartItem } from "@/context/CartContext";
 
 describe("WEB_CHECKOUT", () => {
@@ -27,9 +27,19 @@ describe("bestCoupon", () => {
   });
 });
 
+describe("productCodeLines — รหัสสินค้า + IMEI ท้าย (รหัสเดียวกันมีได้หลายเครื่อง)", () => {
+  it("มือ 2 รายเครื่อง: ส่งทั้งรหัสสินค้าและ IMEI 5 ตัวท้าย", () => {
+    expect(productCodeLines("DD00536", "•••• 30035")).toEqual(["รหัสสินค้า: DD00536", "IMEI: •••• 30035"]);
+  });
+  it("ไม่มีค่า/ช่องว่าง → ไม่มีบรรทัดนั้น", () => {
+    expect(productCodeLines("DD00536", null)).toEqual(["รหัสสินค้า: DD00536"]);
+    expect(productCodeLines("  ", "  ")).toEqual([]);
+  });
+});
+
 describe("buildBuyMessage — ข้อมูลครบให้แอดมินปิดการขายในแชทได้ทันที", () => {
   const base = {
-    productName: "iPhone 17", color: "Pink", storage: "128GB", conditionLabel: "มือ 1", code: "SKU-17",
+    productName: "iPhone 17", color: "Pink", storage: "128GB", conditionLabel: "มือ 1", sku: "SKU-17",
     price: 29900, url: "https://shop.example/products/abc?variant=v1", buyer: { name: "สมชาย", tel: "0812345678" },
   };
   it("พร้อมขาย: รุ่น/สเปก/รหัส/ราคา/โปร/คูปอง/ลิงก์/ผู้ซื้อ", () => {
@@ -37,7 +47,8 @@ describe("buildBuyMessage — ข้อมูลครบให้แอดม�
       promo: { name: "Flash Sale ต้นเดือน", label: "-฿1,000", priceAfter: 28900 }, coupon: { code: "DD10", percent: 10, expiresAt: null } });
     expect(m).toContain("🛒 สนใจซื้อเครื่องนี้ (ซื้อสด)");
     expect(m).toContain("สเปก: Pink · 128GB · มือ 1");
-    expect(m).toContain("รหัส: SKU-17");
+    expect(m).toContain("รหัสสินค้า: SKU-17");
+    expect(m).not.toContain("IMEI");   // มือ 1 ไม่มี IMEI
     expect(m).toContain("ราคา: ฿29,900");
     expect(m).toContain("Flash Sale ต้นเดือน (-฿1,000) เหลือ ฿28,900");
     expect(m).toContain("โค้ดส่วนลดของฉัน: DD10 (ลด 10%)");
