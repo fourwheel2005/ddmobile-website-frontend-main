@@ -17,7 +17,7 @@ interface Slide {
 const slides: Slide[] = [
   {
     title: "ดีลกลางปี ผ่อน iPhone 17",
-    sub: "ดาวน์เริ่มต้น 0% · อนุมัติไวใน 1 วัน",
+    sub: "เลือกยอดดาวน์ได้เอง · อนุมัติไวใน 1 วัน",
     cta: "ช้อปเลย",
     href: "/products",
     className: "bg-gradient-to-br from-yellow to-yellow-hover",
