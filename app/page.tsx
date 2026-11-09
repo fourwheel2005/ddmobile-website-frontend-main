@@ -18,6 +18,7 @@ import HeroPhone from "@/components/HeroPhone";
 import PromoCarousel from "@/components/PromoCarousel";
 import ReviewsSection from "@/components/ReviewsSection";
 import StoreTeaser from "@/components/store/StoreTeaser";
+import ProductClipsSection from "@/components/clips/ProductClipsSection";
 import { ProductGridSkeleton } from "@/components/Skeletons";
 
 interface CatalogItem {
@@ -166,6 +167,9 @@ export default function Home() {
           </Reveal>
         )}
       </section>
+
+      {/* คลิปสินค้าที่ร้านถ่ายเอง (หลังบ้าน → คลิปสินค้า · ซ่อนอัตโนมัติถ้ายังไม่มีคลิป) */}
+      <ProductClipsSection />
 
       {/* ===================== CTA ===================== */}
       {/* หน้าร้าน + ทีมงาน (รูปจากหลังบ้าน · ซ่อนอัตโนมัติถ้ายังไม่มีรูป) */}

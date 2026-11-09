@@ -25,6 +25,7 @@ import type { InstallmentInterest } from "@/lib/serviceRequest";
 // ฟอร์มผ่อน (แนบบัตรประชาชน) โหลดเมื่อกด "ยืนยันผ่อนเครื่องนี้" เท่านั้น — หน้าสินค้าไม่ต้องแบก JS ของฟอร์ม
 const InstallmentRequestDialog = dynamic(() => import("@/components/service/InstallmentRequestDialog"), { ssr: false });
 import ProductReviews from "@/components/ProductReviews";
+import ProductClipsSection from "@/components/clips/ProductClipsSection";
 import ProductConfidence from "@/components/ProductConfidence";
 import { initialProductOption } from "@/lib/productOption";
 
@@ -629,6 +630,9 @@ function ProductDetailContent() {
             </div>
           </div>
         </div>
+
+        {/* คลิปที่ร้านถ่ายเครื่องนี้/รุ่นนี้ (ซ่อนเองถ้าไม่มี) */}
+        <ProductClipsSection item={item} />
 
         {/* รีวิวจากผู้ซื้อจริง (histogram + filter + relevance sort แบบ Shopee) */}
         {/* S15B: UNIT/GROUP จับกลุ่มรีวิวด้วย variantId (เสถียร) · MODEL คร่อมหลาย variant → ใช้ชื่อ */}
