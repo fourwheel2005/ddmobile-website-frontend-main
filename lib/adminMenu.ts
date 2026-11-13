@@ -8,6 +8,7 @@ export const ADMIN_MENU_SLUGS: Record<string, string> = {
   reviews: "รีวิวลูกค้า",
   "store-gallery": "หน้าร้าน & ทีมงาน",
   "product-clips": "คลิปสินค้า",
+  "landing-pages": "หน้า Landing ยิงแอด",
 };
 
 /** ชื่อเมนูจาก query string (?menu=installments) · ไม่รู้จัก/ไม่มี = null (อยู่หน้าเดิม) */

@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Smartphone, ClipboardList, Users,
   LogOut, Clock, CheckCircle2, Loader2,
   X, AlertTriangle, Warehouse, Menu, Search,
-  ShoppingBag, Check, Eye, Truck, Store, CreditCard, Receipt, UserCog, TicketPercent, Banknote, TrendingUp, Zap, Star, Target, Inbox, RotateCcw, Scale, Images, Clapperboard
+  ShoppingBag, Check, Eye, Truck, Store, CreditCard, Receipt, UserCog, TicketPercent, Banknote, TrendingUp, Zap, Star, Target, Inbox, RotateCcw, Scale, Images, Clapperboard, Megaphone
 } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
@@ -21,6 +21,7 @@ import PromotionManager from "@/components/PromotionManager";
 import ReviewAdmin from "@/components/ReviewAdmin";
 import StoreGalleryAdmin from "@/components/StoreGalleryAdmin";
 import ProductClipsAdmin from "@/components/ProductClipsAdmin";
+import CampaignPagesAdmin from "@/components/campaign/CampaignPagesAdmin";
 import { LineChatOffBanner } from "@/components/LineChatButton";
 import IntentStats from "@/components/IntentStats";
 import TradeInManager from "@/components/TradeInManager";
@@ -36,6 +37,7 @@ import { useEscapeKey } from "@/lib/useEscapeKey";
 import { clearSession } from "@/lib/session";
 import { hasAdminAccess } from "@/lib/roles";
 import { menuFromSearch } from "@/lib/adminMenu";
+import { confirmLeave } from "@/lib/unsavedGuard";
 
 
 interface WebOrderItem { productName: string; condition: string; quantity: number; lineTotal: number; }
@@ -168,7 +170,9 @@ export default function AdminDashboard() {
     }
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // ถามก่อนล้าง session — ยกเลิกแล้วต้องยังบันทึกงานที่ค้างได้ (ล้างก่อน = token หาย บันทึกไม่ได้)
+    if (!(await confirmLeave())) return;
     api.post("/auth/logout").catch(() => { /* เคลียร์ cookie ฝั่ง server */ });
     localStorage.removeItem("dd_cart");   // ล้างตะกร้าตอนออกจากระบบ (กันค้างข้ามบัญชี)
     clearSession();   // token + user + cookie กำแพงสมาชิก
@@ -361,7 +365,11 @@ export default function AdminDashboard() {
           {menuItems.map((item) => (
             <button
               key={item.name}
-              onClick={() => { setActiveMenu(item.name); setSidebarOpen(false); }}
+              onClick={async () => {
+                // กดเมนูเดิม = ไม่ได้ออกจากหน้า (ไม่ต้องถาม และห้ามล้างสถานะกันงานหาย)
+                if (item.name !== activeMenu && !(await confirmLeave())) return;
+                setActiveMenu(item.name); setSidebarOpen(false);
+              }}
               className={`flex w-full items-center gap-3 rounded-lg px-4 py-3 font-display text-sm font-semibold transition-colors ${
                 activeMenu === item.name ? "bg-yellow text-black" : "text-text-muted hover:bg-bg-tinted hover:text-text-heading"
               }`}
@@ -670,6 +678,9 @@ export default function AdminDashboard() {
               {/* คลิปสินค้า (หน้าแรก + หน้าสินค้า) */}
               {activeMenu === "คลิปสินค้า" && <ProductClipsAdmin />}
 
+              {/* หน้า Landing ยิงแอด (/p/{slug}) */}
+              {activeMenu === "หน้า Landing ยิงแอด" && <CampaignPagesAdmin />}
+
               {/* บริการที่ลูกค้าสนใจ (จากป๊อปอัพคัดกรอง) */}
               {activeMenu === "บริการที่ลูกค้าสนใจ" && <IntentStats />}
 
@@ -863,6 +874,7 @@ const menuItems = [
   { name: "รีวิวลูกค้า", icon: Star },
   { name: "หน้าร้าน & ทีมงาน", icon: Images },
   { name: "คลิปสินค้า", icon: Clapperboard },
+  { name: "หน้า Landing ยิงแอด", icon: Megaphone },
   { name: "บริการที่ลูกค้าสนใจ", icon: Target },
   { name: "คำขอผ่อนสินค้า", icon: ClipboardList },
   { name: "จัดการลูกค้า", icon: Users },

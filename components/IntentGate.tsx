@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { isLandingPath } from "@/lib/campaign";
 import { useRouter, usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
@@ -52,7 +53,9 @@ export default function IntentGate() {
 
   // open เป็น derived state (ไม่ setState ใน effect) — โชว์ครั้งแรกสุดนอกหน้า admin
   // และไม่ทับป๊อปอัพเขียนรีวิวของลิงก์ขอรีวิว (/review/{token} — ลูกค้ามาเพื่อรีวิว ไม่ใช่เลือกบริการ)
-  const open = mounted && !closed && !pathname.startsWith("/admin") && !pathname.startsWith("/review/") && !isIntentSeen();
+  const open = mounted && !closed && !pathname.startsWith("/admin") && !pathname.startsWith("/review/")
+    // หน้า Landing ยิงแอด: ลูกค้าเลือกเรื่องที่สนใจมาแล้วจากแอด — ป๊อปอัพบังคลิป/ปุ่มทำให้หลุด
+    && !isLandingPath(pathname) && !isIntentSeen();
 
   const dismiss = () => { markIntentSeen(); setClosed(true); };
   useEscapeKey(open, dismiss);

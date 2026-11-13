@@ -5,6 +5,7 @@
  *  - เปิดสาธารณะ: หน้าแรก + หน้าแนะนำบริการ (ฟอร์มในหน้ายังต้องล็อกอิน) + ล็อกอิน/ลืมรหัสผ่าน/นโยบาย/ติดต่อ
  *    + ลิงก์ระบบ /r (ดูรูปเครื่องจากแชท LINE) และ /d (QR ติดเครื่องหน้าร้าน → พาไปหน้าเครื่อง)
  *    + หน้ารีวิวร้าน /reviews และลิงก์ขอรีวิว /review/{token} (ลูกค้าที่ซื้อนอกเว็บไม่มีบัญชี)
+ *    + หน้า Landing ยิงแอด /p/{slug} (คนจากโฆษณายังไม่มีบัญชี — ต้องเห็นคลิป/รีวิว/ปุ่มทักไลน์ได้ทันที)
  *  - หน้าอื่นทั้งหมด = สมาชิกเท่านั้น (allowlist: หน้าที่เพิ่มใหม่ถูกล็อกโดยอัตโนมัติ ไม่หลุดเพราะลืมตั้ง)
  *  - สมาชิกที่ข้อมูลยังไม่ครบ (ชื่อ/เบอร์/ที่อยู่) → พาไปเติมที่หน้าโปรไฟล์ก่อน แล้วกลับหน้าเดิม
  *
@@ -17,7 +18,7 @@ export type SessionState = "c" | "i";
 
 // ลืมรหัสผ่าน/ตั้งรหัสใหม่ต้องเปิดสาธารณะ — คนที่ใช้หน้านี้คือคนที่เข้าสู่ระบบไม่ได้
 export const PUBLIC_PATHS = new Set(["/", "/login", "/forgot-password", "/reset-password", "/privacy", "/contact", "/sell", "/trade-in", "/services", "/installments", "/reviews"]);
-export const PUBLIC_PREFIXES = ["/r/", "/d/", "/review/"];
+export const PUBLIC_PREFIXES = ["/r/", "/d/", "/review/", "/p/"];
 export const COMPLETE_PROFILE_PATH = "/profile";
 
 export type GateDecision = { type: "allow" } | { type: "redirect"; location: string };

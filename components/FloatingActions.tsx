@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { MessageCircle, ArrowUp } from "lucide-react";
 import { LINE_URL } from "@/lib/contact";
+import { isLandingPath } from "@/lib/campaign";
 
 /**
  * ปุ่มลอยมุมขวาล่าง: ทักไลน์ (เสมอ) + ขึ้นบนสุด (โผล่เมื่อเลื่อนลง)
@@ -28,7 +29,8 @@ export default function FloatingActions() {
   }, []);
 
   // ไม่แสดงในหน้า admin (มี layout ของตัวเอง)
-  if (pathname.startsWith("/admin")) return null;
+  // หน้า Landing มีปุ่มทักไลน์ของตัวเอง (แนบชื่อหน้า = รู้ว่ามาจากแอดไหน) — ปุ่มลอยนี้ส่งแชทเปล่า ทำให้นับแอดไม่ได้
+  if (pathname.startsWith("/admin") || isLandingPath(pathname)) return null;
 
   return (
     <div className="fixed right-6 bottom-6 z-[90] hidden flex-col items-end gap-3 md:flex">

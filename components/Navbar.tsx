@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from 'react';
+import { isLandingPath } from "@/lib/campaign";
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -72,7 +73,8 @@ export default function Navbar() {
     window.location.href = "/";
   };
 
-  if (pathname.startsWith('/admin')) return null;
+  // หลังบ้าน = app shell ของตัวเอง · หน้า Landing ยิงแอด = หน้าเดี่ยวไม่มีเมนู (lib/campaign isLandingPath)
+  if (pathname.startsWith('/admin') || isLandingPath(pathname)) return null;
 
   const navLinks = [
     { name: 'หน้าหลัก', href: '/', icon: Home },

@@ -14,6 +14,8 @@ describe("gate — กำแพงสมาชิก", () => {
   it("หน้ารีวิวร้าน + ลิงก์ขอรีวิว (ลูกค้าที่ซื้อนอกเว็บไม่มีบัญชี) ต้องไม่ถูกกั้น", () => {
     expect(gate("/reviews", "", undefined)).toEqual({ type: "allow" });
     expect(gate("/review/Ab3dEf6hJk7m", "", undefined)).toEqual({ type: "allow" });
+    expect(gate("/p/iphone16-nov", "?fbclid=x", undefined)).toEqual({ type: "allow" });   // หน้า Landing จากแอด
+    expect(gate("/products", "", undefined).type).toBe("redirect");                         // /p ไม่ได้เปิดหน้าอื่นตาม
     expect(isPublicPath("/review")).toBe(false);
   });
   it("ไม่ล็อกอิน → /login พร้อมหน้าเดิม (รวม query เช่น ?variant=)", () => {

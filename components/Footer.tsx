@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { isLandingPath } from "@/lib/campaign";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Facebook, Instagram, MessageCircle, Phone } from "lucide-react";
@@ -18,7 +19,7 @@ function TikTokIcon({ className }: { className?: string }) {
 export default function Footer() {
   const pathname = usePathname();
   const { openPreferences } = useCookieConsent();
-  if (pathname?.startsWith("/admin")) return null;
+  if (pathname?.startsWith("/admin") || isLandingPath(pathname)) return null;   // Landing มี footer สั้นของตัวเอง
 
   return (
     <footer className="border-t border-border-default bg-bg-subtle pt-12 pb-10">
