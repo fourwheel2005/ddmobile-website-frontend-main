@@ -6,6 +6,7 @@ describe("menuFromSearch — ลิงก์จากการ์ด LINE เข
     expect(menuFromSearch("?menu=installments")).toBe("คำขอผ่อนสินค้า");
     expect(menuFromSearch("?menu=trade-in&x=1")).toBe("คำขอขาย/บอลลูน");
     expect(menuFromSearch("?menu=reviews")).toBe("รีวิวลูกค้า");
+    expect(menuFromSearch("?menu=social-reviews")).toBe("รีวิวจาก Facebook");
   });
   it("ไม่มี / ไม่รู้จัก / ชื่อ property ของ object → null", () => {
     expect(menuFromSearch("")).toBeNull();

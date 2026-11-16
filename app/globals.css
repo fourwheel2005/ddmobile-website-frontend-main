@@ -640,9 +640,30 @@
     100% { transform: translateX(130%); }
   }
 
+  /* --- รีวิวเลื่อนวน (หน้าแรก): แต่ละแถวมีการ์ด 2 ชุดต่อกัน เลื่อนไป -50% แล้ววนใหม่แบบไร้รอยต่อ
+         ชี้ / แตะค้าง / โฟกัส (คีย์บอร์ด) แล้วหยุดให้อ่าน · ตั้งลดการเคลื่อนไหว = ไม่ใช้ marquee (สลับเป็นแถวปัดเอง) --- */
+  .review-marquee {
+    overflow: hidden;
+    mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent);
+  }
+  .review-marquee-track {
+    display: flex;
+    width: max-content;
+    animation: review-marquee var(--marquee-duration, 60s) linear infinite;
+  }
+  .review-marquee-reverse { animation-direction: reverse; }
+  .review-marquee:hover .review-marquee-track,
+  .review-marquee:active .review-marquee-track,
+  .review-marquee:focus-within .review-marquee-track { animation-play-state: paused; }
+  @keyframes review-marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .reveal { opacity: 1; transform: none; transition: none; }
     .float-anim { animation: none; }
     .line-cta::after { animation: none; opacity: 0; }
+    .review-marquee-track { animation: none; }
   }
 }

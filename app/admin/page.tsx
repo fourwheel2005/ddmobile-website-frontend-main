@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Smartphone, ClipboardList, Users,
   LogOut, Clock, CheckCircle2, Loader2,
   X, AlertTriangle, Warehouse, Menu, Search,
-  ShoppingBag, Check, Eye, Truck, Store, CreditCard, Receipt, UserCog, TicketPercent, Banknote, TrendingUp, Zap, Star, Target, Inbox, RotateCcw, Scale, Images, Clapperboard, Megaphone
+  ShoppingBag, Check, Eye, Truck, Store, CreditCard, Receipt, UserCog, TicketPercent, Banknote, TrendingUp, Zap, Star, Target, Inbox, RotateCcw, Scale, Images, Clapperboard, Megaphone, ThumbsUp
 } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
@@ -20,6 +20,7 @@ import CouponAdmin from "@/components/CouponAdmin";
 import PromotionManager from "@/components/PromotionManager";
 import ReviewAdmin from "@/components/ReviewAdmin";
 import StoreGalleryAdmin from "@/components/StoreGalleryAdmin";
+import SocialReviewsAdmin from "@/components/SocialReviewsAdmin";
 import ProductClipsAdmin from "@/components/ProductClipsAdmin";
 import CampaignPagesAdmin from "@/components/campaign/CampaignPagesAdmin";
 import { LineChatOffBanner } from "@/components/LineChatButton";
@@ -672,6 +673,8 @@ export default function AdminDashboard() {
 
               {/* รีวิวลูกค้า (ตอบกลับ/ลบ) */}
               {activeMenu === "รีวิวลูกค้า" && <ReviewAdmin />}
+              {/* รีวิวจากเพจ Facebook (หน้าแรก + /reviews) */}
+              {activeMenu === "รีวิวจาก Facebook" && <SocialReviewsAdmin />}
 
               {activeMenu === "หน้าร้าน & ทีมงาน" && <StoreGalleryAdmin />}
 
@@ -872,6 +875,7 @@ const menuItems = [
   { name: "ราคารับซื้อ (ขาย/บอลลูน)", icon: Banknote },
   { name: "คำขอขาย/บอลลูน", icon: Inbox },
   { name: "รีวิวลูกค้า", icon: Star },
+  { name: "รีวิวจาก Facebook", icon: ThumbsUp },
   { name: "หน้าร้าน & ทีมงาน", icon: Images },
   { name: "คลิปสินค้า", icon: Clapperboard },
   { name: "หน้า Landing ยิงแอด", icon: Megaphone },

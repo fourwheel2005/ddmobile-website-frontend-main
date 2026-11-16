@@ -17,6 +17,7 @@ import Tilt from "@/components/Tilt";
 import HeroPhone from "@/components/HeroPhone";
 import PromoCarousel from "@/components/PromoCarousel";
 import ReviewsSection from "@/components/ReviewsSection";
+import SocialReviewsSection from "@/components/reviews/SocialReviewsSection";
 import StoreTeaser from "@/components/store/StoreTeaser";
 import ProductClipsSection from "@/components/clips/ProductClipsSection";
 import { ProductGridSkeleton } from "@/components/Skeletons";
@@ -174,6 +175,9 @@ export default function Home() {
       {/* ===================== CTA ===================== */}
       {/* หน้าร้าน + ทีมงาน (รูปจากหลังบ้าน · ซ่อนอัตโนมัติถ้ายังไม่มีรูป) */}
       <StoreTeaser />
+
+      {/* รีวิวจากเพจ Facebook ของร้าน (หลังบ้าน → รีวิวจาก Facebook · ซ่อนอัตโนมัติถ้ายังไม่มี) */}
+      <SocialReviewsSection />
 
       {/* รีวิวจากลูกค้าที่ซื้อจริง (ซ่อนอัตโนมัติถ้ายังไม่มีรีวิว) */}
       <ReviewsSection />
