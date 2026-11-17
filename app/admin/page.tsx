@@ -20,6 +20,7 @@ import CouponAdmin from "@/components/CouponAdmin";
 import PromotionManager from "@/components/PromotionManager";
 import ReviewAdmin from "@/components/ReviewAdmin";
 import StoreGalleryAdmin from "@/components/StoreGalleryAdmin";
+import ReviewPhotosAdmin from "@/components/ReviewPhotosAdmin";
 import SocialReviewsAdmin from "@/components/SocialReviewsAdmin";
 import ProductClipsAdmin from "@/components/ProductClipsAdmin";
 import CampaignPagesAdmin from "@/components/campaign/CampaignPagesAdmin";
@@ -675,7 +676,7 @@ export default function AdminDashboard() {
               {/* รีวิวลูกค้า (ตอบกลับ/ลบ) */}
               {activeMenu === "รีวิวลูกค้า" && <ReviewAdmin />}
               {/* รีวิวจากเพจ Facebook (หน้าแรก + /reviews) */}
-              {activeMenu === "รีวิวจาก Facebook" && <SocialReviewsAdmin />}
+              {activeMenu === "รีวิว Facebook + รูป" && <div className="space-y-6"><ReviewPhotosAdmin /><SocialReviewsAdmin /></div>}
 
               {activeMenu === "หน้าร้าน & ทีมงาน" && <StoreGalleryAdmin />}
 
@@ -876,7 +877,7 @@ const menuItems = [
   { name: "ราคารับซื้อ (ขาย/บอลลูน)", icon: Banknote },
   { name: "คำขอขาย/บอลลูน", icon: Inbox },
   { name: "รีวิวลูกค้า", icon: Star },
-  { name: "รีวิวจาก Facebook", icon: ThumbsUp },
+  { name: "รีวิว Facebook + รูป", icon: ThumbsUp },
   { name: "หน้าร้าน & ทีมงาน", icon: Images },
   { name: "คลิปสินค้า", icon: Clapperboard },
   { name: "หน้า Landing ยิงแอด", icon: Megaphone },

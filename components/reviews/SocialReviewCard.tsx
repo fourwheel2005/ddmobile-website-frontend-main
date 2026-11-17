@@ -31,35 +31,41 @@ export function useReducedMotion(): boolean {
   return useSyncExternalStore(subscribeReducedMotion, () => window.matchMedia(reducedMotionQuery).matches, () => false);
 }
 
-/** รูปรีวิวขยายเต็มจอ — แตะพื้นหลัง / ปุ่มปิด / Esc เพื่อปิด · ล็อกการเลื่อนหน้าระหว่างเปิด */
+/** รูปรีวิวขยายเต็มจอ (+ คำบรรยาย) — แตะพื้นหลัง / ปุ่มปิด / Esc เพื่อปิด · ล็อกการเลื่อนหน้าระหว่างเปิด */
 export function useImageLightbox() {
-  const [src, setSrc] = useState<string | null>(null);
-  const close = useCallback(() => setSrc(null), []);
-  useEscapeKey(!!src, close);
+  const [shown, setShown] = useState<{ src: string; caption?: string | null } | null>(null);
+  const close = useCallback(() => setShown(null), []);
+  const open = useCallback((src: string, caption?: string | null) => setShown({ src, caption }), []);
+  useEscapeKey(!!shown, close);
   useEffect(() => {
-    if (!src) return;
+    if (!shown) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = prev; };
-  }, [src]);
-  const lightbox = src ? (
+  }, [shown]);
+  const lightbox = shown ? (
     <div className="modal-backdrop" onClick={close} role="dialog" aria-modal="true" aria-label="รูปรีวิวขยาย">
       <button type="button" onClick={close} aria-label="ปิดรูป"
               className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-text-heading shadow">
         <X size={22} />
       </button>
-      <img src={src} alt="รูปประกอบรีวิว" className="max-h-[85vh] max-w-[92vw] rounded-2xl object-contain" onClick={(e) => e.stopPropagation()} />
+      <figure className="flex max-w-[92vw] flex-col items-center gap-3" onClick={(e) => e.stopPropagation()}>
+        <img src={shown.src} alt={shown.caption || "รูปรีวิวจากลูกค้า"} className="max-h-[80vh] max-w-[92vw] rounded-2xl object-contain" />
+        {shown.caption && <figcaption className="rounded-full bg-white/95 px-4 py-1.5 text-center text-sm font-medium text-text-heading">{shown.caption}</figcaption>}
+      </figure>
     </div>
   ) : null;
-  return { open: setSrc, lightbox };
+  return { open, lightbox };
 }
 
 /**
  * การ์ดรีวิวจากเพจโซเชียล — ข้อความตามต้นฉบับ · ชื่อย่อ + วงกลมอักษรแรก (ไม่ใช้รูปโปรไฟล์ลูกค้า)
  * ไม่มีดาว (Facebook ให้แค่ "แนะนำ") · clamp = ตัดข้อความยาวในแถวเลื่อนวนให้การ์ดสูงใกล้กัน
  */
-export default function SocialReviewCard({ review, clamp = false, onImage, className = "" }: {
+export default function SocialReviewCard({ review, clamp = false, onImage, className = "", copy = false }: {
   review: SocialReview; clamp?: boolean; onImage?: (url: string) => void; className?: string;
+  /** การ์ดสำเนาในแถบเลื่อนวน — ปุ่มรูปโฟกัสไม่ได้ (แถวสำเนาเป็น aria-hidden) แต่ยังแตะดูรูปได้ */
+  copy?: boolean;
 }) {
   const date = formatReviewDate(review.reviewedOn);
   const isFb = review.source === "FACEBOOK";
@@ -81,7 +87,7 @@ export default function SocialReviewCard({ review, clamp = false, onImage, class
       {review.images.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {review.images.slice(0, clamp ? 3 : 6).map((img) => (
-            <button key={img.id} type="button" onClick={() => onImage?.(img.url)} aria-label="ดูรูปประกอบรีวิวขนาดเต็ม"
+            <button key={img.id} type="button" onClick={() => onImage?.(img.url)} aria-label="ดูรูปประกอบรีวิวขนาดเต็ม" tabIndex={copy ? -1 : undefined}
                     className="overflow-hidden rounded-lg border border-border-subtle">
               <img src={img.url} alt="" width={img.width} height={img.height} loading="lazy" className="h-16 w-16 object-cover" />
             </button>

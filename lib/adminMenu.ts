@@ -6,7 +6,7 @@ export const ADMIN_MENU_SLUGS: Record<string, string> = {
   installments: "คำขอผ่อนสินค้า",
   "trade-in": "คำขอขาย/บอลลูน",
   reviews: "รีวิวลูกค้า",
-  "social-reviews": "รีวิวจาก Facebook",
+  "social-reviews": "รีวิว Facebook + รูป",
   "store-gallery": "หน้าร้าน & ทีมงาน",
   "product-clips": "คลิปสินค้า",
   "landing-pages": "หน้า Landing ยิงแอด",
