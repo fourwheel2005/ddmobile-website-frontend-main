@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { gate, isPublicPath, membersWallEnabled, safeRedirect } from "./accessGate";
+import { gate, isPublicPath, isStaffPath, loginPathFor, membersWallEnabled, safeRedirect } from "./accessGate";
 
 describe("gate — กำแพงสมาชิก", () => {
   it("หน้าสาธารณะ: หน้าแรก + แนะนำบริการ + ล็อกอิน/นโยบาย/ติดต่อ เข้าได้โดยไม่ล็อกอิน", () => {
@@ -58,5 +58,17 @@ describe("safeRedirect", () => {
     expect(safeRedirect("/\\evil.com")).toBeNull();
     expect(safeRedirect("https://evil.com")).toBeNull();
     expect(safeRedirect(null)).toBeNull();
+  });
+});
+
+describe("loginPathFor / isStaffPath — ลิงก์หลังบ้านจากการ์ด LINE", () => {
+  it("ล็อกอินแล้วกลับเมนูเดิม (รวม query)", () => {
+    expect(loginPathFor("/admin", "?menu=installments&openExternalBrowser=1"))
+      .toBe("/login?redirect=%2Fadmin%3Fmenu%3Dinstallments%26openExternalBrowser%3D1");
+    expect(safeRedirect(decodeURIComponent(loginPathFor("/admin", "?menu=trade-in").split("redirect=")[1]))).toBe("/admin?menu=trade-in");
+  });
+  it("หน้าทีมงาน = /admin, /employee เท่านั้น", () => {
+    for (const p of ["/admin", "/admin?menu=installments", "/employee", "/admin/x"]) expect(isStaffPath(p), p).toBe(true);
+    for (const p of [null, "", "/", "/administrator", "/products/admin", "/checkout"]) expect(isStaffPath(p), String(p)).toBe(false);
   });
 });

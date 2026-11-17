@@ -9,7 +9,7 @@ import { getApiError } from "@/lib/errorMessage";
 import Req from "@/components/ui/Req";
 import ThaiAddressAutocomplete, { type ThaiGeo } from "@/components/ThaiAddressAutocomplete";
 import { addressFromLogin, toAddressPayload, type StoredUser } from "@/lib/profile";
-import { COMPLETE_PROFILE_PATH, safeRedirect } from "@/lib/accessGate";
+import { COMPLETE_PROFILE_PATH, isStaffPath, safeRedirect } from "@/lib/accessGate";
 import { isProfileComplete, syncSessionCookie, writeSessionCookie } from "@/lib/session";
 import { homeForRole } from "@/lib/roles";
 
@@ -40,7 +40,8 @@ function LoginForm() {
   const [accept, setAccept] = useState(false);              // PDPA: ยอมรับนโยบาย (บังคับ)
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const fromWall = !!redirectTo;   // มาจากกำแพงสมาชิก (เปิดหน้าที่ต้องเป็นสมาชิก)
+  const forStaff = isStaffPath(redirectTo);   // ลิงก์หลังบ้าน (เช่น การ์ดใน LINE กลุ่มแอดมิน) — ทีมงานมีบัญชีอยู่แล้ว
+  const fromWall = !!redirectTo && !forStaff;   // มาจากกำแพงสมาชิก (เปิดหน้าที่ต้องเป็นสมาชิก)
 
   // ตอนเปิดหน้า (defer rAF — ไม่ setState sync ใน effect):
   //  - ล็อกอินค้างอยู่แล้ว (เช่นก่อนมีกำแพง) + มาจากกำแพง → ซิงก์ cookie แล้วพากลับหน้าเดิม ไม่ต้องล็อกอินซ้ำ
@@ -141,6 +142,15 @@ function LoginForm() {
         <div className="mb-7 flex justify-center">
           <Link href="/" className="logo-dd text-2xl">DD<span className="text-yellow-hover">MOBILE</span></Link>
         </div>
+
+        {forStaff && (
+          <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-border-default bg-bg-subtle p-3.5 text-sm">
+            <Lock size={18} className="mt-0.5 flex-shrink-0 text-text-muted" />
+            <p className="text-text-body">
+              <span className="font-bold text-text-heading">เข้าสู่ระบบทีมงาน</span> — ล็อกอินแล้วระบบพากลับไปหน้าหลังบ้านที่เปิดไว้ทันที
+            </p>
+          </div>
+        )}
 
         {/* มาจากกำแพงสมาชิก — บอกเหตุผล + ประโยชน์ (ไม่ใช่แค่ฟอร์มเปล่า) */}
         {fromWall && (

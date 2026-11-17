@@ -23,7 +23,7 @@ import StoreGalleryAdmin from "@/components/StoreGalleryAdmin";
 import SocialReviewsAdmin from "@/components/SocialReviewsAdmin";
 import ProductClipsAdmin from "@/components/ProductClipsAdmin";
 import CampaignPagesAdmin from "@/components/campaign/CampaignPagesAdmin";
-import { LineChatOffBanner } from "@/components/LineChatButton";
+import { LineChatAccountSetting, LineChatOffBanner } from "@/components/LineChatButton";
 import IntentStats from "@/components/IntentStats";
 import TradeInManager from "@/components/TradeInManager";
 import TradeInRequests from "@/components/TradeInRequests";
@@ -38,6 +38,7 @@ import { useEscapeKey } from "@/lib/useEscapeKey";
 import { clearSession } from "@/lib/session";
 import { hasAdminAccess } from "@/lib/roles";
 import { menuFromSearch } from "@/lib/adminMenu";
+import { loginPathFor } from "@/lib/accessGate";
 import { confirmLeave } from "@/lib/unsavedGuard";
 
 
@@ -109,7 +110,7 @@ export default function AdminDashboard() {
       const userStr = localStorage.getItem("user");
 
       if (!token || !userStr) {
-        window.location.href = "/login";
+        window.location.href = loginPathFor(window.location.pathname, window.location.search);
         return false;
       }
 
@@ -119,7 +120,7 @@ export default function AdminDashboard() {
       } catch {
         // ข้อมูล user เพี้ยน → เคลียร์แล้วให้ล็อกอินใหม่ (กัน parse error ทำหน้าแอดมินขาว)
         clearSession();   // token + user + cookie กำแพงสมาชิก
-        window.location.href = "/login";
+        window.location.href = loginPathFor(window.location.pathname, window.location.search);
         return false;
       }
       if (!hasAdminAccess(user.role)) {   // แอดมิน + พนักงาน (โหมดเท่าแอดมิน) · backend ตรวจสิทธิ์จริงทุกคำขอ
@@ -159,7 +160,7 @@ export default function AdminDashboard() {
         if ([401, 403].includes(getApiStatus(error) ?? 0)) {
           toast.error("เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่");
           clearSession();   // token + user + cookie กำแพงสมาชิก
-          window.location.href = "/login";
+          window.location.href = loginPathFor(window.location.pathname, window.location.search);
         }
       } finally {
         setIsLoading(false);
@@ -503,7 +504,7 @@ export default function AdminDashboard() {
               )}
 
               {/* คำขอผ่อนสินค้า (หน้าสินค้า "ยืนยันผ่อนเครื่องนี้" / ฟอร์มเลือกบริการ) + บัตรประชาชน */}
-              {(activeMenu === "คำขอผ่อนสินค้า" || activeMenu === "คำขอขาย/บอลลูน") && <LineChatOffBanner />}
+              {(activeMenu === "คำขอผ่อนสินค้า" || activeMenu === "คำขอขาย/บอลลูน") && <><LineChatOffBanner /><LineChatAccountSetting /></>}
               {activeMenu === "คำขอผ่อนสินค้า" && <InstallmentRequestsAdmin onPendingCount={setInstallmentPending} />}
 
               {/* จัดการลูกค้า — รายชื่อ + สถานะจริง + ระงับ/ปลดระงับ/เตือน + คิวเฝ้าระวัง */}

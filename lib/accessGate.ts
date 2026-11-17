@@ -49,3 +49,11 @@ export function safeRedirect(raw: string | null | undefined): string | null {
   if (!/^\/(?!\/|\\)/.test(raw)) return null;
   return raw;
 }
+
+/** หน้าล็อกอินที่พากลับหน้าเดิมหลังล็อกอินสำเร็จ (เช่น ลิงก์จากการ์ด LINE /admin?menu=installments) */
+export function loginPathFor(pathname: string, search = ""): string {
+  return `/login?redirect=${encodeURIComponent(pathname + search)}`;
+}
+
+/** ปลายทางเป็นหน้าทีมงาน (หลังบ้าน/พนักงาน) — หน้าล็อกอินไม่ชวนสมัครสมาชิก */
+export const isStaffPath = (path: string | null | undefined) => !!path && /^\/(admin|employee)(?=$|[/?#])/.test(path);

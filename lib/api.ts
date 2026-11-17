@@ -1,6 +1,7 @@
 // ไฟล์: lib/api.ts
 import axios, { AxiosError, AxiosRequestConfig } from "axios";
 import { clearSession } from "@/lib/session";
+import { loginPathFor } from "@/lib/accessGate";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://ddmobilewebsite.fourwheel.in.th/api/v1";
 
@@ -79,10 +80,9 @@ async function doRefresh(): Promise<boolean> {
 function forceLogout() {
   if (typeof window === "undefined") return;
   clearSession();   // token + user + cookie dd_session (กำแพงจะได้ไม่ปล่อยเข้าหน้าสมาชิก)
-  const path = window.location.pathname + window.location.search;
   // อย่า loop ถ้าอยู่หน้า login อยู่แล้ว
   if (!window.location.pathname.startsWith("/login")) {
-    window.location.href = `/login?redirect=${encodeURIComponent(path)}`;
+    window.location.href = loginPathFor(window.location.pathname, window.location.search);
   }
 }
 
