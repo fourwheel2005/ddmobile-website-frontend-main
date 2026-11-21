@@ -174,6 +174,21 @@ export interface SubmitResult {
   idCardAttached: boolean;
   duplicate: boolean;
   galleryToken: string | null;   // ลิงก์ดูรูปเครื่อง /r/{token} · null = ไม่มีรูป
+  /** ตัวเลขผ่อนที่ร้านบันทึกจริง (backend คิดซ้ำจากแผนร้าน) · ไม่มี = ไม่ได้ขอผ่อน / backend รุ่นเก่า */
+  installment?: InstallmentQuote | null;
+}
+
+/** MATCHED ตรงแผนร้าน · ADJUSTED ไม่ตรง ร้านบันทึกตามแผนร้าน · UNVERIFIED ตรวจไม่ได้ · NONE ไม่ได้เลือกแผน */
+export type QuoteCheck = "MATCHED" | "ADJUSTED" | "UNVERIFIED" | "NONE";
+export interface InstallmentQuote {
+  price: number | null; planLabel: string | null; downPayment: number | null; months: number | null; monthly: number | null;
+  check: QuoteCheck | null;
+}
+
+/** รายละเอียดผ่อนที่ใช้ในข้อความ LINE — ใช้ตัวเลขที่ร้านบันทึก (ไม่ใช่ที่เบราว์เซอร์คิดเอง) ถ้ามี */
+export function savedInstallment(i: InstallmentInterest, q: InstallmentQuote | null | undefined): InstallmentInterest {
+  if (!q) return i;
+  return { ...i, price: q.price, planLabel: q.planLabel, downPayment: q.downPayment, months: q.months, monthly: q.monthly };
 }
 
 /**
@@ -227,7 +242,7 @@ export function buildServiceMessage(s: ServiceRequestState, res: SubmitResult, e
     if (estimatedPrice != null) lines.push(`ราคาประเมินเบื้องต้น (จากเว็บ): ${baht(estimatedPrice)}`);
   }
   if (s.services.includes("INSTALLMENT")) {
-    lines.push("", "— เครื่องที่ต้องการผ่อน —", ...installmentLines(s.installment));
+    lines.push("", "— เครื่องที่ต้องการผ่อน —", ...installmentLines(savedInstallment(s.installment, res.installment)));
     if (res.idCardAttached) lines.push("🪪 แนบบัตรประชาชนผ่านเว็บแล้ว");
   }
   lines.push("", ...contactLines(s.form));

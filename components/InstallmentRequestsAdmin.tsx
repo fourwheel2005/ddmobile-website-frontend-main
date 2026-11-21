@@ -21,6 +21,8 @@ interface InstallmentRequest {
   status: string; statusChangedAt: string | null; handledBy: string | null; adminNote: string | null;
   version: number; createdAt: string;
   lineLinked: boolean; decisionReason: string | null; customerNotifiedAt: string | null; lineUserId?: string | null; lineDisplayName?: string | null;
+  /** ผลตรวจตัวเลขผ่อนกับแผนร้านตอนส่ง (backend คิดซ้ำ) · null = คำขอก่อนมีการตรวจ */
+  quoteCheck?: "MATCHED" | "ADJUSTED" | "UNVERIFIED" | "NONE" | null; quoteNote?: string | null;
 }
 interface PageResult {
   content: InstallmentRequest[]; page: number; totalPages: number; totalElements: number; last: boolean; pendingCount: number;
@@ -172,6 +174,7 @@ export default function InstallmentRequestsAdmin({ onPendingCount }: { onPending
                       {r.downPayment != null && <p className="text-xs text-text-muted">ดาวน์ {baht(r.downPayment)}</p>}
                       {r.monthly != null && r.months && <p className="text-xs text-text-muted">{baht(r.monthly)} × {r.months} ด.</p>}
                       {r.planLabel && <p className="max-w-[16rem] truncate text-xs text-text-muted">{r.planLabel}</p>}
+                      <QuoteCheckBadge check={r.quoteCheck} note={r.quoteNote} />
                     </div>
                   </div>
 
@@ -236,4 +239,20 @@ export default function InstallmentRequestsAdmin({ onPendingCount }: { onPending
 function fmt(iso: string): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? "-" : d.toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short" });
+}
+
+/** ผลตรวจตัวเลขผ่อนกับแผนร้าน — ตรงแผน = ป้ายเขียวเล็ก · ไม่ตรง/ตรวจไม่ได้ = ป้ายเตือน + สิ่งที่ลูกค้าส่ง (ดูก่อนอนุมัติ) */
+function QuoteCheckBadge({ check, note }: { check?: string | null; note?: string | null }) {
+  if (check === "MATCHED") {
+    return <p className="mt-1 text-[11px] font-medium text-success-text" title="ระบบคำนวณซ้ำจากแผนร้านตอนส่งแล้ว ตัวเลขตรง">✓ ตรงแผนร้าน</p>;
+  }
+  if (check !== "ADJUSTED" && check !== "UNVERIFIED") return null;
+  return (
+    <div className="ml-auto mt-1.5 max-w-[16rem] rounded-lg border border-warning-border bg-warning-bg px-2 py-1.5 text-left text-[11px] leading-snug text-text-body">
+      <p className="font-bold text-warning-text">
+        {check === "ADJUSTED" ? "⚠️ ลูกค้าส่งยอดไม่ตรงแผนร้าน — ด้านบนคือยอดตามแผนร้าน" : "⚠️ ตรวจยอดกับแผนร้านไม่ได้ตอนส่ง"}
+      </p>
+      {note && <p className="mt-0.5">{note}</p>}
+    </div>
+  );
 }

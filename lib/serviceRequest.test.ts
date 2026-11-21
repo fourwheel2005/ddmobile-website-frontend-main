@@ -154,3 +154,18 @@ describe("newSubmissionKey", () => {
     for (const k of keys) expect(k).toMatch(/^[0-9a-fA-F-]{36}$/);
   });
 });
+
+describe("ข้อความ LINE ใช้ยอดผ่อนที่ร้านบันทึก (backend คิดซ้ำจากแผนร้าน)", () => {
+  const s = state({ services: ["INSTALLMENT"], photos: [], installment: { productName: "iPhone 15", price: 1, downPayment: 10000, months: 10, monthly: 500 }, consent: true });
+  const res = { refCode: "DD-ABCDEF", tradeInId: null, installmentId: 2, photoCount: 0, idCardAttached: true, duplicate: false, galleryToken: null };
+  it("ยอดที่ร้านปรับแล้ว → ข้อความใช้ยอดของร้าน ไม่ใช่ที่เบราว์เซอร์ส่ง", () => {
+    const msg = buildServiceMessage(s, { ...res, installment: { price: 23900, planLabel: "ดาวน์เพิ่มเอง (แผนร้าน ดาวน์ ฿3,990 · ฿2,890x10ด.)", downPayment: 10000, months: 10, monthly: 2289, check: "ADJUSTED" } }, null);
+    expect(msg).toContain("ผ่อน: ฿2,289 x 10 เดือน");
+    expect(msg).toContain("ราคาเครื่อง: ฿23,900");
+    expect(msg).not.toContain("฿500");
+  });
+  it("backend รุ่นเก่า (ไม่มี installment) → ใช้ตัวเลขเดิม", () => {
+    expect(buildServiceMessage(s, res, null)).toContain("ผ่อน: ฿500 x 10 เดือน");
+  });
+});
+

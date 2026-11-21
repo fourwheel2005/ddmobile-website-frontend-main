@@ -5,6 +5,7 @@ import { CheckCircle2, Copy, Images, Info, MessageCircle, Share2 } from "lucide-
 import toast from "react-hot-toast";
 import { LINE_AUTO_PHOTOS, LINE_OA_NAME, lineChatUrl } from "@/lib/contact";
 import { shareFilesFor } from "@/lib/serviceRequest";
+import { baht } from "@/lib/money";
 import type { SubmitDone } from "./useServiceSubmit";
 
 /**
@@ -51,6 +52,21 @@ export default function SubmitSuccess({ done, onNew }: { done: SubmitDone; onNew
         {res.photoCount > 0 && <> · รูปเครื่อง {res.photoCount} รูป</>}
         {res.idCardAttached && <> · บัตรประชาชน ✓</>}
       </p>
+
+      {/* ตัวเลขผ่อนไม่ตรงแผนล่าสุดของร้าน (เช่น ร้านเปลี่ยนแผนระหว่างเปิดหน้าค้างไว้) — บอกยอดที่ร้านบันทึกจริง */}
+      {res.installment?.check === "ADJUSTED" && (
+        <p className="mt-3 flex items-start gap-2 rounded-xl border border-warning-border bg-warning-bg px-3 py-2.5 text-sm text-text-body">
+          <Info size={16} className="mt-0.5 shrink-0 text-warning-text" />
+          <span>
+            ยอดผ่อนถูกปรับตามแผนล่าสุดของร้าน:{" "}
+            <b>
+              ดาวน์ {baht(res.installment.downPayment)}
+              {res.installment.monthly != null && res.installment.months ? ` · ${baht(res.installment.monthly)} × ${res.installment.months} เดือน` : ""}
+            </b>{" "}
+            — ข้อความ LINE ด้านล่างใช้ยอดนี้แล้ว แอดมินจะยืนยันกับคุณในแชท
+          </span>
+        </p>
+      )}
 
       {/* ขั้นที่ 1 — ข้อความ */}
       <div className="mt-4 rounded-xl bg-white p-4">
