@@ -2,7 +2,7 @@
 import { useId, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Sparkles, CreditCard, FileText, CheckCircle2, IdCard, ArrowRight, Plus, Minus, ChevronUp, Pencil, TrendingDown } from "lucide-react";
-import { contractTotal, downRange, effectiveDown, monthlyForDown, quickDowns, stepDown } from "@/lib/installment";
+import { MAX_DOWN_PERCENT, contractTotal, downRange, effectiveDown, monthlyForDown, priceDownCap, quickDowns, stepDown } from "@/lib/installment";
 
 /** down = ดาวน์เฉพาะงวดนี้ (ร้านตั้งจาก Stock FIX-200) · null/ไม่มี = ใช้ดาวน์ของแผน */
 export interface InstallmentTerm { months: number; monthly: number; down?: number | null; }
@@ -52,9 +52,9 @@ const fmt = (n: number) => n.toLocaleString("th-TH");
  * ปุ่ม "ยืนยันผ่อนเครื่องนี้" → onConfirm(แผนที่เลือก) — หน้าสินค้าเปิดฟอร์มแนบบัตรประชาชน แล้วค่อยส่งเข้า LINE
  * (ลิงก์ LINE แนบรูปบัตรไม่ได้ จึงต้องอัปโหลดเข้าระบบร้านก่อน)
  *
- * เพิ่มดาวน์เอง: ลูกค้ากรอกยอดดาวน์ที่ต้องการ (ดาวน์ของแผน – 50% ของราคา) → ค่างวดทุกช่วงคำนวณใหม่ทันที
+ * เพิ่มดาวน์เอง: ลูกค้ากรอกยอดดาวน์ที่ต้องการ (ดาวน์ของแผน – 70% ของราคา) → ค่างวดทุกช่วงคำนวณใหม่ทันที
  * ดอกเท่าเดิม ห้ามลด: ส่วนที่ดาวน์เพิ่มหักเฉลี่ยออกจากค่างวด ยอดผ่อนจบไม่น้อยกว่าเดิม (lib/installment.ts#monthlyForDown)
- * · ต้องมีราคาเครื่อง (price) ถึงจะเปิดให้เพิ่มดาวน์ (ใช้หาเพดาน 50%)
+ * · ต้องมีราคาเครื่อง (price) ถึงจะเปิดให้เพิ่มดาวน์ (ใช้หาเพดาน 70%)
  */
 export default function InstallmentBox({ info, price, onConfirm }: {
   info: InstallmentInfo;
@@ -83,7 +83,7 @@ export default function InstallmentBox({ info, price, onConfirm }: {
   const [draft, setDraft] = useState("");          // ข้อความระหว่างพิมพ์ (โฟกัสอยู่) — นอกนั้นช่องโชว์ดาวน์ที่ใช้จริงของงวดนี้
   const [focused, setFocused] = useState(false);
   const inputId = useId();
-  const rangeFor = (t: InstallmentTerm | undefined) => downRange(price, baseDownFor(t));
+  const rangeFor = (t: InstallmentTerm | undefined) => downRange(price, baseDownFor(t), t);
   /** ดาวน์ + ค่างวดที่ใช้จริงของงวดนั้น (ดาวน์ปกติ = ค่าเดิมของร้านเป๊ะ) */
   const quoteFor = (t: InstallmentTerm | undefined) => {
     const base = baseDownFor(t);
@@ -108,7 +108,7 @@ export default function InstallmentBox({ info, price, onConfirm }: {
 
   const pickPlan = (i: number) => { setPlanSel(i); setSel(0); };   // เปลี่ยนแผน → รีเซ็ตงวดเป็นช่วงแรก
 
-  /** ตั้งยอดดาวน์ที่ขอ (ปุ่ม/ช่องกรอก) — null = ดาวน์ปกติ · เกินเพดานเก็บเป็นเพดาน (เพดานเท่ากันทุกงวด = 50% ของราคา) */
+  /** ตั้งยอดดาวน์ที่ขอ (ปุ่ม/ช่องกรอก) — null = ดาวน์ปกติ · เกินเพดานเก็บเป็นเพดาน (เพดาน = 70% ของราคา) */
   const applyDown = (v: number | null) => {
     if (!range || v == null || !Number.isFinite(v)) { setDesired(null); return; }
     setDesired(Math.min(range.max, Math.max(0, Math.round(v))));
@@ -117,7 +117,7 @@ export default function InstallmentBox({ info, price, onConfirm }: {
   const typed = Number(draft.replace(/[^\d]/g, ""));
   const draftHint = !range || !focused || draft === "" ? null
     : typed < range.min ? `ดาวน์ขั้นต่ำ ${baht(range.min)}`
-    : typed > range.max ? `ดาวน์ได้สูงสุด ${baht(range.max)} (50% ของราคาเครื่อง)`
+    : typed > range.max ? `ดาวน์ได้สูงสุด ${baht(range.max)}${price != null && range.max === priceDownCap(price) ? ` (${MAX_DOWN_PERCENT}% ของราคาเครื่อง)` : ""}`
     : null;
 
   const confirm = () => {

@@ -44,20 +44,36 @@ export function cheapestValidTerm<T extends { months: number; monthly: number }>
 
 /* ============================ ลูกค้าเพิ่มเงินดาวน์เอง ============================ */
 
-/** ดาวน์ได้สูงสุด = 50% ของราคาเครื่อง (มากกว่านี้ซื้อสดคุ้มกว่า) */
-export const MAX_DOWN_RATIO = 0.5;
+/** ดาวน์ได้สูงสุด = 70% ของราคาเครื่อง (เก็บเป็นเปอร์เซ็นต์จำนวนเต็ม — คิดด้วยจำนวนเต็ม กัน 23,900 × 0.7 = 16,729.999…) */
+export const MAX_DOWN_PERCENT = 70;
+export const MAX_DOWN_RATIO = MAX_DOWN_PERCENT / 100;
 
-/** เพิ่มดาวน์ได้น้อยกว่านี้ = ไม่โชว์ปุ่ม (เพดานชิดดาวน์ของแผน เช่น ดาวน์ 16,900 · เพดาน 16,950) */
+/** เพิ่มดาวน์ได้น้อยกว่านี้ = ไม่โชว์ปุ่ม (เพดานชิดดาวน์ของแผน เช่น ดาวน์ 16,500 · เพดาน 16,730) */
 export const MIN_DOWN_ROOM = 500;
 
+/** เพดานดาวน์ตามราคา = 70% ของราคา ปัดลงหลักสิบ (23,900 → 16,730 · 10,900 → 7,630) */
+export function priceDownCap(price: number): number {
+  return Number.isInteger(price)
+    ? Math.floor((price * MAX_DOWN_PERCENT) / 1000) * 10
+    : Math.floor((price * MAX_DOWN_PERCENT) / 100 / 10) * 10;
+}
+
 /**
- * ช่วงดาวน์ที่ลูกค้าเลือกได้ — ต่ำสุด = ดาวน์ของแผน · สูงสุด = 50% ของราคา (ปัดลงหลักสิบ)
+ * ช่วงดาวน์ที่ลูกค้าเลือกได้ — ต่ำสุด = ดาวน์ของแผน · สูงสุด = 70% ของราคา (ปัดลงหลักสิบ)
+ * ส่งงวด (ค่างวด × จำนวนงวด) มาด้วย = กันเพดานเกินยอดที่ยังต้องผ่อน: ค่างวดใหม่ต้องเหลืออย่างน้อย 1 บาท
+ * (ข้อมูลแผนปกติไม่ถึงเพดานนี้ — กันข้อมูลแผนเพี้ยนทำให้ค่างวดเหลือ 1 บาทแล้วดอกหาย)
  * null = เพิ่มดาวน์ไม่ได้ (ไม่มีราคา/ดาวน์ · ดาวน์ของแผนชิด/เกินเพดานอยู่แล้ว · ยอดจัดไม่เหลือ)
  */
-export function downRange(price: number | null | undefined, baseDown: number | null | undefined): { min: number; max: number } | null {
+export function downRange(price: number | null | undefined, baseDown: number | null | undefined,
+                          term?: { monthly: number; months: number } | null): { min: number; max: number } | null {
   if (price == null || baseDown == null || !Number.isFinite(price) || !Number.isFinite(baseDown)) return null;
   if (price <= 0 || baseDown < 0 || baseDown >= price) return null;
-  const max = Math.floor((price * MAX_DOWN_RATIO) / 10) * 10;
+  let max = priceDownCap(price);
+  if (term && term.months >= 1 && Number.isFinite(term.monthly)) {
+    // ส่วนที่ดาวน์เพิ่มได้ ≤ (ค่างวด − 1) × งวด → ค่างวดใหม่ ≥ 1 บาท และยอดผ่อนจบยังไม่น้อยกว่าเดิม
+    const byTerm = Math.floor((baseDown + Math.max(0, term.monthly - 1) * term.months) / 10) * 10;
+    max = Math.min(max, byTerm);
+  }
   return max - baseDown >= MIN_DOWN_ROOM ? { min: baseDown, max } : null;
 }
 

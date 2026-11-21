@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { minValidMonthly, buildInstLookup, type InstallmentSerial, cheapestValidTerm, downRange, effectiveDown, monthlyForDown, contractTotal, stepDown, quickDowns } from "./installment";
+import { minValidMonthly, buildInstLookup, type InstallmentSerial, cheapestValidTerm, downRange, effectiveDown, monthlyForDown, contractTotal, stepDown, quickDowns, priceDownCap } from "./installment";
 
 describe("minValidMonthly — กันข้อมูลกรอกสลับช่อง", () => {
   it("terms ปกติ → คืนค่างวดต่ำสุด", () => {
@@ -100,7 +100,7 @@ describe("ลูกค้าเพิ่มเงินดาวน์เอง"
     const plans = [[2890, 10], [2590, 12], [1890, 18], [1690, 24], [2895, 7], [3333, 9]];
     for (const [monthly, months] of plans) {
       const before = contractTotal(D, monthly, months);
-      for (let d = D; d <= 11950; d += 37) {
+      for (let d = D; d <= 16730; d += 37) {
         const m = monthlyForDown(monthly, months, D, d);
         const after = contractTotal(d, m, months);
         expect(after, `${monthly}x${months} ดาวน์ ${d}`).toBeGreaterThanOrEqual(before);
@@ -132,27 +132,53 @@ describe("ลูกค้าเพิ่มเงินดาวน์เอง"
 
   it("ยิ่งดาวน์มาก ค่างวดยิ่งลด (monotonic)", () => {
     let prev = Infinity;
-    for (let d = D; d <= 11950; d += 250) {
+    for (let d = D; d <= 16730; d += 250) {
       const m = monthlyForDown(2890, 10, D, d);
       expect(m).toBeLessThanOrEqual(prev);
       prev = m;
     }
   });
 
-  it("ช่วงดาวน์: ต่ำสุด = ดาวน์ของแผน · สูงสุด = 50% ของราคา ปัดลงหลักสิบ", () => {
-    expect(downRange(P, D)).toEqual({ min: 3990, max: 11950 });
-    expect(downRange(23905, D)).toEqual({ min: 3990, max: 11950 });   // 11,952.5 → 11,950
+  it("ช่วงดาวน์: ต่ำสุด = ดาวน์ของแผน · สูงสุด = 70% ของราคา ปัดลงหลักสิบ (คิดจำนวนเต็ม ไม่เพี้ยน)", () => {
+    expect(downRange(P, D)).toEqual({ min: 3990, max: 16730 });          // 23,900 × 0.7 = 16,730 (float ได้ 16,729.999…)
+    expect(downRange(23905, D)).toEqual({ min: 3990, max: 16730 });      // 16,733.5 → 16,730
+    expect(priceDownCap(10900)).toBe(7630);
+    expect(priceDownCap(23900)).toBe(16730);
+    expect(priceDownCap(33900)).toBe(23730);
+    expect(priceDownCap(9999.5)).toBe(6990);
+    for (let price = 1000; price <= 99990; price += 10) {                // ทุกราคาหลักสิบ: = floor(70%) หลักสิบเป๊ะ
+      expect(priceDownCap(price)).toBe(Math.floor((price * 7) / 100) * 10);
+    }
   });
 
-  it("เพิ่มดาวน์ไม่ได้: ไม่มีราคา/ดาวน์ · ดาวน์ของแผนเกิน 50% อยู่แล้ว · ข้อมูลเพี้ยน", () => {
+  it("เคสจากหน้าเว็บ: ราคา 10,900 · ดาวน์ 1,490 · 1,990×10 → ดาวน์ได้ถึง 7,630 ยอดผ่อนจบเท่าเดิม 21,390", () => {
+    const r = downRange(10900, 1490, { monthly: 1990, months: 10 });
+    expect(r).toEqual({ min: 1490, max: 7630 });
+    expect(monthlyForDown(1990, 10, 1490, 7630)).toBe(1376);              // 1,990 − 6,140/10
+    expect(contractTotal(7630, 1376, 10)).toBe(contractTotal(1490, 1990, 10));
+    expect(contractTotal(1490, 1990, 10)).toBe(21390);
+  });
+
+  it("เพิ่มดาวน์ไม่ได้: ไม่มีราคา/ดาวน์ · ดาวน์ของแผนเกิน 70% อยู่แล้ว · ข้อมูลเพี้ยน", () => {
     expect(downRange(null, D)).toBeNull();
     expect(downRange(P, null)).toBeNull();
-    expect(downRange(P, 12000)).toBeNull();
-    expect(downRange(33900, 16900)).toBeNull();          // เพดาน 16,950 เพิ่มได้แค่ 50 บาท → ไม่โชว์
-    expect(downRange(P, 11450)).toEqual({ min: 11450, max: 11950 });   // เหลือ 500 พอดี → โชว์
+    expect(downRange(P, 17000)).toBeNull();
+    expect(downRange(P, 16300)).toBeNull();             // เพดาน 16,730 เพิ่มได้แค่ 430 บาท → ไม่โชว์
+    expect(downRange(P, 16230)).toEqual({ min: 16230, max: 16730 });   // เหลือ 500 พอดี → โชว์
     expect(downRange(P, P)).toBeNull();
     expect(downRange(0, 0)).toBeNull();
     expect(downRange(P, -1)).toBeNull();
+  });
+
+  it("แผนเพี้ยน (ยอดผ่อนน้อยกว่าราคา): เพดานลดลงให้ค่างวดเหลือ ≥ 1 บาท ดอกไม่หาย", () => {
+    // ราคา 23,900 แต่แผนกรอกผิดเป็น 500 × 10 → เพิ่มดาวน์ได้แค่ (500−1)×10 = 4,990
+    const r = downRange(P, D, { monthly: 500, months: 10 });
+    expect(r).toEqual({ min: 3990, max: 8980 });        // 3,990 + 4,990
+    const m = monthlyForDown(500, 10, D, r!.max);
+    expect(m).toBeGreaterThanOrEqual(1);
+    expect(contractTotal(r!.max, m, 10)).toBeGreaterThanOrEqual(contractTotal(D, 500, 10));
+    // แผนปกติ เพดานตามราคาเป็นตัวจำกัด (ไม่เปลี่ยนจากเดิม)
+    expect(downRange(P, D, { monthly: 2890, months: 10 })).toEqual({ min: 3990, max: 16730 });
   });
 
   it("ดาวน์ที่ใช้จริงถูกบีบในช่วงเสมอ", () => {
@@ -160,7 +186,7 @@ describe("ลูกค้าเพิ่มเงินดาวน์เอง"
     expect(effectiveDown(null, r, D)).toBe(3990);       // ไม่ระบุ = ดาวน์ปกติ
     expect(effectiveDown(50, r, D)).toBe(3990);         // ต่ำกว่าขั้นต่ำ (กำลังพิมพ์) → ดาวน์ปกติ
     expect(effectiveDown(5000, r, D)).toBe(5000);
-    expect(effectiveDown(99999, r, D)).toBe(11950);     // เกินเพดาน → สูงสุด
+    expect(effectiveDown(99999, r, D)).toBe(16730);     // เกินเพดาน → สูงสุด
     expect(effectiveDown(5000.6, r, D)).toBe(5001);     // บาทเต็ม (backend เก็บ Integer)
     expect(effectiveDown(5000, null, D)).toBe(3990);    // เพิ่มดาวน์ไม่ได้ → ดาวน์ปกติ
     expect(effectiveDown(NaN, r, D)).toBe(3990);
@@ -191,6 +217,8 @@ describe("ปุ่มปรับดาวน์", () => {
 
   it("ปุ่มลัด: ปกติ · 2 ค่ากลม · สูงสุด", () => {
     expect(quickDowns(r)).toEqual([3990, 7000, 9000, 11950]);
+    expect(quickDowns({ min: 3990, max: 16730 })).toEqual([3990, 8000, 12000, 16730]);   // ช่วง 70%
+    expect(quickDowns({ min: 1490, max: 7630 })).toEqual([1490, 4000, 6000, 7630]);       // เคสหน้าเว็บ 10,900
   });
 
   it("ช่วงแคบ → ค่ากลางที่ชนขอบ/ซ้ำถูกตัด (2–4 ปุ่มเสมอ)", () => {
